@@ -398,6 +398,9 @@ if (!window.__LIA_OCR_BAR_BOOT__){
 
 
   // ---------------- OCR Engine (Transformers.js pipeline) ----------------
+  // Uses @xenova/transformers v2 via CDN dynamic import.
+  // Static bundling is not possible because onnxruntime-web WASM workers use import.meta,
+  // which is invalid inside a single-file IIFE bundle.
   async function __ocrGetTransformers(){
     function getRootWindow(){
       let w = window;
@@ -406,13 +409,9 @@ if (!window.__LIA_OCR_BAR_BOOT__){
     }
     const ROOT = getRootWindow();
 
-    // Cache: schon geladen?
     if (ROOT.__LIA_TFJS__ && ROOT.__LIA_TFJS__.pipeline) return ROOT.__LIA_TFJS__;
 
-    // Single-flight Import
     ROOT.__LIA_TFJS_IMPORT__ = ROOT.__LIA_TFJS_IMPORT__ || (async () => {
-
-      // WICHTIG: dynamic import braucht ESM. Daher NUR ESM-URLs.
       const URLS = [
         'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/+esm',
         'https://esm.sh/@xenova/transformers@2.17.2?bundle'
@@ -436,7 +435,7 @@ if (!window.__LIA_OCR_BAR_BOOT__){
             throw new Error('Transformers.js ESM export missing (pipeline/env).');
           }
 
-          const api = { pipeline, env, __mod: mod, __url: url };
+          const api = { pipeline, env, __url: url };
           ROOT.__LIA_TFJS__ = api;
           return api;
 
@@ -714,18 +713,9 @@ if (!window.__LIA_OCR_BAR_BOOT__){
   __ocrSyncAccent();
   setTimeout(__ocrSyncAccent, 0);
 
-  const eng = ensureOcrEngine();
-
-  // Auto-Load erzwingen, sobald der Kurs offen ist:
-  // (kein "idle" – wirklich sofort; aber async, damit UI nicht blockiert)
-  Promise.resolve()
-  .then(() => eng.ensureLoaded(false))
-  .catch(err => {
-    try{
-      const b = window.__LIA_OCR_BAR__;
-      if (b && b.log) b.log('Auto-load failed: ' + (err && err.message ? err.message : String(err)));
-    }catch(_){}
-  });
+  // OCR engine is initialized lazily — model download starts only when the user
+  // first triggers OCR (draws a rectangle), not on page load.
+  ensureOcrEngine();
 
 }
 
