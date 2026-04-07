@@ -19,17 +19,25 @@ ROOT[REGKEY].inited[DOC_ID] = true;
 
 
 // ---------------------------------------------------------
-// OCR-Bar + Engine: eigener Guard (läuft unabhängig vom Canvas-Guard)
-// - Precision Dropdown (fp32/fp16/int8)
-// - Load/Reload Button
-// - Auto-Load beim Kursstart (warmup)
+// Single registry object — replaces all individual window.__LIA_* globals.
+// Set SHOW_BAR to true here to show the OCR debug bar.
 // ---------------------------------------------------------
-window.__LIA_OCR_SHOW_BAR__ = false;   // <-- HIER umschalten (true/false)
+const LIA = window.__LIA_CANVAS_OCR__ = window.__LIA_CANVAS_OCR__ || {
+  SHOW_BAR: false,
+  bar:      null,   // OCR status bar instance
+  ocr:      null,   // OCR engine instance
+  tfjs:     null,   // cached { pipeline, env } from transformers.js
+  tfjsLoad: null,   // in-flight import promise
+  store:    {},     // per-canvas persisted state  uid -> {...}
+  uidSeq:   0,      // UID counter for canvas instances
+  freeze:   {},     // cfExport / cfPaint public API
+  barBoot:  false,  // OCR bar init guard
+  canvasBoot: false,// canvas init guard
+  launcherBound: false, // launcher click handler guard
+};
 
-
-
-if (!window.__LIA_OCR_BAR_BOOT__){
-  window.__LIA_OCR_BAR_BOOT__ = true;
+if (!LIA.barBoot){
+  LIA.barBoot = true;
 
   // --------- kleine Theme-Akzent-Sync (nur für --canvas-accent) ----------
   function __ocrGetLiaAccent(){
@@ -69,13 +77,13 @@ if (!window.__LIA_OCR_BAR_BOOT__){
 
   // ---------------- OCR-Bar ----------------
   function ensureOcrBar(){
-    const SHOW_BAR = (window.__LIA_OCR_SHOW_BAR__ !== false);
+    const SHOW_BAR = (LIA.SHOW_BAR === true);
 
     ensureOcrCss();
 
-    if (window.__LIA_OCR_BAR__ && window.__LIA_OCR_BAR__.el && window.__LIA_OCR_BAR__.el.isConnected){
+    if (LIA.bar && LIA.bar.el && LIA.bar.el.isConnected){
       try{
-          const el = window.__LIA_OCR_BAR__.el;
+          const el = LIA.bar.el;
           const DOC = document;
           const overlayHost = DOC.body || DOC.documentElement;
 
@@ -89,13 +97,13 @@ if (!window.__LIA_OCR_BAR_BOOT__){
           el.setAttribute('aria-hidden', SHOW_BAR ? 'false' : 'true');
 
           // Loadbox IMMER als Overlay außerhalb des Content halten
-          const lw = window.__LIA_OCR_BAR__.loadEl;
+          const lw = LIA.bar.loadEl;
           if (lw && lw.parentNode !== overlayHost){
             overlayHost.appendChild(lw);
           }
     
       }catch(_){}
-      return window.__LIA_OCR_BAR__;
+      return LIA.bar;
     }
 
 
@@ -360,8 +368,8 @@ if (!window.__LIA_OCR_BAR_BOOT__){
       }
 
       if (act === 'load'){
-        if (window.__LIA_TEX_OCR__ && window.__LIA_TEX_OCR__.ensureLoaded){
-          window.__LIA_TEX_OCR__.ensureLoaded(true);
+        if (LIA.ocr && LIA.ocr.ensureLoaded){
+          LIA.ocr.ensureLoaded(true);
         }
         return;
       }
@@ -372,8 +380,8 @@ if (!window.__LIA_OCR_BAR_BOOT__){
         const p = String(sel.value || 'fp32');
         try{ localStorage.setItem(LS_KEY, p); }catch(_){}
         set({ precision: p });
-        if (window.__LIA_TEX_OCR__ && window.__LIA_TEX_OCR__.setPrecision){
-          window.__LIA_TEX_OCR__.setPrecision(p);
+        if (LIA.ocr && LIA.ocr.setPrecision){
+          LIA.ocr.setPrecision(p);
         }
       });
     }
@@ -383,16 +391,16 @@ if (!window.__LIA_OCR_BAR_BOOT__){
         const m = String(selM.value || state.model);
         try{ localStorage.setItem(LS_MODEL, m); }catch(_){}
         set({ model: m });
-        if (window.__LIA_TEX_OCR__ && window.__LIA_TEX_OCR__.setModel){
-          window.__LIA_TEX_OCR__.setModel(m);
+        if (LIA.ocr && LIA.ocr.setModel){
+          LIA.ocr.setModel(m);
         }
       });
     }
 
-    window.__LIA_OCR_BAR__ = { el: bar, loadEl: loadWrap, set, log, get: () => ({ ...state }) };
+    LIA.bar = { el: bar, loadEl: loadWrap, set, log, get: () => ({ ...state }) };
     render();
     log('OCR-Bar ready.');
-    return window.__LIA_OCR_BAR__;
+    return LIA.bar;
   }
 
 
@@ -409,9 +417,9 @@ if (!window.__LIA_OCR_BAR_BOOT__){
     }
     const ROOT = getRootWindow();
 
-    if (ROOT.__LIA_TFJS__ && ROOT.__LIA_TFJS__.pipeline) return ROOT.__LIA_TFJS__;
+    if (LIA.tfjs && LIA.tfjs.pipeline) return LIA.tfjs;
 
-    ROOT.__LIA_TFJS_IMPORT__ = ROOT.__LIA_TFJS_IMPORT__ || (async () => {
+    LIA.tfjsLoad = LIA.tfjsLoad || (async () => {
       const URLS = [
         'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/+esm',
         'https://esm.sh/@xenova/transformers@2.17.2?bundle'
@@ -422,7 +430,7 @@ if (!window.__LIA_OCR_BAR_BOOT__){
       for (const url of URLS){
         try{
           try{
-            const b = window.__LIA_OCR_BAR__;
+            const b = LIA.bar;
             if (b && b.log) b.log('Importing Transformers.js: ' + url);
           }catch(_){}
 
@@ -436,13 +444,13 @@ if (!window.__LIA_OCR_BAR_BOOT__){
           }
 
           const api = { pipeline, env, __url: url };
-          ROOT.__LIA_TFJS__ = api;
+          LIA.tfjs = api;
           return api;
 
         }catch(e){
           lastErr = e;
           try{
-            const b = window.__LIA_OCR_BAR__;
+            const b = LIA.bar;
             if (b && b.log) b.log('Import failed: ' + url + ' — ' + (e && e.message ? e.message : String(e)));
           }catch(_){}
         }
@@ -451,7 +459,7 @@ if (!window.__LIA_OCR_BAR_BOOT__){
       throw lastErr || new Error('Failed to load Transformers.js from all CDN URLs.');
     })();
 
-    return await ROOT.__LIA_TFJS_IMPORT__;
+    return await LIA.tfjsLoad;
   }
 
 
@@ -476,7 +484,7 @@ if (!window.__LIA_OCR_BAR_BOOT__){
   }
 
   function ensureOcrEngine(){
-    if (window.__LIA_TEX_OCR__) return window.__LIA_TEX_OCR__;
+    if (LIA.ocr) return LIA.ocr;
 
     const bar = ensureOcrBar();
 
@@ -704,7 +712,7 @@ if (!window.__LIA_OCR_BAR_BOOT__){
         };
 
 
-    window.__LIA_TEX_OCR__ = engine;
+    LIA.ocr = engine;
     return engine;
   }
 
@@ -724,16 +732,16 @@ if (!window.__LIA_OCR_BAR_BOOT__){
   // ---------------------------------------------------------
   // Canvas: alter Guard bleibt wie er ist
   // ---------------------------------------------------------
-  if (window.__liaDrawCanvasInit) return;
-  window.__liaDrawCanvasInit = true;
+  if (LIA.canvasBoot) return;
+  LIA.canvasBoot = true;
 
 
-window.__LIA_CANVAS_UID_COUNTER__ = window.__LIA_CANVAS_UID_COUNTER__ || 0;
+LIA.uidSeq = LIA.uidSeq || 0;
 
 function ensureMountUID(mount){
   if (!mount) return '';
   if (mount.dataset && mount.dataset.uid) return mount.dataset.uid;
-  const uid = 'c' + (++window.__LIA_CANVAS_UID_COUNTER__);
+  const uid = 'c' + (++LIA.uidSeq);
   mount.dataset.uid = uid;
   return uid;
 }
@@ -2031,9 +2039,7 @@ function __liaInitTexPreviews(){
   window.addEventListener('resize', () => applyThemeVars());
 
   // -----------------------------
-  // Persistent store per UID
-  // -----------------------------
-  window.__LIA_CANVAS_STORE__ = window.__LIA_CANVAS_STORE__ || {}; // uid -> {wrapW,canvasH,VIEW,bgMode,bgStep,STROKES,REDO}
+  // Persistent store per UID: LIA.store[uid] -> {wrapW,canvasH,VIEW,bgMode,bgStep,STROKES,REDO}
 
   // -----------------------------
   // Colors + helpers
@@ -2288,7 +2294,7 @@ function __liaInitTexPreviews(){
   }
 
   function cfGetCanvasStore(){
-    return window.__LIA_CANVAS_STORE__ || {};
+    return LIA.store || {};
   }
 
   function cfGetCanvasMountFromPair(pair){
@@ -2730,7 +2736,7 @@ function __liaInitTexPreviews(){
   }
 
   function ensureCanvasFreezeApi(){
-    const api = ROOT.__LIA_CANVAS_FREEZE_API__ || {};
+    const api = LIA.freeze || {};
 
     api.version = 'cvf1';
     api.collectCanvasPairsFromRoot = cfCollectCanvasPairsFromRoot;
@@ -2745,8 +2751,7 @@ function __liaInitTexPreviews(){
     api.renderCanvasFreezeStateIntoMount = cfRenderCanvasFreezeStateIntoMount;
     api.renderCanvasFreezeStateIntoPair = cfRenderCanvasFreezeStateIntoPair;
 
-    ROOT.__LIA_CANVAS_FREEZE_API__ = api;
-    window.__LIA_CANVAS_FREEZE_API__ = api;
+    LIA.freeze = api;
 
     return api;
   }
@@ -2885,7 +2890,7 @@ function setupCanvas(canvas){
   const strokeLayer = document.createElement('canvas');
   const sctx = strokeLayer.getContext('2d', { willReadFrequently:true });
 
-  const STORE = window.__LIA_CANVAS_STORE__;
+  const STORE = LIA.store;
   const saved = (uid && STORE[uid]) ? STORE[uid] : null;
 
   const VIEW = saved && saved.VIEW ? { ...saved.VIEW } : { panX:0, panY:0, scale:1, minScale:0.25, maxScale:8 };
@@ -2914,7 +2919,7 @@ function setupCanvas(canvas){
 
     function __ocrLog(msg){
       try{
-        const b = window.__LIA_OCR_BAR__;
+        const b = LIA.bar;
         if (b && b.log) b.log(msg);
       }catch(_){}
     }
@@ -3653,9 +3658,9 @@ async function __ocrFromMarkedRect({ auto=false } = {}){
     return;
   }
 
-  const engine = window.__LIA_TEX_OCR__;
+  const engine = LIA.ocr;
   if (!engine || !engine.recognize){
-    __ocrLog('OCR engine not available (window.__LIA_TEX_OCR__).');
+    __ocrLog('OCR engine not available (LIA.ocr).');
     return;
   }
 
@@ -5227,8 +5232,8 @@ function initAll(){
   // ---------------------------------------------------------
   // LAUNCHER: Toggle (Mount ist im Makro vorhanden!)
   // ---------------------------------------------------------
-  if (!window.__liaCanvasLauncherBound){
-    window.__liaCanvasLauncherBound = true;
+  if (!LIA.launcherBound){
+    LIA.launcherBound = true;
 
     document.addEventListener('click', (e) => {
       const btn = (e.target && e.target.closest) ? e.target.closest('.lia-canvas-launch') : null;
