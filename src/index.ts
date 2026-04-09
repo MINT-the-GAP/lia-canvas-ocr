@@ -6,7 +6,7 @@
 
 export function getRootWindow(): Window {
   let w: Window = window;
-  try { while (w.parent && w.parent !== w) w = w.parent as Window; } catch (_) {}
+  try { while (w.parent && w.parent !== w) w = w.parent as Window; } catch (_) { }
   return w;
 }
 
@@ -17,17 +17,17 @@ export function getRootWindow(): Window {
 // ---------------------------------------------------------------------------
 
 export const LIA: any = (window as any).__LIA_CANVAS_OCR__ = (window as any).__LIA_CANVAS_OCR__ || {
-  SHOW_BAR:       false,
-  bar:            null,
-  ocr:            null,
-  tfjs:           null,
-  tfjsLoad:       null,
-  store:          {},
-  uidSeq:         0,
-  freeze:         {},
-  barBoot:        false,
-  canvasBoot:     false,
-  launcherBound:  false,
+  SHOW_BAR: false,
+  bar: null,
+  ocr: null,
+  tfjs: null,
+  tfjsLoad: null,
+  store: {},
+  uidSeq: 0,
+  freeze: {},
+  barBoot: false,
+  canvasBoot: false,
+  launcherBound: false,
 };
 
 // ---------------------------------------------------------------------------
@@ -36,17 +36,17 @@ export const LIA: any = (window as any).__LIA_CANVAS_OCR__ = (window as any).__L
 // top level, so by the time those functions run LIA is already initialized.
 // ---------------------------------------------------------------------------
 
-import { ensureOcrBar }                   from './ocr/bar';
-import { ensureOcrEngine }                from './ocr/engine';
+import { ensureOcrBar } from './ocr/bar';
+import { ensureOcrEngine } from './ocr/engine';
 import { applyThemeVars, getAccentColor } from './canvas/theme';
-import { ensureCanvasFreezeApi }          from './canvas/freeze';
-import { initAll, canvasMarkup }          from './canvas/index';
+import { ensureCanvasFreezeApi } from './canvas/freeze';
+import { initAll, canvasMarkup } from './canvas/index';
 
 // ---------------------------------------------------------------------------
 // Single registry — guards against double-init across iframes
 // ---------------------------------------------------------------------------
 
-const ROOT   = getRootWindow() as any;
+const ROOT = getRootWindow() as any;
 const REGKEY = '__LIA_CANVAS_OCR_REG_V1__';
 ROOT[REGKEY] = ROOT[REGKEY] || { inited: {} };
 
@@ -70,7 +70,7 @@ function boot(): void {
       try {
         const acc = getAccentColor(document);
         if (acc) document.documentElement.style.setProperty('--canvas-accent', acc);
-      } catch (_) {}
+      } catch (_) { }
     };
     syncAccent();
     setTimeout(syncAccent, 0);
@@ -85,7 +85,7 @@ function boot(): void {
   // ---- Canvas + OCR engine ----
   if (!LIA.canvasBoot) {
     LIA.canvasBoot = true;
-    LIA.uidSeq     = LIA.uidSeq || 0;
+    LIA.uidSeq = LIA.uidSeq || 0;
 
     ensureOcrEngine();
     ensureCanvasFreezeApi();
@@ -100,7 +100,7 @@ function boot(): void {
         const btn = (e.target as Element)?.closest?.('.lia-canvas-launch') as HTMLElement | null;
         if (!btn) return;
 
-        const pair  = btn.closest('.lia-canvas-pair') as HTMLElement | null;
+        const pair = btn.closest('.lia-canvas-pair') as HTMLElement | null;
         if (!pair) return;
 
         const mount = pair.querySelector('.lia-canvas-mount') as HTMLElement | null;
@@ -119,7 +119,7 @@ function boot(): void {
               parent.style.flexWrap = 'wrap';
             }
           }
-        } catch (_) {}
+        } catch (_) { }
 
         if (mount.dataset.open !== '1') {
           mount.dataset.open = '1';

@@ -357,7 +357,7 @@ canvas.lia-canvas-freeze-preview{
 }
 
 .lia-preview-line--eraser{
-  background: #fff;
+  background: transparent;
   border: 1.5px solid var(--canvas-border);
   box-sizing: border-box;
   border-radius: 3px;

@@ -3,12 +3,12 @@
 import { SVG_RECT, SVG_ERASER, SVG_UNDO, SVG_REDO, SVG_TRASH } from './icons';
 
 export function ensureCss(): void {
-  if (document.getElementById('__lia_canvas_ocr_css_v1')) return;
+    if (document.getElementById('__lia_canvas_ocr_css_v1')) return;
 
-  const st = document.createElement('style');
-  st.id = '__lia_canvas_ocr_css_v1';
+    const st = document.createElement('style');
+    st.id = '__lia_canvas_ocr_css_v1';
 
-  st.textContent = `
+    st.textContent = `
 :root{
   --canvas-border: #000;
   --canvas-pen: #000;
@@ -811,132 +811,132 @@ canvas.lia-canvas-freeze-preview{
 }
   `;
 
-  (document.head || document.documentElement).appendChild(st);
+    (document.head || document.documentElement).appendChild(st);
 }
 
 
 // Parse "rgb(r,g,b)" or "rgba(r,g,b,a)" into [r,g,b]. Returns null on failure.
 export function parseRgb(s: string): [number, number, number] | null {
-  const m = String(s || '').match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
-  if (!m) return null;
-  return [Number(m[1]), Number(m[2]), Number(m[3])];
+    const m = String(s || '').match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    if (!m) return null;
+    return [Number(m[1]), Number(m[2]), Number(m[3])];
 }
 
 export function luminance(rgb: [number, number, number]): number {
-  const [r, g, b] = rgb.map(v => v / 255).map(c => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)));
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    const [r, g, b] = rgb.map(v => v / 255).map(c => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
 // Probe a .lia-btn element to read the LiaScript theme accent color.
 // Consolidates getLiaAccentColor and the duplicate __ocrGetLiaAccent.
 export function getAccentColor(doc?: Document): string | null {
-  try {
-    const d = doc || document;
-    const body = d.body || d.documentElement;
-    const existing = d.querySelector('.lia-btn');
-    if (existing) {
-      const bg = getComputedStyle(existing).backgroundColor;
-      if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') return bg;
-    }
-    const probe = d.createElement('button');
-    probe.className = 'lia-btn';
-    probe.type = 'button';
-    probe.textContent = 'x';
-    probe.style.position = 'absolute';
-    probe.style.left = '-9999px';
-    probe.style.top = '-9999px';
-    probe.style.visibility = 'hidden';
-    body.appendChild(probe);
-    const bg = getComputedStyle(probe).backgroundColor;
-    probe.remove();
-    if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') return bg;
-  } catch (e) {}
-  return null;
+    try {
+        const d = doc || document;
+        const body = d.body || d.documentElement;
+        const existing = d.querySelector('.lia-btn');
+        if (existing) {
+            const bg = getComputedStyle(existing).backgroundColor;
+            if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') return bg;
+        }
+        const probe = d.createElement('button');
+        probe.className = 'lia-btn';
+        probe.type = 'button';
+        probe.textContent = 'x';
+        probe.style.position = 'absolute';
+        probe.style.left = '-9999px';
+        probe.style.top = '-9999px';
+        probe.style.visibility = 'hidden';
+        body.appendChild(probe);
+        const bg = getComputedStyle(probe).backgroundColor;
+        probe.remove();
+        if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') return bg;
+    } catch (e) { }
+    return null;
 }
 
 export function applyThemeVars(): void {
-  ensureCss();
-  try {
-    const doc = (window.parent && window.parent.document) ? window.parent.document : document;
-    const root = document.documentElement;
-    const bg = getComputedStyle(doc.body || doc.documentElement).backgroundColor
+    ensureCss();
+    try {
+        const doc = (window.parent && window.parent.document) ? window.parent.document : document;
+        const root = document.documentElement;
+        const bg = getComputedStyle(doc.body || doc.documentElement).backgroundColor
             || getComputedStyle(doc.documentElement).backgroundColor;
-    const rgb = parseRgb(bg);
-    const isDark = rgb ? (luminance(rgb) < 0.5) : false;
-    const border = isDark ? '#fff' : '#000';
-    root.style.setProperty('--canvas-border', border);
-    root.style.setProperty('--canvas-pen', border);
-    const accent = getAccentColor(doc) || getAccentColor(document);
-    if (accent) root.style.setProperty('--canvas-accent', accent);
-    document.dispatchEvent(new Event('lia-canvas-theme'));
-  } catch (e) {}
+        const rgb = parseRgb(bg);
+        const isDark = rgb ? (luminance(rgb) < 0.5) : false;
+        const border = isDark ? '#fff' : '#000';
+        root.style.setProperty('--canvas-border', border);
+        root.style.setProperty('--canvas-pen', border);
+        const accent = getAccentColor(doc) || getAccentColor(document);
+        if (accent) root.style.setProperty('--canvas-accent', accent);
+        document.dispatchEvent(new Event('lia-canvas-theme'));
+    } catch (e) { }
 }
 
 export const COLORS: Array<{ key: string; value: string | null }> = [
-  { key: 'auto',       value: null },
-  { key: 'red',        value: '#ff0000' },
-  { key: 'orange',     value: '#ff7500' },
-  { key: 'yellow',     value: '#ffff00' },
-  { key: 'violett',    value: '#ff00ff' },
-  { key: 'blue',       value: '#0055ff' },
-  { key: 'lightblue',  value: '#00ffff' },
-  { key: 'green',      value: '#00ff00' },
-  { key: 'darkgreen',  value: '#007500' },
-  { key: 'black',      value: '#000000' },
-  { key: 'white',      value: '#ffffff' },
+    { key: 'auto', value: null },
+    { key: 'red', value: '#ff0000' },
+    { key: 'orange', value: '#ff7500' },
+    { key: 'yellow', value: '#ffff00' },
+    { key: 'violett', value: '#ff00ff' },
+    { key: 'blue', value: '#0055ff' },
+    { key: 'lightblue', value: '#00ffff' },
+    { key: 'green', value: '#00ff00' },
+    { key: 'darkgreen', value: '#007500' },
+    { key: 'black', value: '#000000' },
+    { key: 'white', value: '#ffffff' },
 ];
 
 export function getAutoPen(): string {
-  return getComputedStyle(document.documentElement).getPropertyValue('--canvas-pen').trim() || '#000';
+    return getComputedStyle(document.documentElement).getPropertyValue('--canvas-pen').trim() || '#000';
 }
 
 export function getBorderColor(): string {
-  return getComputedStyle(document.documentElement).getPropertyValue('--canvas-border').trim() || '#000';
+    return getComputedStyle(document.documentElement).getPropertyValue('--canvas-border').trim() || '#000';
 }
 
 // Read the --canvas-accent CSS variable (already applied by applyThemeVars).
 export function getAccentCssVar(): string {
-  return getComputedStyle(document.documentElement).getPropertyValue('--canvas-accent').trim() || getBorderColor();
+    return getComputedStyle(document.documentElement).getPropertyValue('--canvas-accent').trim() || getBorderColor();
 }
 
 export function setSvg(btn: HTMLElement | null, svg: string): void {
-  if (!btn) return;
-  if ((btn as any).__hasIcon) return;
-  (btn as any).__hasIcon = true;
-  btn.innerHTML = svg;
+    if (!btn) return;
+    if ((btn as any).__hasIcon) return;
+    (btn as any).__hasIcon = true;
+    btn.innerHTML = svg;
 }
 
 export function setRectIcon(btn: HTMLElement | null): void {
-  setSvg(btn, SVG_RECT);
+    setSvg(btn, SVG_RECT);
 }
 
 export function setEraserIcon(btn: HTMLElement | null): void {
-  setSvg(btn, SVG_ERASER);
+    setSvg(btn, SVG_ERASER);
 }
 
 export function setUndoIcon(btn: HTMLElement | null): void {
-  setSvg(btn, SVG_UNDO);
+    setSvg(btn, SVG_UNDO);
 }
 
 export function setRedoIcon(btn: HTMLElement | null): void {
-  setSvg(btn, SVG_REDO);
+    setSvg(btn, SVG_REDO);
 }
 
 export function setTrashIcon(btn: HTMLElement | null): void {
-  setSvg(btn, SVG_TRASH);
+    setSvg(btn, SVG_TRASH);
 }
 
 // Convert any color string to rgba(r,g,b,a).
 export function rgbaFromAny(color: string, a: number): string {
-  const rgb = parseRgb(color);
-  if (rgb) return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`;
-  if (String(color).startsWith('#')) {
-    const h = String(color).slice(1);
-    const hex = (h.length === 3) ? (h[0] + h[0] + h[1] + h[1] + h[2] + h[2]) : h;
-    const r = parseInt(hex.slice(0, 2), 16);
-    const g = parseInt(hex.slice(2, 4), 16);
-    const b = parseInt(hex.slice(4, 6), 16);
-    return `rgba(${r},${g},${b},${a})`;
-  }
-  return `rgba(0,0,0,${a})`;
+    const rgb = parseRgb(color);
+    if (rgb) return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`;
+    if (String(color).startsWith('#')) {
+        const h = String(color).slice(1);
+        const hex = (h.length === 3) ? (h[0] + h[0] + h[1] + h[1] + h[2] + h[2]) : h;
+        const r = parseInt(hex.slice(0, 2), 16);
+        const g = parseInt(hex.slice(2, 4), 16);
+        const b = parseInt(hex.slice(4, 6), 16);
+        return `rgba(${r},${g},${b},${a})`;
+    }
+    return `rgba(0,0,0,${a})`;
 }
