@@ -434,24 +434,38 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
   }
 
   async function __ocrDigitGuard(engine: any, cropCanvas: HTMLCanvasElement): Promise<string | null> {
-    const variants: HTMLCanvasElement[] = [];
-    const base0 = __ocrPreprocessDigitCanvas(cropCanvas, { dilate:0 });
-    const base1 = __ocrPreprocessDigitCanvas(cropCanvas, { dilate:1 });
-    for (const deg of [0,-6,6]) variants.push(__ocrRotateCanvas(base0, deg));
-    for (const deg of [0,-6,6]) variants.push(__ocrRotateCanvas(base1, deg));
-    const counts: Record<string,number> = {};
+    // Lazy variant factory — avoids creating all 6 canvases when early consensus is reached.
+    const c = cropCanvas as any;
+    if (!c.__dgBase0) c.__dgBase0 = __ocrPreprocessDigitCanvas(cropCanvas, { dilate: 0 });
+    if (!c.__dgBase1) c.__dgBase1 = __ocrPreprocessDigitCanvas(cropCanvas, { dilate: 1 });
+    const base0: HTMLCanvasElement = c.__dgBase0;
+    const base1: HTMLCanvasElement = c.__dgBase1;
+
+    // deg=0 needs no rotation — reuse the base directly to save a canvas + draw call.
+    const variantDefs: Array<() => HTMLCanvasElement> = [
+      () => base0,
+      () => __ocrRotateCanvas(base0, -6),
+      () => __ocrRotateCanvas(base0,  6),
+      () => base1,
+      () => __ocrRotateCanvas(base1, -6),
+      () => __ocrRotateCanvas(base1,  6),
+    ];
+
+    const counts: Record<string, number> = {};
     const order: string[] = [];
-    for (let i=0;i<variants.length;i++) {
-      let raw='';
-      try { raw = await engine.recognize(variants[i], { max_new_tokens:8, do_sample:false, temperature:0, __silent:true }); } catch(_) { continue; }
-      let latex=__ocrCleanLatex(raw); latex=__ocrUnwrapRoman(latex);
-      const cand=__ocrDigitCandidateFrom(latex); if (!cand) continue;
-      if (!counts[cand]) { counts[cand]=0; order.push(cand); }
-      counts[cand]+=1;
-      if (counts[cand]>=3) return cand;
+
+    for (let i = 0; i < variantDefs.length; i++) {
+      let raw = '';
+      try { raw = await engine.recognize(variantDefs[i](), { max_new_tokens: 8, do_sample: false, temperature: 0, __silent: true }); } catch (_) { continue; }
+      let latex = __ocrCleanLatex(raw); latex = __ocrUnwrapRoman(latex);
+      const cand = __ocrDigitCandidateFrom(latex); if (!cand) continue;
+      if (!counts[cand]) { counts[cand] = 0; order.push(cand); }
+      counts[cand] += 1;
+      if (counts[cand] >= 3) return cand;
     }
-    let best=null, bestV=0;
-    for (const k of order) { if ((counts[k]||0)>bestV) { bestV=counts[k]; best=k; } }
+
+    let best = null, bestV = 0;
+    for (const k of order) { if ((counts[k] || 0) > bestV) { bestV = counts[k]; best = k; } }
     return best;
   }
 
