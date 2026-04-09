@@ -90,9 +90,6 @@ function boot(): void {
     ensureOcrEngine();
     ensureCanvasFreezeApi();
 
-    new MutationObserver(() => initAll())
-      .observe(document.body, { childList: true, subtree: true });
-
     initAll();
 
     // Launcher click handler
