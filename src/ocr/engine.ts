@@ -112,9 +112,15 @@ export function ensureOcrEngine(): any {
       });
       bar.log('Loading model (' + prec + ') …');
 
+      const LOAD_TIMEOUT_MS = 60_000;
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error('OCR model load timed out after 60s')), LOAD_TIMEOUT_MS);
+      });
+
       this.loading = (async () => {
         try {
-          const t = await __ocrGetTransformers();
+          const t = await Promise.race([__ocrGetTransformers(), timeoutPromise]);
           const { pipeline, env } = t;
 
           try {
@@ -128,13 +134,16 @@ export function ensureOcrEngine(): any {
 
           bar.set({ phase: 'pipeline' });
 
-          const pipe = await pipeline(this.task, this.model, {
-            dtype,
-            progress_callback: (p: unknown) => {
-              const v = __ocrProgressTo01(p);
-              if (v !== null) bar.set({ progress: v, phase: 'download' });
-            }
-          });
+          const pipe = await Promise.race([
+            pipeline(this.task, this.model, {
+              dtype,
+              progress_callback: (p: unknown) => {
+                const v = __ocrProgressTo01(p);
+                if (v !== null) bar.set({ progress: v, phase: 'download' });
+              }
+            }),
+            timeoutPromise
+          ]);
 
           this.pipe = pipe;
           bar.set({ status: 'ready', phase: 'ready', loaded: true, progress: null });
@@ -146,6 +155,7 @@ export function ensureOcrEngine(): any {
           bar.log('Load failed: ' + (err && (err as any).message ? (err as any).message : String(err)));
           throw err;
         } finally {
+          if (timeoutId !== null) clearTimeout(timeoutId);
           this.loading = null;
         }
       })();

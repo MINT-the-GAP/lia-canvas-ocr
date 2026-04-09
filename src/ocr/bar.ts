@@ -38,13 +38,25 @@ export function ensureOcrBar(): any {
     </div>
     <div class="lia-ocr-loadtrack"><div class="lia-ocr-loadfill"></div></div>
     <div class="lia-ocr-loaddetail">Download von rund 900&nbsp;MB (nur beim ersten Mal, danach Cache).</div>
+    <div class="lia-ocr-loaderror" style="display:none">
+      <span class="lia-ocr-loaderror-msg">Laden fehlgeschlagen.</span>
+      <button class="lia-ocr-btn lia-ocr-retry-btn" type="button">Erneut versuchen</button>
+    </div>
   `;
   overlayHost.appendChild(loadWrap);
 
-  const loadFill   = loadWrap.querySelector('.lia-ocr-loadfill') as HTMLElement | null;
-  const loadTxt    = loadWrap.querySelector('.lia-ocr-loadmsg .t') as HTMLElement | null;
-  const loadPct    = loadWrap.querySelector('.lia-ocr-loadmsg .p') as HTMLElement | null;
-  const loadDetail = loadWrap.querySelector('.lia-ocr-loaddetail') as HTMLElement | null;
+  const loadFill    = loadWrap.querySelector('.lia-ocr-loadfill') as HTMLElement | null;
+  const loadTxt     = loadWrap.querySelector('.lia-ocr-loadmsg .t') as HTMLElement | null;
+  const loadPct     = loadWrap.querySelector('.lia-ocr-loadmsg .p') as HTMLElement | null;
+  const loadDetail  = loadWrap.querySelector('.lia-ocr-loaddetail') as HTMLElement | null;
+  const loadErrorEl = loadWrap.querySelector('.lia-ocr-loaderror') as HTMLElement | null;
+  const retryBtn    = loadWrap.querySelector('.lia-ocr-retry-btn') as HTMLButtonElement | null;
+
+  if (retryBtn) {
+    retryBtn.addEventListener('click', () => {
+      if (LIA.ocr && LIA.ocr.ensureLoaded) LIA.ocr.ensureLoaded(true);
+    });
+  }
 
   // -------- STATE --------
   const state: Record<string, any> = {
@@ -177,7 +189,18 @@ export function ensureOcrBar(): any {
         !state.loaded &&
         (status === 'loading' || phase === 'import' || phase === 'pipeline' || phase === 'download');
 
-      if (isLoading) {
+      const isError = status === 'error' && !state.loaded;
+
+      if (loadErrorEl) loadErrorEl.style.display = isError ? '' : 'none';
+
+      if (isError) {
+        loadWrap.dataset.on    = '1';
+        loadWrap.dataset.indet = '0';
+        if (loadTxt)    loadTxt.textContent  = 'Laden fehlgeschlagen.';
+        if (loadPct)    loadPct.textContent   = '';
+        if (loadDetail) loadDetail.textContent = '';
+        if (loadFill)   loadFill.style.width   = '0%';
+      } else if (isLoading) {
         loadWrap.dataset.on = '1';
 
         if (phase === 'download') {
@@ -205,7 +228,7 @@ export function ensureOcrBar(): any {
           loadFill.style.width = '35%';
           loadPct.textContent = '…';
         }
-      } else {
+      } else if (!isError) {
         loadWrap.dataset.on    = '0';
         loadWrap.dataset.indet = '0';
         loadFill.style.transform = 'translateX(0)';
