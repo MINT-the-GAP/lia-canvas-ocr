@@ -24,62 +24,9 @@ export function ensureOcrBar(): any {
     return LIA.bar;
   }
 
-  // -------- BAR --------
-  const bar = document.createElement('div');
-  bar.className = 'lia-ocrbar';
-
-  if (!SHOW_BAR) {
-    bar.style.display = 'none';
-    bar.setAttribute('aria-hidden', 'true');
-  }
-
-  bar.dataset.state = 'idle';
-  bar.dataset.open  = '0';
-
-  bar.innerHTML = `
-    <span class="lia-ocr-head">
-      <span class="lia-ocr-dot"></span>
-      <span class="lia-ocr-title">LaTeX-OCR</span>
-    </span>
-
-    <span class="lia-ocr-pills">
-      <span class="lia-ocr-pill"><span class="k">Model</span>     <span class="v" data-k="model">—</span></span>
-      <span class="lia-ocr-pill"><span class="k">Backend</span>   <span class="v" data-k="backend">—</span></span>
-      <span class="lia-ocr-pill"><span class="k">Precision</span> <span class="v" data-k="precision">—</span></span>
-      <span class="lia-ocr-pill"><span class="k">Loaded</span>    <span class="v" data-k="loaded">—</span></span>
-      <span class="lia-ocr-pill"><span class="k">Phase</span>     <span class="v" data-k="phase">—</span></span>
-      <span class="lia-ocr-pill"><span class="k">Status</span>    <span class="v" data-k="status">—</span></span>
-    </span>
-
-    <span class="lia-ocr-actions">
-      <select class="lia-ocr-select" data-act="model" aria-label="Model">
-        <option value="Xenova/texify2">Xenova/texify2</option>
-        <option value="Xenova/trocr-small-handwritten">Xenova/trocr-small-handwritten</option>
-      </select>
-
-      <select class="lia-ocr-select" data-act="precision" aria-label="Precision">
-        <option value="fp32">fp32</option>
-        <option value="fp16">fp16</option>
-        <option value="int8">int8</option>
-      </select>
-
-      <button class="lia-ocr-btn" type="button" data-act="load">Load/Reload</button>
-      <button class="lia-ocr-btn" type="button" data-act="toggle">Log</button>
-      <button class="lia-ocr-btn" type="button" data-act="copy">Copy</button>
-    </span>
-
-    <span class="lia-ocr-progress" data-on="0">
-      <span class="lia-ocr-progbar"><span class="lia-ocr-progfill"></span></span>
-      <span class="lia-ocr-progtxt">0%</span>
-    </span>
-
-    <pre class="lia-ocr-log"></pre>
-  `;
-
   const overlayHost = document.body || document.documentElement;
-  overlayHost.appendChild(bar);
 
-  // -------- LOADBOX --------
+  // -------- LOADBOX (always created) --------
   const loadWrap = document.createElement('div');
   loadWrap.className = 'lia-ocr-loadwrap';
   loadWrap.dataset.on    = '0';
@@ -110,57 +57,120 @@ export function ensureOcrBar(): any {
     progress:  null
   };
 
-  const logEl = bar.querySelector('.lia-ocr-log') as HTMLElement;
-  const prog  = bar.querySelector('.lia-ocr-progress') as HTMLElement;
-  const fill  = bar.querySelector('.lia-ocr-progfill') as HTMLElement;
-  const ptxt  = bar.querySelector('.lia-ocr-progtxt') as HTMLElement;
-  const sel   = bar.querySelector('select[data-act="precision"]') as HTMLSelectElement | null;
-  const selM  = bar.querySelector('select[data-act="model"]') as HTMLSelectElement | null;
-
   const LS_KEY   = '__LIA_TEX_OCR_PREC__';
   const LS_MODEL = '__LIA_TEX_OCR_MODEL__';
 
   try { const s = localStorage.getItem(LS_MODEL); if (s) state.model = s; } catch (_) {}
   try { const s = localStorage.getItem(LS_KEY);   if (s) state.precision = s; } catch (_) {}
 
-  if (selM) selM.value = state.model;
-  if (sel)  sel.value  = state.precision;
+  // -------- BAR (only when SHOW_BAR) --------
+  let bar: HTMLElement | null = null;
+  let logEl: HTMLElement | null = null;
+  let prog: HTMLElement | null = null;
+  let fill: HTMLElement | null = null;
+  let ptxt: HTMLElement | null = null;
+  let sel: HTMLSelectElement | null = null;
+  let selM: HTMLSelectElement | null = null;
+
+  if (SHOW_BAR) {
+    bar = document.createElement('div');
+    bar.className = 'lia-ocrbar';
+    bar.dataset.state = 'idle';
+    bar.dataset.open  = '0';
+
+    bar.innerHTML = `
+      <span class="lia-ocr-head">
+        <span class="lia-ocr-dot"></span>
+        <span class="lia-ocr-title">LaTeX-OCR</span>
+      </span>
+
+      <span class="lia-ocr-pills">
+        <span class="lia-ocr-pill"><span class="k">Model</span>     <span class="v" data-k="model">—</span></span>
+        <span class="lia-ocr-pill"><span class="k">Backend</span>   <span class="v" data-k="backend">—</span></span>
+        <span class="lia-ocr-pill"><span class="k">Precision</span> <span class="v" data-k="precision">—</span></span>
+        <span class="lia-ocr-pill"><span class="k">Loaded</span>    <span class="v" data-k="loaded">—</span></span>
+        <span class="lia-ocr-pill"><span class="k">Phase</span>     <span class="v" data-k="phase">—</span></span>
+        <span class="lia-ocr-pill"><span class="k">Status</span>    <span class="v" data-k="status">—</span></span>
+      </span>
+
+      <span class="lia-ocr-actions">
+        <select class="lia-ocr-select" data-act="model" aria-label="Model">
+          <option value="Xenova/texify2">Xenova/texify2</option>
+          <option value="Xenova/trocr-small-handwritten">Xenova/trocr-small-handwritten</option>
+        </select>
+
+        <select class="lia-ocr-select" data-act="precision" aria-label="Precision">
+          <option value="fp32">fp32</option>
+          <option value="fp16">fp16</option>
+          <option value="int8">int8</option>
+        </select>
+
+        <button class="lia-ocr-btn" type="button" data-act="load">Load/Reload</button>
+        <button class="lia-ocr-btn" type="button" data-act="toggle">Log</button>
+        <button class="lia-ocr-btn" type="button" data-act="copy">Copy</button>
+      </span>
+
+      <span class="lia-ocr-progress" data-on="0">
+        <span class="lia-ocr-progbar"><span class="lia-ocr-progfill"></span></span>
+        <span class="lia-ocr-progtxt">0%</span>
+      </span>
+
+      <pre class="lia-ocr-log"></pre>
+    `;
+
+    overlayHost.appendChild(bar);
+
+    logEl = bar.querySelector('.lia-ocr-log') as HTMLElement;
+    prog  = bar.querySelector('.lia-ocr-progress') as HTMLElement;
+    fill  = bar.querySelector('.lia-ocr-progfill') as HTMLElement;
+    ptxt  = bar.querySelector('.lia-ocr-progtxt') as HTMLElement;
+    sel   = bar.querySelector('select[data-act="precision"]') as HTMLSelectElement | null;
+    selM  = bar.querySelector('select[data-act="model"]') as HTMLSelectElement | null;
+
+    if (selM) selM.value = state.model;
+    if (sel)  sel.value  = state.precision;
+  }
 
   function setText(key: string, val: string): void {
+    if (!bar) return;
     const el = bar.querySelector('[data-k="' + key + '"]');
     if (el) el.textContent = String(val);
   }
 
   function render(): void {
-    bar.dataset.state = String(state.status || 'idle');
-    setText('model',     state.model     || '—');
-    setText('backend',   state.backend   || '—');
-    setText('precision', state.precision || '—');
-    setText('loaded',    state.loaded ? 'yes' : 'no');
-    setText('phase',     state.phase  || '—');
-    setText('status',    state.status || 'idle');
+    if (bar) {
+      bar.dataset.state = String(state.status || 'idle');
+      setText('model',     state.model     || '—');
+      setText('backend',   state.backend   || '—');
+      setText('precision', state.precision || '—');
+      setText('loaded',    state.loaded ? 'yes' : 'no');
+      setText('phase',     state.phase  || '—');
+      setText('status',    state.status || 'idle');
 
-    if (state.progress === null || state.progress === undefined || !isFinite(state.progress)) {
-      prog.dataset.on = '0';
-    } else {
-      const v = Math.max(0, Math.min(1, Number(state.progress)));
-      prog.dataset.on = '1';
-      fill.style.width = Math.round(v * 100) + '%';
-      ptxt.textContent = Math.round(v * 100) + '%';
-    }
+      if (prog && fill && ptxt) {
+        if (state.progress === null || state.progress === undefined || !isFinite(state.progress)) {
+          prog.dataset.on = '0';
+        } else {
+          const v = Math.max(0, Math.min(1, Number(state.progress)));
+          prog.dataset.on = '1';
+          fill.style.width = Math.round(v * 100) + '%';
+          ptxt.textContent = Math.round(v * 100) + '%';
+        }
+      }
 
-    try {
-      if (!SHOW_BAR) {
-        document.documentElement.style.setProperty('--lia-ocrbar-h',   '0px');
-        document.documentElement.style.setProperty('--lia-ocrbar-gap', '0px');
-      } else {
+      try {
         const h = Math.ceil(bar.getBoundingClientRect().height || bar.offsetHeight || 0);
         document.documentElement.style.setProperty('--lia-ocrbar-h',   (h || 0) + 'px');
         document.documentElement.style.setProperty('--lia-ocrbar-gap', '8px');
-      }
-    } catch (_) {}
+      } catch (_) {}
+    } else {
+      try {
+        document.documentElement.style.setProperty('--lia-ocrbar-h',   '0px');
+        document.documentElement.style.setProperty('--lia-ocrbar-gap', '0px');
+      } catch (_) {}
+    }
 
-    if (loadWrap && loadFill && loadTxt && loadPct) {
+    if (loadFill && loadTxt && loadPct) {
       const status = String(state.status || 'idle');
       const phase  = String(state.phase  || 'idle');
       const isLoading =
@@ -207,6 +217,7 @@ export function ensureOcrBar(): any {
 
   const LOG_MAX = 10;
   function log(line: string): void {
+    if (!logEl) return;
     try {
       const t = new Date();
       const hh = String(t.getHours()).padStart(2, '0');
@@ -230,61 +241,63 @@ export function ensureOcrBar(): any {
     } catch (_) {}
   }
 
-  bar.addEventListener('click', (e: MouseEvent) => {
-    const btn = (e.target as Element)?.closest?.('button[data-act]') as HTMLElement | null;
-    if (!btn) return;
-    const act = btn.getAttribute('data-act');
+  if (bar) {
+    bar.addEventListener('click', (e: MouseEvent) => {
+      const btn = (e.target as Element)?.closest?.('button[data-act]') as HTMLElement | null;
+      if (!btn) return;
+      const act = btn.getAttribute('data-act');
 
-    if (act === 'toggle') {
-      bar.dataset.open = (bar.dataset.open === '1') ? '0' : '1';
-      return;
-    }
+      if (act === 'toggle') {
+        bar!.dataset.open = (bar!.dataset.open === '1') ? '0' : '1';
+        return;
+      }
 
-    if (act === 'copy') {
-      const report = [
-        'LaTeX-OCR Status Report',
-        'Model: '     + (state.model     || ''),
-        'Backend: '   + (state.backend   || ''),
-        'Precision: ' + (state.precision || ''),
-        'Loaded: '    + (state.loaded ? 'yes' : 'no'),
-        'Phase: '     + (state.phase  || ''),
-        'Status: '    + (state.status || ''),
-        'Progress: '  + (state.progress === null ? '—' : String(state.progress)),
-        '',
-        'Log:',
-        logEl.textContent || ''
-      ].join('\n');
-      try { navigator.clipboard.writeText(report); log('Report copied to clipboard.'); }
-      catch (_) { log('Copy failed (clipboard blocked).'); }
-      return;
-    }
+      if (act === 'copy') {
+        const report = [
+          'LaTeX-OCR Status Report',
+          'Model: '     + (state.model     || ''),
+          'Backend: '   + (state.backend   || ''),
+          'Precision: ' + (state.precision || ''),
+          'Loaded: '    + (state.loaded ? 'yes' : 'no'),
+          'Phase: '     + (state.phase  || ''),
+          'Status: '    + (state.status || ''),
+          'Progress: '  + (state.progress === null ? '—' : String(state.progress)),
+          '',
+          'Log:',
+          logEl?.textContent || ''
+        ].join('\n');
+        try { navigator.clipboard.writeText(report); log('Report copied to clipboard.'); }
+        catch (_) { log('Copy failed (clipboard blocked).'); }
+        return;
+      }
 
-    if (act === 'load') {
-      if (LIA.ocr && LIA.ocr.ensureLoaded) LIA.ocr.ensureLoaded(true);
-      return;
-    }
-  });
-
-  if (sel) {
-    sel.addEventListener('change', () => {
-      const p = String(sel.value || 'fp32');
-      try { localStorage.setItem(LS_KEY, p); } catch (_) {}
-      set({ precision: p });
-      if (LIA.ocr && LIA.ocr.setPrecision) LIA.ocr.setPrecision(p);
+      if (act === 'load') {
+        if (LIA.ocr && LIA.ocr.ensureLoaded) LIA.ocr.ensureLoaded(true);
+        return;
+      }
     });
-  }
 
-  if (selM) {
-    selM.addEventListener('change', () => {
-      const m = String(selM.value || state.model);
-      try { localStorage.setItem(LS_MODEL, m); } catch (_) {}
-      set({ model: m });
-      if (LIA.ocr && LIA.ocr.setModel) LIA.ocr.setModel(m);
-    });
+    if (sel) {
+      sel.addEventListener('change', () => {
+        const p = String(sel!.value || 'fp32');
+        try { localStorage.setItem(LS_KEY, p); } catch (_) {}
+        set({ precision: p });
+        if (LIA.ocr && LIA.ocr.setPrecision) LIA.ocr.setPrecision(p);
+      });
+    }
+
+    if (selM) {
+      selM.addEventListener('change', () => {
+        const m = String(selM!.value || state.model);
+        try { localStorage.setItem(LS_MODEL, m); } catch (_) {}
+        set({ model: m });
+        if (LIA.ocr && LIA.ocr.setModel) LIA.ocr.setModel(m);
+      });
+    }
   }
 
   LIA.bar = { el: bar, loadEl: loadWrap, set, log, get: () => ({ ...state }) };
   render();
-  log('OCR-Bar ready.');
+  if (SHOW_BAR) log('OCR-Bar ready.');
   return LIA.bar;
 }
