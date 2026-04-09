@@ -97,8 +97,6 @@ export function __liaAutoSizeTexWidgets(el: Element): void {
   }
 
   requestAnimationFrame(measureAndApply);
-  setTimeout(measureAndApply, 0);
-  setTimeout(measureAndApply, 60);
 }
 
 // ---------------------------------------------------------------------------
