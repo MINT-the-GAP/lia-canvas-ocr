@@ -33,14 +33,14 @@ export function ensureOcrBar(): any {
     loadWrap.dataset.indet = '0';
     loadWrap.innerHTML = `
     <div class="lia-ocr-loadmsg">
-      <span class="t">Schrifterkennungsmodul lädt noch…</span>
+      <span class="t">Loading OCR engine…</span>
       <span class="p">…</span>
     </div>
     <div class="lia-ocr-loadtrack"><div class="lia-ocr-loadfill"></div></div>
-    <div class="lia-ocr-loaddetail">Download von rund 900&nbsp;MB (nur beim ersten Mal, danach Cache).</div>
+    <div class="lia-ocr-loaddetail">Download ~900&nbsp;MB (first time only, cached afterwards).</div>
     <div class="lia-ocr-loaderror" style="display:none">
-      <span class="lia-ocr-loaderror-msg">Laden fehlgeschlagen.</span>
-      <button class="lia-ocr-btn lia-ocr-retry-btn" type="button">Erneut versuchen</button>
+      <span class="lia-ocr-loaderror-msg">Loading failed.</span>
+      <button class="lia-ocr-btn lia-ocr-retry-btn" type="button">Try again</button>
     </div>
   `;
     overlayHost.appendChild(loadWrap);
@@ -196,7 +196,7 @@ export function ensureOcrBar(): any {
             if (isError) {
                 loadWrap.dataset.on = '1';
                 loadWrap.dataset.indet = '0';
-                if (loadTxt) loadTxt.textContent = 'Laden fehlgeschlagen.';
+                if (loadTxt) loadTxt.textContent = 'Loading failed.';
                 if (loadPct) loadPct.textContent = '';
                 if (loadDetail) loadDetail.textContent = '';
                 if (loadFill) loadFill.style.width = '0%';
@@ -204,17 +204,17 @@ export function ensureOcrBar(): any {
                 loadWrap.dataset.on = '1';
 
                 if (phase === 'download') {
-                    loadTxt.textContent = 'Schrifterkennungsmodul lädt noch…';
-                    if (loadDetail) loadDetail.innerHTML = 'Dieser Download dauert nur beim ersten Mal so lange und ist danach im Cache.';
+                    loadTxt.textContent = 'Loading OCR engine…';
+                    if (loadDetail) loadDetail.innerHTML = 'This download only happens once and is cached afterwards.';
                 } else if (phase === 'import') {
-                    loadTxt.textContent = 'Schrifterkennungsmodul lädt noch… (Bibliothek wird geladen)';
-                    if (loadDetail) loadDetail.textContent = 'Erster Start kann etwas dauern.';
+                    loadTxt.textContent = 'Loading OCR engine… (importing library)';
+                    if (loadDetail) loadDetail.textContent = 'First start may take a moment.';
                 } else if (phase === 'pipeline') {
-                    loadTxt.textContent = 'Schrifterkennungsmodul lädt noch… (Modell wird initialisiert)';
-                    if (loadDetail) loadDetail.textContent = 'Erster Start kann etwas dauern.';
+                    loadTxt.textContent = 'Loading OCR engine… (initializing model)';
+                    if (loadDetail) loadDetail.textContent = 'First start may take a moment.';
                 } else {
-                    loadTxt.textContent = 'Schrifterkennungsmodul lädt noch…';
-                    if (loadDetail) loadDetail.textContent = 'Erster Start kann etwas dauern.';
+                    loadTxt.textContent = 'Loading OCR engine…';
+                    if (loadDetail) loadDetail.textContent = 'First start may take a moment.';
                 }
 
                 if (state.progress !== null && state.progress !== undefined && isFinite(state.progress)) {

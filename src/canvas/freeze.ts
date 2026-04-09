@@ -479,7 +479,7 @@ function cfRenderCanvasFreezeStateIntoMount(mount: Element, state: any): Element
     if (!cfHasCanvasFreezeContent(state)) {
         const empty = document.createElement('span');
         empty.className = 'lia-canvas-freeze-empty';
-        empty.textContent = 'Keine sichtbaren Canvas-Inhalte eingefroren.';
+        empty.textContent = 'No visible canvas content frozen.';
         mount.appendChild(empty);
         return empty;
     }
@@ -490,7 +490,7 @@ function cfRenderCanvasFreezeStateIntoMount(mount: Element, state: any): Element
     wrap.className = 'lia-draw-wrap';
     const canvas = document.createElement('canvas');
     canvas.className = 'lia-canvas-freeze-preview';
-    canvas.setAttribute('aria-label', 'Eingefrorene Zeichenfläche');
+    canvas.setAttribute('aria-label', 'Frozen drawing area');
 
     wrap.appendChild(canvas);
     block.appendChild(wrap);

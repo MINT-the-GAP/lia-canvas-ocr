@@ -31,16 +31,16 @@ export function canvasMarkup(): string {
     <span class="lia-draw-block">
       <span class="lia-draw-wrap">
         <span class="lia-toolstack">
-          <button class="lia-tool-btn lia-undo-btn"   type="button" aria-label="Rückgängig"></button>
-          <button class="lia-tool-btn lia-redo-btn"   type="button" aria-label="Wiederherstellen"></button>
-          <button class="lia-tool-btn lia-eraser-btn" type="button" aria-label="Radierer"></button>
-          <button class="lia-tool-btn lia-color-btn"  type="button" aria-label="Stift"></button>
-          <button class="lia-tool-btn lia-bgmenu-btn" type="button" aria-label="Hintergrund"></button>
-          <button class="lia-tool-btn lia-rect-btn"   type="button" aria-label="Lösung markieren"></button>
+          <button class="lia-tool-btn lia-undo-btn"   type="button" aria-label="Undo"></button>
+          <button class="lia-tool-btn lia-redo-btn"   type="button" aria-label="Redo"></button>
+          <button class="lia-tool-btn lia-eraser-btn" type="button" aria-label="Eraser"></button>
+          <button class="lia-tool-btn lia-color-btn"  type="button" aria-label="Pen"></button>
+          <button class="lia-tool-btn lia-bgmenu-btn" type="button" aria-label="Background"></button>
+          <button class="lia-tool-btn lia-rect-btn"   type="button" aria-label="Select & Submit"></button>
         </span>
 
         <span class="lia-tool-menu" data-open="0" aria-label="Werkzeuge"></span>
-        <canvas class="lia-draw" aria-label="Zeichenfläche"></canvas>
+        <canvas class="lia-draw" aria-label="Drawing area"></canvas>
       </span>
     </span>
   `;
@@ -69,7 +69,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     const rectActionBtn = document.createElement('button');
     rectActionBtn.type = 'button';
     rectActionBtn.className = 'lia-rect-action';
-    rectActionBtn.textContent = 'Als Lösung übergeben';
+    rectActionBtn.textContent = 'Select & Submit';
     rectActionBtn.style.display = 'none';
     wrap.appendChild(rectActionBtn);
 
@@ -506,7 +506,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         if (!engine || !engine.recognize) { __ocrLog('OCR engine not available (LIA.ocr).'); return; }
         const oldText = rectActionBtn.textContent || '';
         rectActionBtn.disabled = true;
-        rectActionBtn.textContent = 'Schrifterkennung läuft...';
+        rectActionBtn.textContent = 'Running OCR...';
         __rectProgStartPseudo();
         try {
             if (engine.ensureLoaded) await engine.ensureLoaded(false);
@@ -595,7 +595,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             const pair = wrap!.closest('.lia-canvas-pair');
             const ok = __liaFindAndSetInputBeforeNode((pair || wrap!) as Element, latex);
             if (!ok) { __ocrLog('Could not find an input field before this @canvas.'); }
-            else { rectActionBtn.textContent = '✅ übernommen'; setTimeout(() => { rectActionBtn.textContent = oldText; }, 900); }
+            else { rectActionBtn.textContent = '✅ submitted'; setTimeout(() => { rectActionBtn.textContent = oldText; }, 900); }
         } catch (err) {
             __ocrLog('OCR error: ' + (err && (err as any).message ? (err as any).message : String(err)));
             rectActionBtn.textContent = '⚠ Fehler';
@@ -652,15 +652,15 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     function buildPenMenu(): void {
         if (!menu) return; (menu as any).__mode = 'pen';
         const auto = getAutoPen(); let html = '';
-        html += `<span class="lia-heading-row"><span class="lia-tool-heading">Stift</span><button class="lia-menu-icon-btn" type="button" data-act="close" aria-label="Schließen">${__menuCloseBtnSvg()}</button></span>`;
+        html += `<span class="lia-heading-row"><span class="lia-tool-heading">Pen</span><button class="lia-menu-icon-btn" type="button" data-act="close" aria-label="Close">${__menuCloseBtnSvg()}</button></span>`;
         html += `<span class="lia-color-grid">`;
         for (let i = 0; i < COLORS.length; i++) {
             const c = COLORS[i], col = (c.key === 'auto') ? auto : (c.value || auto);
-            html += `<button class="lia-color-item" type="button" data-act="color" data-idx="${i}" data-active="${i === colorIndex ? '1' : '0'}" style="background:${col};" aria-label="Farbe ${c.key}"></button>`;
+            html += `<button class="lia-color-item" type="button" data-act="color" data-idx="${i}" data-active="${i === colorIndex ? '1' : '0'}" style="background:${col};" aria-label="Color ${c.key}"></button>`;
         }
         html += `</span>`;
-        html += `<span class="lia-row"><span class="lia-preview"><span class="lia-preview-line" data-k="pw" style="height:${Math.max(2, Math.min(14, penWidth))}px;"></span></span><input class="lia-slider" type="range" min="1" max="100" step="1" value="${penWidth}" data-act="penWidth" aria-label="Stiftbreite"><span style="font-weight:800;min-width:2.6em;text-align:right">${penWidth}</span></span>`;
-        html += `<span class="lia-row"><span class="lia-preview"><span class="lia-preview-line" data-k="pa" style="opacity:${penAlpha};"></span></span><input class="lia-slider" type="range" min="0.15" max="1" step="0.05" value="${penAlpha}" data-act="penAlpha" aria-label="Deckkraft"><span style="font-weight:800;min-width:2.6em;text-align:right">${Math.round(penAlpha * 100)}%</span></span>`;
+        html += `<span class="lia-row"><span class="lia-preview"><span class="lia-preview-line" data-k="pw" style="height:${Math.max(2, Math.min(14, penWidth))}px;"></span></span><input class="lia-slider" type="range" min="1" max="100" step="1" value="${penWidth}" data-act="penWidth" aria-label="Pen width"><span style="font-weight:800;min-width:2.6em;text-align:right">${penWidth}</span></span>`;
+        html += `<span class="lia-row"><span class="lia-preview"><span class="lia-preview-line" data-k="pa" style="opacity:${penAlpha};"></span></span><input class="lia-slider" type="range" min="0.15" max="1" step="0.05" value="${penAlpha}" data-act="penAlpha" aria-label="Opacity"><span style="font-weight:800;min-width:2.6em;text-align:right">${Math.round(penAlpha * 100)}%</span></span>`;
         menu.innerHTML = html;
         menu.onclick = (e: MouseEvent) => {
             const el = (e.target && (e.target as Element).closest) ? (e.target as Element).closest('[data-act]') : null;
@@ -676,7 +676,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
 
     function buildEraserMenu(): void {
         if (!menu) return; (menu as any).__mode = 'eraser';
-        menu.innerHTML = `<span class="lia-heading-row"><span class="lia-tool-heading">Radierer</span><span style="display:flex;gap:8px;align-items:center"><button class="lia-menu-icon-btn" type="button" data-act="clear" aria-label="Alles löschen">${__menuTrashSvg()}</button><button class="lia-menu-icon-btn" type="button" data-act="close" aria-label="Schließen">${__menuCloseBtnSvg()}</button></span></span><span class="lia-row"><span class="lia-preview"><span class="lia-preview-line lia-preview-line--eraser" style="height:${Math.max(2, Math.min(18, eraserWidth))}px;"></span></span><input class="lia-slider" type="range" min="4" max="500" step="1" value="${eraserWidth}" data-act="eraserWidth" aria-label="Radiererbreite"><span style="font-weight:800;min-width:2.6em;text-align:right">${eraserWidth}</span></span>`;
+        menu.innerHTML = `<span class="lia-heading-row"><span class="lia-tool-heading">Eraser</span><span style="display:flex;gap:8px;align-items:center"><button class="lia-menu-icon-btn" type="button" data-act="clear" aria-label="Clear all">${__menuTrashSvg()}</button><button class="lia-menu-icon-btn" type="button" data-act="close" aria-label="Close">${__menuCloseBtnSvg()}</button></span></span><span class="lia-row"><span class="lia-preview"><span class="lia-preview-line lia-preview-line--eraser" style="height:${Math.max(2, Math.min(18, eraserWidth))}px;"></span></span><input class="lia-slider" type="range" min="4" max="500" step="1" value="${eraserWidth}" data-act="eraserWidth" aria-label="Eraser width"><span style="font-weight:800;min-width:2.6em;text-align:right">${eraserWidth}</span></span>`;
         menu.onclick = (e: MouseEvent) => { const el = (e.target as Element)?.closest?.('[data-act]'); if (!el) return; const act = el.getAttribute('data-act'); if (act === 'close') { setMenuOpen(false); return; } if (act === 'clear') { clearAllDrawing(); return; } };
         const w = menu.querySelector('input[data-act="eraserWidth"]') as HTMLInputElement | null;
         if (w) w.oninput = () => { eraserWidth = clamp(Number(w.value), 2, 500); updateUI(); persist(); const t = w.parentElement && w.parentElement.querySelector('span[style*="min-width"]'); if (t) t.textContent = String(eraserWidth); };
@@ -684,7 +684,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
 
     function buildBgMenu(): void {
         if (!menu) return; (menu as any).__mode = 'bg';
-        menu.innerHTML = `<span class="lia-heading-row"><span class="lia-tool-heading">Hintergrund</span><button class="lia-menu-icon-btn" type="button" data-act="close" aria-label="Schließen">${__menuCloseBtnSvg()}</button></span><span class="lia-bg-tiles"><button class="lia-bg-tile" type="button" data-act="bg" data-mode="none" data-active="${bgMode === 'none' ? '1' : '0'}" aria-label="Kein Hintergrund"></button><button class="lia-bg-tile" type="button" data-act="bg" data-mode="grid" data-active="${bgMode === 'grid' ? '1' : '0'}" aria-label="Kariert"></button><button class="lia-bg-tile" type="button" data-act="bg" data-mode="lined" data-active="${bgMode === 'lined' ? '1' : '0'}" aria-label="Liniert"></button></span><span class="lia-row"><span style="font-weight:800;opacity:.8;min-width:4.8em">Abstand</span><input class="lia-slider" type="range" min="8" max="80" step="1" value="${bgStep}" data-act="bgStep" aria-label="Hintergrundabstand"><span style="font-weight:800;min-width:2.6em;text-align:right">${bgStep}</span></span>`;
+        menu.innerHTML = `<span class="lia-heading-row"><span class="lia-tool-heading">Background</span><button class="lia-menu-icon-btn" type="button" data-act="close" aria-label="Close">${__menuCloseBtnSvg()}</button></span><span class="lia-bg-tiles"><button class="lia-bg-tile" type="button" data-act="bg" data-mode="none" data-active="${bgMode === 'none' ? '1' : '0'}" aria-label="No background"></button><button class="lia-bg-tile" type="button" data-act="bg" data-mode="grid" data-active="${bgMode === 'grid' ? '1' : '0'}" aria-label="Grid"></button><button class="lia-bg-tile" type="button" data-act="bg" data-mode="lined" data-active="${bgMode === 'lined' ? '1' : '0'}" aria-label="Lined"></button></span><span class="lia-row"><span style="font-weight:800;opacity:.8;min-width:4.8em">Spacing</span><input class="lia-slider" type="range" min="8" max="80" step="1" value="${bgStep}" data-act="bgStep" aria-label="Background spacing"><span style="font-weight:800;min-width:2.6em;text-align:right">${bgStep}</span></span>`;
         try {
             const accent = rgbaFromAny(getAccentCssVar(), 0.65);
             const tiles = menu.querySelectorAll('.lia-bg-tile');
@@ -853,17 +853,17 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
 
     function updateUI(): void {
         const col = penBaseColor(), accent = getAccentCssVar();
-        if (btnUndo) { btnUndo.disabled = (ITEMS.length === 0); btnUndo.title = 'Rückgängig'; }
-        if (btnRedo) { btnRedo.disabled = (REDO.length === 0); btnRedo.title = 'Wiederherstellen'; }
-        if (btnColor) { btnColor.style.background = col; btnColor.dataset.active = (tool === 'pen') ? '1' : '0'; btnColor.title = 'Stift'; }
-        if (btnEraser) { btnEraser.dataset.active = (tool === 'eraser') ? '1' : '0'; btnEraser.title = 'Radierer'; }
-        if (btnRect) { btnRect.style.background = 'transparent'; btnRect.dataset.active = (tool === 'rect') ? '1' : '0'; btnRect.title = 'Marker-Rechteck'; }
+        if (btnUndo) { btnUndo.disabled = (ITEMS.length === 0); btnUndo.title = 'Undo'; }
+        if (btnRedo) { btnRedo.disabled = (REDO.length === 0); btnRedo.title = 'Redo'; }
+        if (btnColor) { btnColor.style.background = col; btnColor.dataset.active = (tool === 'pen') ? '1' : '0'; btnColor.title = 'Pen'; }
+        if (btnEraser) { btnEraser.dataset.active = (tool === 'eraser') ? '1' : '0'; btnEraser.title = 'Eraser'; }
+        if (btnRect) { btnRect.style.background = 'transparent'; btnRect.dataset.active = (tool === 'rect') ? '1' : '0'; btnRect.title = 'Select & Submit'; }
         if (btnBg) {
             const gridCol = rgbaFromAny(accent, 0.65), s = 6, t = 1.8;
             btnBg.style.backgroundColor = 'transparent';
             btnBg.style.backgroundImage = `linear-gradient(to right, ${gridCol} ${t}px, transparent ${t}px), linear-gradient(to bottom, ${gridCol} ${t}px, transparent ${t}px)`;
             btnBg.style.backgroundSize = `${s}px ${s}px`; btnBg.style.backgroundPosition = 'center';
-            btnBg.dataset.active = (menuMode === 'bg') ? '1' : '0'; btnBg.title = 'Hintergrund';
+            btnBg.dataset.active = (menuMode === 'bg') ? '1' : '0'; btnBg.title = 'Background';
         }
         if (tool !== 'eraser') hideEraserRing();
     }
@@ -918,8 +918,8 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     function ensureCorners(): void {
         const ww = wrap!;
         if ((ww as any).__cornersReady) return; (ww as any).__cornersReady = true;
-        const bl = document.createElement('button'); bl.type = 'button'; bl.className = 'lia-resize-corner'; bl.dataset.corner = 'bl'; bl.setAttribute('aria-label', 'Zeichenfläche ziehen (links unten)');
-        const br = document.createElement('button'); br.type = 'button'; br.className = 'lia-resize-corner'; br.dataset.corner = 'br'; br.setAttribute('aria-label', 'Zeichenfläche ziehen (rechts unten)');
+        const bl = document.createElement('button'); bl.type = 'button'; bl.className = 'lia-resize-corner'; bl.dataset.corner = 'bl'; bl.setAttribute('aria-label', 'Resize drawing area (bottom left)');
+        const br = document.createElement('button'); br.type = 'button'; br.className = 'lia-resize-corner'; br.dataset.corner = 'br'; br.setAttribute('aria-label', 'Resize drawing area (bottom right)');
         ww.appendChild(bl); ww.appendChild(br);
         const MIN_H = CANVAS_MIN_H, MAX_H = CANVAS_MAX_H, MIN_W = CANVAS_MIN_W;
         const clampLocal = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
