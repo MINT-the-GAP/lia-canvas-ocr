@@ -23,7 +23,7 @@ export function ensureCss(): void {
 }
 
 /* ---------------------------------------------------------
-   Canvas Block: KEIN horizontal scroll!
+   Canvas Block
    --------------------------------------------------------- */
 .lia-draw-block{
   display: block;
@@ -34,8 +34,9 @@ export function ensureCss(): void {
 
 .lia-draw-wrap{
   width: min(520px, 100%);
-  border: 2px solid var(--canvas-border);
-  border-radius: 10px;
+  border: 1.5px solid color-mix(in srgb, var(--canvas-border) 30%, transparent);
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.10);
   box-sizing: border-box;
   position: relative;
   display: block;
@@ -83,13 +84,14 @@ canvas.lia-canvas-freeze-preview{
   width: 32px;
   height: 32px;
   padding: 0;
-  border: 2px solid var(--canvas-border);
-  border-radius: 999px;
+  border: 1.5px solid color-mix(in srgb, var(--canvas-border) 35%, transparent);
+  border-radius: 8px;
   cursor: pointer;
   user-select: none;
   display: grid;
   place-items: center;
-  background: transparent;
+  background: color-mix(in srgb, var(--canvas-border) 6%, transparent);
+  transition: background 0.12s, border-color 0.12s;
 }
 
 .lia-tool-btn:disabled{
@@ -114,9 +116,14 @@ canvas.lia-canvas-freeze-preview{
   fill: rgba(0,0,0,0);
 }
 
+.lia-tool-btn:hover{
+  background: color-mix(in srgb, var(--canvas-border) 14%, transparent);
+  border-color: color-mix(in srgb, var(--canvas-border) 55%, transparent);
+}
+
 .lia-tool-btn[data-active="1"]{
-  outline: 2px solid var(--canvas-border);
-  outline-offset: 2px;
+  background: color-mix(in srgb, var(--canvas-border) 18%, transparent);
+  border-color: var(--canvas-border);
 }
 
 .lia-canvas-anchor{
@@ -140,9 +147,9 @@ canvas.lia-canvas-freeze-preview{
   width: 32px;
   height: 32px;
   padding: 0;
-  border-radius: 999px;
-  background: transparent;
-  border: 2px solid var(--canvas-accent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--canvas-accent) 12%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--canvas-accent) 60%, transparent);
   cursor: pointer;
   user-select: none;
   touch-action: manipulation;
@@ -151,11 +158,13 @@ canvas.lia-canvas-freeze-preview{
   justify-content: center;
   vertical-align: middle;
   line-height: 0;
-  margin-right: 6px;
+  margin-bottom: 6px;
+  transition: background 0.12s, border-color 0.12s;
 }
 
 .lia-canvas-launch:hover{
-  filter: brightness(1.05);
+  background: color-mix(in srgb, var(--canvas-accent) 22%, transparent);
+  border-color: var(--canvas-accent);
 }
 
 .lia-canvas-launch svg{
@@ -177,11 +186,13 @@ canvas.lia-canvas-freeze-preview{
   left: 44px;
   top: 10px;
   z-index: 30;
-  padding: 10px;
-  border: 2px solid var(--canvas-border);
-  border-radius: 12px;
-  background: rgba(0,0,0,0.15);
-  backdrop-filter: blur(6px);
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--canvas-border) 18%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, canvas 72%, transparent);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18), 0 1.5px 4px rgba(0,0,0,0.08);
   display: none;
   gap: 10px;
 }
@@ -189,41 +200,47 @@ canvas.lia-canvas-freeze-preview{
 .lia-tool-menu[data-open="1"]{
   display: grid;
   align-items: start;
-  row-gap: 10px;
+  row-gap: 8px;
 }
 
 .lia-color-grid{
-  display: grid;
-  grid-template-columns: repeat(9, 22px);
-  gap: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   align-items: center;
 }
 
 .lia-color-item{
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
   cursor: pointer;
   user-select: none;
-  border: 2px solid var(--canvas-border);
+  border: 1.5px solid color-mix(in srgb, var(--canvas-border) 30%, transparent);
   background: transparent;
   box-sizing: border-box;
+  transition: transform 0.1s, border-color 0.1s;
 }
 
 .lia-color-item:hover{
-  transform: scale(1.06);
+  transform: scale(1.1);
+  border-color: color-mix(in srgb, var(--canvas-border) 60%, transparent);
 }
 
 .lia-color-item[data-active="1"]{
   outline: 2px solid var(--canvas-border);
   outline-offset: 2px;
+  border-color: var(--canvas-border);
 }
 
 .lia-tool-heading{
-  font-size: 1.5rem;
-  font-weight: 750;
+  font-size: 0.95rem;
+  font-weight: 700;
   line-height: 1.1;
   padding-left: 2px;
+  opacity: 0.7;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .lia-heading-row{
@@ -231,6 +248,9 @@ canvas.lia-canvas-freeze-preview{
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--canvas-border) 15%, transparent);
+  margin-bottom: 2px;
 }
 
 .lia-heading-row .lia-tool-heading{
@@ -238,20 +258,23 @@ canvas.lia-canvas-freeze-preview{
 }
 
 .lia-menu-icon-btn{
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  border: 2px solid var(--canvas-border);
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: none;
   background: transparent;
   display: grid;
   place-items: center;
   cursor: pointer;
   user-select: none;
   padding: 0;
+  opacity: 0.55;
+  transition: opacity 0.12s, background 0.12s;
 }
 
 .lia-menu-icon-btn:hover{
-  filter: brightness(1.08);
+  opacity: 1;
+  background: color-mix(in srgb, var(--canvas-border) 12%, transparent);
 }
 
 .lia-menu-icon-btn svg{
@@ -279,11 +302,12 @@ canvas.lia-canvas-freeze-preview{
 .lia-preview{
   width: 34px;
   height: 22px;
-  border-radius: 10px;
-  border: 2px solid var(--canvas-border);
+  border-radius: 6px;
+  border: 1.5px solid color-mix(in srgb, var(--canvas-border) 35%, transparent);
   box-sizing: border-box;
   display: grid;
   place-items: center;
+  background: color-mix(in srgb, var(--canvas-border) 5%, transparent);
 }
 
 .lia-preview-line{
@@ -293,8 +317,16 @@ canvas.lia-canvas-freeze-preview{
   height: 3px;
 }
 
+.lia-preview-line--eraser{
+  background: transparent;
+  border: 1.5px solid var(--canvas-border);
+  box-sizing: border-box;
+  border-radius: 3px;
+}
+
 .lia-slider{
   width: 180px;
+  accent-color: var(--canvas-accent);
 }
 
 .lia-bg-tiles{
@@ -306,21 +338,23 @@ canvas.lia-canvas-freeze-preview{
 
 .lia-bg-tile{
   height: 34px;
-  border-radius: 12px;
-  border: 2px solid var(--canvas-border);
-  background: transparent;
+  border-radius: 8px;
+  border: 1.5px solid color-mix(in srgb, var(--canvas-border) 30%, transparent);
+  background: color-mix(in srgb, var(--canvas-border) 5%, transparent);
   cursor: pointer;
   user-select: none;
   padding: 0;
+  transition: background 0.12s, border-color 0.12s;
 }
 
 .lia-bg-tile:hover{
-  filter: brightness(1.08);
+  background: color-mix(in srgb, var(--canvas-border) 12%, transparent);
+  border-color: color-mix(in srgb, var(--canvas-border) 55%, transparent);
 }
 
 .lia-bg-tile[data-active="1"]{
-  outline: 2px solid var(--canvas-border);
-  outline-offset: 2px;
+  border-color: var(--canvas-accent);
+  box-shadow: inset 0 0 0 1px var(--canvas-accent);
 }
 
 .lia-resize-corner{
