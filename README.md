@@ -5,6 +5,8 @@ version:  0.0.1
 
 language: en
 
+edit:     true
+
 narrator: US English Female
 
 comment:  A LiaScript template that adds a handwriting canvas with LaTeX OCR
