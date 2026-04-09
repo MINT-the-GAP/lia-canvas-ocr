@@ -337,15 +337,26 @@ function __liaFindInputBeforeNode(refEl: Element): Element | null {
 }
 
 function __liaRefreshTexPreviewNear(refEl: Element): void {
-  function run(): void {
+  function run(): boolean {
     const fresh = __liaFindInputBeforeNode(refEl);
-    if (!fresh) return;
+    if (!fresh) return false;
     __liaEnsureTexPreview(fresh as HTMLElement);
     __liaShowTexPreview(fresh as HTMLElement);
+    return true;
   }
-  setTimeout(run, 0);
-  setTimeout(run, 80);
-  setTimeout(run, 180);
+
+  if (run()) return;
+
+  const root = (refEl as HTMLElement).parentElement;
+  if (!root) return;
+
+  const observer = new MutationObserver(() => {
+    if (run()) observer.disconnect();
+  });
+  observer.observe(root, { childList: true, subtree: true });
+
+  // Safety timeout: disconnect if input never appears
+  setTimeout(() => observer.disconnect(), 2000);
 }
 
 export function __liaFindAndSetInputBeforeNode(refEl: Element, value: string): boolean {
