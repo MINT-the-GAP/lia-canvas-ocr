@@ -598,7 +598,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             else { rectActionBtn.textContent = '✅ submitted'; setTimeout(() => { rectActionBtn.textContent = oldText; }, 900); }
         } catch (err) {
             __ocrLog('OCR error: ' + (err && (err as any).message ? (err as any).message : String(err)));
-            rectActionBtn.textContent = '⚠ Fehler';
+            rectActionBtn.textContent = '⚠ Error';
             setTimeout(() => { rectActionBtn.textContent = oldText; }, 900);
         } finally {
             __rectProgStop(1);
@@ -749,7 +749,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             rectProg.style.width = bw + 'px';
             const pbH = rectProg.offsetHeight || 26;
             rectProg.style.left = clamp(left, pad, canvas.clientWidth - bw - pad) + 'px';
-            rectProg.style.top = clamp(top + bh + 6, pad, canvas.clientHeight - pbH - pad) + 'px';
+            rectProg.style.top = clamp(top - pbH - 6, pad, canvas.clientHeight - pbH - pad) + 'px';
         }
         if (rectCloseBtn) {
             rectCloseBtn.style.display = 'block'; rectCloseBtn.style.visibility = 'hidden';

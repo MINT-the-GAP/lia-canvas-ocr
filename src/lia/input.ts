@@ -241,7 +241,7 @@ function __liaEnsureTexPreview(el: HTMLElement): HTMLElement | null {
     box.dataset.on = '0';
     box.innerHTML = `
     <span class="lia-tex-preview-math"></span>
-    <span class="lia-tex-preview-hint">Bearbeiten</span>
+    <span class="lia-tex-preview-hint">Edit</span>
   `;
 
     box.addEventListener('click', (e: MouseEvent) => {

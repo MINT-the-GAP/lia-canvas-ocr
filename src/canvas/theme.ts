@@ -658,71 +658,104 @@ canvas.lia-canvas-freeze-preview{
   top: calc(10px + var(--lia-ocrbar-h, 0px) + var(--lia-ocrbar-gap, 0px));
   z-index: 10001;
   display: none;
-  width: min(820px, calc(100vw - 20px));
-  max-width: calc(100vw - 20px);
+  width: min(640px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
   margin: 0;
-  padding: 10px 12px;
-  border: 2px solid var(--canvas-border);
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--canvas-border) 18%, transparent);
   border-radius: 14px;
-  background: rgba(0,0,0,0.05);
-  backdrop-filter: blur(6px);
+  background: color-mix(in srgb, canvas 72%, transparent);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18), 0 1.5px 4px rgba(0,0,0,0.08);
   box-sizing: border-box;
   pointer-events: none;
-}
-
-@media (prefers-color-scheme: dark){
-  .lia-ocr-loadwrap{
-    background: rgba(255,255,255,0.06);
-  }
 }
 
 .lia-ocr-loadwrap[data-on="1"]{
   display: block;
 }
 
-.lia-ocr-loadmsg{
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  font-weight: 850;
+.lia-ocr-loadwrap[data-on="1"][data-indet="0"]:not([data-error="1"]),
+.lia-ocr-loadwrap[data-on="1"][data-indet="1"]{
+  pointer-events: none;
 }
 
-.lia-ocr-loadmsg .t{ font-weight: 850; }
-.lia-ocr-loadmsg .p{ font-weight: 900; min-width: 3.5em; text-align: right; }
+.lia-ocr-loadmsg{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.lia-ocr-loadmsg .t{
+  font-size: 0.88rem;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.lia-ocr-loadmsg .p{
+  font-size: 0.82rem;
+  font-weight: 700;
+  min-width: 3em;
+  text-align: right;
+  opacity: 0.7;
+}
 
 .lia-ocr-loaddetail{
-  margin-top: 6px;
-  opacity: .78;
-  font-weight: 700;
-  font-size: 0.95em;
+  margin-top: 4px;
+  opacity: 0.5;
+  font-size: 0.78rem;
+  font-weight: 500;
 }
 
 .lia-ocr-loadtrack{
-  margin-top: 8px;
-  height: 10px;
+  margin-top: 10px;
+  height: 4px;
   width: 100%;
   border-radius: 999px;
-  border: 2px solid var(--canvas-border);
   overflow: hidden;
   box-sizing: border-box;
-  background: transparent;
+  background: color-mix(in srgb, var(--canvas-border) 15%, transparent);
 }
 
 .lia-ocr-loadfill{
   height: 100%;
   width: 0%;
+  border-radius: 999px;
   background: var(--canvas-accent);
+  transition: width 0.2s ease;
 }
 
 .lia-ocr-loadwrap[data-indet="1"] .lia-ocr-loadfill{
   width: 35%;
-  animation: lia_ocr_indet 1.1s linear infinite;
+  transition: none;
+  animation: lia_ocr_indet 1.1s ease-in-out infinite;
 }
 
 @keyframes lia_ocr_indet{
   0%{ transform: translateX(-120%); }
   100%{ transform: translateX(320%); }
+}
+
+.lia-ocr-loaderror{
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.lia-ocr-loaderror-msg{
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #c00;
+}
+
+.lia-ocr-retry-btn{
+  pointer-events: all;
+  font-size: 0.8rem;
+  padding: 4px 10px;
 }
 
 .lia-rect-progress{
