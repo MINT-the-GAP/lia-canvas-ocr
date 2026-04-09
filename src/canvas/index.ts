@@ -8,6 +8,19 @@ export { ensureCanvasFreezeApi } from './freeze';
 import { __liaFindAndSetInputBeforeNode, __liaInitTexPreviews } from '../lia/input';
 
 // ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const CANVAS_DEFAULT_H = 245;   // px — matches CSS canvas.lia-draw initial height
+const CANVAS_MIN_H     = 130;   // px — minimum canvas height when resizing
+const CANVAS_MAX_H     = 9000;  // px — maximum canvas height when resizing
+const CANVAS_MIN_W     = 200;   // px — minimum canvas width when resizing
+
+const OCR_MIN_SIDE     = 420;   // px — minimum side length for OCR normalization
+const OCR_MAX_SIDE     = 1400;  // px — maximum side length for OCR normalization
+const OCR_BINARIZE_THR = 200;   // luminance threshold (0–255) for binarization
+
+// ---------------------------------------------------------------------------
 // Markup
 // ---------------------------------------------------------------------------
 
@@ -216,8 +229,8 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
   function __ocrNormalizeSize(c: HTMLCanvasElement): HTMLCanvasElement {
     const maxSide = Math.max(c.width, c.height);
     let scale = 1;
-    if (maxSide < 420) scale = 420 / maxSide;
-    if (maxSide > 1400) scale = 1400 / maxSide;
+    if (maxSide < OCR_MIN_SIDE) scale = OCR_MIN_SIDE / maxSide;
+    if (maxSide > OCR_MAX_SIDE) scale = OCR_MAX_SIDE / maxSide;
     scale = clamp(scale, 0.5, 4.0);
     if (Math.abs(scale - 1) < 0.06) return c;
     const out = document.createElement('canvas');
@@ -236,7 +249,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     x0.fillStyle = '#fff'; x0.fillRect(0,0,c0.width,c0.height); x0.drawImage(src, 0, 0);
     const img = x0.getImageData(0,0,c0.width,c0.height);
     const d = img.data, W = c0.width, H = c0.height;
-    const thr = 200;
+    const thr = OCR_BINARIZE_THR;
     const bin = new Uint8Array(W*H);
     for (let i=0,p=0; p<bin.length; p++,i+=4) {
       bin[p] = ((d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114) < thr) ? 1 : 0;
@@ -892,7 +905,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     const bl=document.createElement('button'); bl.type='button'; bl.className='lia-resize-corner'; bl.dataset.corner='bl'; bl.setAttribute('aria-label','Zeichenfläche ziehen (links unten)');
     const br=document.createElement('button'); br.type='button'; br.className='lia-resize-corner'; br.dataset.corner='br'; br.setAttribute('aria-label','Zeichenfläche ziehen (rechts unten)');
     ww.appendChild(bl); ww.appendChild(br);
-    const MIN_H=130, MAX_H=9000, MIN_W=200;
+    const MIN_H=CANVAS_MIN_H, MAX_H=CANVAS_MAX_H, MIN_W=CANVAS_MIN_W;
     const clampLocal=(v: number,a: number,b: number)=>Math.max(a,Math.min(b,v));
     function containerMaxWidth(): number {
       const m=ww.closest('.lia-canvas-mount'); let host=(m||ww.parentElement||ww) as HTMLElement;
@@ -902,7 +915,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     }
     function bindCorner(handle: HTMLElement, side: string): void {
       let resizing=false,startX=0,startY=0,startW=0,startH=0;
-      function down(e: PointerEvent){ autoCloseSubmenus(); e.preventDefault(); e.stopPropagation(); resizing=true; startW=ww.getBoundingClientRect().width; startH=canvas.clientHeight||245; startX=e.clientX; startY=e.clientY; try{handle.setPointerCapture(e.pointerId);}catch(_){} }
+      function down(e: PointerEvent){ autoCloseSubmenus(); e.preventDefault(); e.stopPropagation(); resizing=true; startW=ww.getBoundingClientRect().width; startH=canvas.clientHeight||CANVAS_DEFAULT_H; startX=e.clientX; startY=e.clientY; try{handle.setPointerCapture(e.pointerId);}catch(_){} }
       function move(e: PointerEvent){ if (!resizing) return; e.preventDefault(); const dx=e.clientX-startX,dy=e.clientY-startY; canvas.style.height=clampLocal(startH+dy,MIN_H,MAX_H)+'px'; const maxW=containerMaxWidth(); ww.style.width=clampLocal(side==='br'?startW+dx:startW-dx,MIN_W,maxW)+'px'; }
       function up(e: PointerEvent){ if (!resizing) return; resizing=false; try{handle.releasePointerCapture(e.pointerId);}catch(_){} resizeToCss(); persist(); }
       handle.addEventListener('pointerdown',down); handle.addEventListener('pointermove',move);
