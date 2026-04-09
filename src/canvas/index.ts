@@ -897,7 +897,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
   }
 
   updateUI(); resizeToCss();
-  const ro=new ResizeObserver(()=>resizeToCss()); ro.observe(canvas);
+  const ro = new ResizeObserver(() => resizeToCss()); ro.observe(canvas);
 
   function ensureCorners(): void {
     const ww=wrap!;
@@ -925,7 +925,8 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
   }
   ensureCorners();
 
-  document.addEventListener('lia-canvas-theme',()=>{ updateUI(); rebuildHighlightLayer(); rebuildStrokeLayer(); present(); });
+  const onTheme = () => { updateUI(); rebuildHighlightLayer(); rebuildStrokeLayer(); present(); };
+  document.addEventListener('lia-canvas-theme', onTheme);
 
   if (btnUndo&&!(btnUndo as any).__bound){ (btnUndo as any).__bound=true; btnUndo.addEventListener('click',(e)=>{e.preventDefault();e.stopPropagation();doUndo();}); }
   if (btnRedo&&!(btnRedo as any).__bound){ (btnRedo as any).__bound=true; btnRedo.addEventListener('click',(e)=>{e.preventDefault();e.stopPropagation();doRedo();}); }
@@ -934,12 +935,32 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
   if (btnEraser&&menu) btnEraser.addEventListener('click',(e)=>{e.stopPropagation();tool='eraser';menuMode='eraser';const open=menu.dataset.open==='1',same=(menu as any).__mode==='eraser';if(!open||!same)buildEraserMenu();setMenuOpen(!open||!same);updateUI();});
   if (btnBg&&menu) btnBg.addEventListener('click',(e)=>{e.stopPropagation();menuMode='bg';const open=menu.dataset.open==='1',same=(menu as any).__mode==='bg';if(!open||!same)buildBgMenu();setMenuOpen(!open||!same);updateUI();});
 
-  document.addEventListener('click',(e)=>{ if (!wrap.contains(e.target as Node)) setMenuOpen(false); });
-  document.addEventListener('keydown',(e)=>{ if (e.key==='Escape') setMenuOpen(false); });
+  const onDocClick  = (e: Event) => { if (!wrap.contains(e.target as Node)) setMenuOpen(false); };
+  const onDocKeydown = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false); };
+  document.addEventListener('click', onDocClick);
+  document.addEventListener('keydown', onDocKeydown);
 
-  let spaceDown=false;
-  window.addEventListener('keydown',(e)=>{ if (e.code==='Space') spaceDown=true; });
-  window.addEventListener('keyup',(e)=>{ if (e.code==='Space') spaceDown=false; });
+  let spaceDown = false;
+  const onWinKeydown = (e: KeyboardEvent) => { if (e.code === 'Space') spaceDown = true; };
+  const onWinKeyup   = (e: KeyboardEvent) => { if (e.code === 'Space') spaceDown = false; };
+  window.addEventListener('keydown', onWinKeydown);
+  window.addEventListener('keyup',   onWinKeyup);
+
+  function cleanup(): void {
+    ro.disconnect();
+    document.removeEventListener('lia-canvas-theme', onTheme);
+    document.removeEventListener('click',   onDocClick);
+    document.removeEventListener('keydown', onDocKeydown);
+    window.removeEventListener('keydown', onWinKeydown);
+    window.removeEventListener('keyup',   onWinKeyup);
+    teardownObs.disconnect();
+  }
+
+  const teardownObs = new MutationObserver(() => {
+    if (!wrap.isConnected) cleanup();
+  });
+  const teardownRoot = wrap.parentElement || document.body;
+  teardownObs.observe(teardownRoot, { childList: true, subtree: true });
 
   canvas.addEventListener('contextmenu',(e)=>e.preventDefault());
 
