@@ -781,14 +781,9 @@ canvas.lia-canvas-freeze-preview{
 
 // Parse "rgb(r,g,b)" or "rgba(r,g,b,a)" into [r,g,b]. Returns null on failure.
 export function parseRgb(s: string): [number, number, number] | null {
-  const str = String(s || '');
-  const i0 = str.indexOf('(');
-  const i1 = str.indexOf(')');
-  if (i0 < 0 || i1 < 0) return null;
-  const parts = str.slice(i0 + 1, i1).split(',').map(x => Number(String(x).trim()));
-  if (parts.length < 3) return null;
-  if (!isFinite(parts[0]) || !isFinite(parts[1]) || !isFinite(parts[2])) return null;
-  return [parts[0], parts[1], parts[2]];
+  const m = String(s || '').match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if (!m) return null;
+  return [Number(m[1]), Number(m[2]), Number(m[3])];
 }
 
 export function luminance(rgb: [number, number, number]): number {
