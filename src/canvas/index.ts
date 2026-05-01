@@ -7,7 +7,8 @@ import {
 } from './theme';
 import { ensureMountUID, __liaDispatchCanvasFreezeChange } from './store';
 export { ensureCanvasFreezeApi } from './freeze';
-import { __liaFindAndSetInputBeforeNode, __liaInitTexPreviews } from '../lia/input';
+import { __liaFindAndSetInputBeforeNode, __liaInitTexPreviews, __liaRefreshAllTexPreviewBorders } from '../lia/input';
+import { liaT } from '../lia/i18n';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -21,6 +22,42 @@ const CANVAS_MIN_W = 200;   // px — minimum canvas width when resizing
 const OCR_MIN_SIDE = 420;   // px — minimum side length for OCR normalization
 const OCR_MAX_SIDE = 1400;  // px — maximum side length for OCR normalization
 const OCR_BINARIZE_THR = 200;   // luminance threshold (0–255) for binarization
+
+const STROKE_CAPTURE_MIN_STEP_PX = 0.35;      // minimum pixel distance to record a new stroke point
+const STROKE_CAPTURE_TARGET_STEP_PX = 1.4;    // target step size for stroke interpolation
+const STROKE_CAPTURE_MAX_INTERP_POINTS = 12;  // maximum interpolated points per segment
+
+// ---------------------------------------------------------------------------
+// Pen-touch guard (cross-canvas, prevents accidental touch when stylus is active)
+// ---------------------------------------------------------------------------
+
+const PEN_TOUCH_GUARD: { activePenPointers: Set<number> } =
+    (window as any).__LIA_CANVAS_PEN_TOUCH_GUARD__ =
+    (window as any).__LIA_CANVAS_PEN_TOUCH_GUARD__ || { activePenPointers: new Set<number>() };
+
+if (!(window as any).__LIA_CANVAS_GLOBAL_TOUCH_SUPPRESSOR__) {
+    (window as any).__LIA_CANVAS_GLOBAL_TOUCH_SUPPRESSOR__ = true;
+    const suppressTouchIfPenActive = (evt: Event): void => {
+        const isPointerEvent = String(evt.type || '').indexOf('pointer') === 0;
+        if (isPointerEvent && String((evt as PointerEvent).pointerType || '') !== 'touch') return;
+        if (!PEN_TOUCH_GUARD.activePenPointers.size) return;
+        if (evt.cancelable) evt.preventDefault();
+        evt.stopPropagation();
+    };
+    document.addEventListener('touchstart', suppressTouchIfPenActive as EventListener, { capture: true, passive: false });
+    document.addEventListener('touchmove', suppressTouchIfPenActive as EventListener, { capture: true, passive: false });
+    document.addEventListener('pointerdown', suppressTouchIfPenActive as EventListener, { capture: true, passive: false });
+    document.addEventListener('pointermove', suppressTouchIfPenActive as EventListener, { capture: true, passive: false });
+    const __penCleanup = (e: Event): void => {
+        const pe = e as PointerEvent;
+        if (String(pe.pointerType || '').toLowerCase() === 'pen') {
+            PEN_TOUCH_GUARD.activePenPointers.delete(pe.pointerId);
+        }
+    };
+    document.addEventListener('pointerup', __penCleanup, { capture: true });
+    document.addEventListener('pointercancel', __penCleanup, { capture: true });
+    document.addEventListener('pointerleave', __penCleanup, { capture: true });
+}
 
 // ---------------------------------------------------------------------------
 // Markup
@@ -36,7 +73,7 @@ export function canvasMarkup(): string {
           <button class="lia-tool-btn lia-eraser-btn" type="button" aria-label="Eraser"></button>
           <button class="lia-tool-btn lia-color-btn"  type="button" aria-label="Pen"></button>
           <button class="lia-tool-btn lia-bgmenu-btn" type="button" aria-label="Background"></button>
-          <button class="lia-tool-btn lia-rect-btn"   type="button" aria-label="Select & Submit"></button>
+          <button class="lia-tool-btn lia-rect-btn"   type="button" aria-label="Submit as Solution"></button>
         </span>
 
         <span class="lia-tool-menu" data-open="0" aria-label="Werkzeuge"></span>
@@ -53,6 +90,8 @@ export function canvasMarkup(): string {
 function setupCanvas(canvas: HTMLCanvasElement): void {
     const wrap = canvas.closest('.lia-draw-wrap') as HTMLElement | null;
     if (!wrap) return;
+    const trOcr = (key: string, fallback: string) => liaT('ocr.' + key, fallback);
+    const trCanvas = (key: string, fallback: string) => liaT('canvas.' + key, fallback);
 
     const mount = wrap.closest('.lia-canvas-mount') as HTMLElement | null;
     const uid = ensureMountUID(mount);
@@ -69,7 +108,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     const rectActionBtn = document.createElement('button');
     rectActionBtn.type = 'button';
     rectActionBtn.className = 'lia-rect-action';
-    rectActionBtn.textContent = 'Select & Submit';
+    rectActionBtn.textContent = trOcr('selectSubmit', 'Submit as Solution');
     rectActionBtn.style.display = 'none';
     wrap.appendChild(rectActionBtn);
 
@@ -85,6 +124,28 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
 
     const rectProgFill = rectProg.querySelector('.lia-rect-progfill') as HTMLElement | null;
     const rectProgTxt = rectProg.querySelector('.lia-rect-progtxt') as HTMLElement | null;
+    let __ocrBusy = false;
+
+    function __liaRefreshOcrTexts(): void {
+        if (!__ocrBusy) rectActionBtn.textContent = trOcr('selectSubmit', 'Submit as Solution');
+        if (btnRect) {
+            const label = trOcr('selectSubmit', 'Submit as Solution');
+            btnRect.title = label;
+            btnRect.setAttribute('aria-label', label);
+        }
+    }
+
+    const onI18nUpdate = () => {
+        __liaRefreshOcrTexts();
+        updateUI();
+        if (menu && menu.dataset.open === '1') {
+            const mode = String((menu as any).__mode || '');
+            if (mode === 'pen') buildPenMenu();
+            else if (mode === 'eraser') buildEraserMenu();
+            else if (mode === 'bg') buildBgMenu();
+        }
+    };
+    document.addEventListener('lia:canvas-i18n-update', onI18nUpdate as EventListener);
 
     rectProg.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); });
     rectActionBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); });
@@ -185,6 +246,29 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             return out.trim();
         }
         return s;
+    }
+
+    function __ocrNormalizeTimesVsX(input: string): string {
+        if (!input || input.indexOf('\\times') === -1) return input;
+        let out = '', i = 0;
+        const s = input;
+        while (i < s.length) {
+            const match = s.indexOf('\\times', i);
+            if (match === -1) { out += s.slice(i); break; }
+            out += s.slice(i, match);
+            let after = match + 6;
+            while (after < s.length && s[after] === ' ') after++;
+            let before = match - 1;
+            while (before >= 0 && s[before] === ' ') before--;
+            const nextCh = s[after] || '', prevCh = s[before] || '';
+            const isDigit = (c: string) => c >= '0' && c <= '9';
+            const isAlphaLower = (c: string) => c >= 'a' && c <= 'z';
+            if (isDigit(prevCh) && isDigit(nextCh)) out += '\\cdot';
+            else if (isAlphaLower(prevCh) || isAlphaLower(nextCh)) out += 'x';
+            else out += '\\cdot';
+            i = match + 6;
+        }
+        return out;
     }
 
     function __ocrCropFromRect(rectItem: any): HTMLCanvasElement | null {
@@ -356,6 +440,74 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         return c2;
     }
 
+    function __ocrAddPadding(src: HTMLCanvasElement, px: number): HTMLCanvasElement {
+        const p = Math.max(0, Math.round(px));
+        const out = document.createElement('canvas');
+        out.width = src.width + p * 2;
+        out.height = src.height + p * 2;
+        const x = out.getContext('2d', { willReadFrequently: true })!;
+        x.fillStyle = '#fff';
+        x.fillRect(0, 0, out.width, out.height);
+        x.drawImage(src, p, p);
+        return out;
+    }
+
+    function __ocrDarkenCrop(src: HTMLCanvasElement, factor: number): HTMLCanvasElement {
+        const out = document.createElement('canvas');
+        out.width = src.width;
+        out.height = src.height;
+        const x = out.getContext('2d', { willReadFrequently: true })!;
+        x.fillStyle = '#fff';
+        x.fillRect(0, 0, out.width, out.height);
+        x.drawImage(src, 0, 0);
+        const img = x.getImageData(0, 0, out.width, out.height);
+        const d = img.data;
+        const f = Math.max(1, factor);
+        for (let i = 0; i < d.length; i += 4) {
+            if (d[i + 3] < 128) continue;
+            const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+            if (lum < 240) {
+                d[i] = Math.max(0, Math.min(255, Math.round(d[i] / f)));
+                d[i + 1] = Math.max(0, Math.min(255, Math.round(d[i + 1] / f)));
+                d[i + 2] = Math.max(0, Math.min(255, Math.round(d[i + 2] / f)));
+            }
+        }
+        x.putImageData(img, 0, 0);
+        return out;
+    }
+
+    function __ocrScoreLatex(s: string): number {
+        const t = String(s || '').trim();
+        if (!t) return -9999;
+        if (__ocrMathLooksIncomplete(t)) return t.length - 5000;
+        return t.length;
+    }
+
+    async function __ocrVotingRecognize(engine: any, crop: HTMLCanvasElement): Promise<string> {
+        let varA = crop, varB = crop, varC = crop;
+        try { varA = __ocrPreprocessCanvas(crop); } catch (_) { varA = crop; }
+        try { varA = __ocrNormalizeSize(varA); } catch (_) { }
+        try { varB = __ocrAddPadding(__ocrPreprocessCanvas(crop), 20); } catch (_) { varB = varA; }
+        try { varB = __ocrNormalizeSize(varB); } catch (_) { }
+        try { varC = __ocrPreprocessCanvas(__ocrDarkenCrop(crop, 1.35)); } catch (_) { varC = varA; }
+        try { varC = __ocrNormalizeSize(varC); } catch (_) { }
+        const opts = { max_new_tokens: 128, do_sample: false, temperature: 0 };
+        const [rawA, rawB, rawC] = await Promise.all([
+            engine.recognize(varA, opts).catch(() => ''),
+            engine.recognize(varB, opts).catch(() => ''),
+            engine.recognize(varC, opts).catch(() => ''),
+        ]);
+        const latexA = __ocrNormalizeTimesVsX(__ocrUnwrapRoman(__ocrCleanLatex(rawA)));
+        const latexB = __ocrNormalizeTimesVsX(__ocrUnwrapRoman(__ocrCleanLatex(rawB)));
+        const latexC = __ocrNormalizeTimesVsX(__ocrUnwrapRoman(__ocrCleanLatex(rawC)));
+        const scoreA = __ocrScoreLatex(latexA);
+        const scoreB = __ocrScoreLatex(latexB);
+        const scoreC = __ocrScoreLatex(latexC);
+        if (scoreA >= scoreB && scoreA >= scoreC) return rawA;
+        if (scoreB >= scoreC) return rawB;
+        return rawC;
+    }
+
     function __ocrRotateCanvas(src: HTMLCanvasElement, deg: number): HTMLCanvasElement {
         const rad = deg * Math.PI / 180, w = src.width | 0, h = src.height | 0;
         const out = document.createElement('canvas'); out.width = Math.max(1, w); out.height = Math.max(1, h);
@@ -459,7 +611,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         for (let i = 0; i < variantDefs.length; i++) {
             let raw = '';
             try { raw = await engine.recognize(variantDefs[i](), { max_new_tokens: 8, do_sample: false, temperature: 0, __silent: true }); } catch (_) { continue; }
-            let latex = __ocrCleanLatex(raw); latex = __ocrUnwrapRoman(latex);
+            let latex = __ocrCleanLatex(raw); latex = __ocrUnwrapRoman(latex); latex = __ocrNormalizeTimesVsX(latex);
             const cand = __ocrDigitCandidateFrom(latex); if (!cand) continue;
             if (!counts[cand]) { counts[cand] = 0; order.push(cand); }
             counts[cand] += 1;
@@ -505,8 +657,9 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         const engine = LIA.ocr;
         if (!engine || !engine.recognize) { __ocrLog('OCR engine not available (LIA.ocr).'); return; }
         const oldText = rectActionBtn.textContent || '';
+        __ocrBusy = true;
         rectActionBtn.disabled = true;
-        rectActionBtn.textContent = 'Running OCR...';
+        rectActionBtn.textContent = trOcr('runningOcr', 'Running OCR...');
         __rectProgStartPseudo();
         try {
             if (engine.ensureLoaded) await engine.ensureLoaded(false);
@@ -540,9 +693,13 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             const isTrocr = modelName.toLowerCase().indexOf('trocr') !== -1;
 
             let inputCanvas = crop, raw = '';
-            try { inputCanvas = preferDigits ? __ocrPreprocessDigitCanvas(crop, { dilate: 0 }) : __ocrPreprocessCanvas(crop); } catch (_) { inputCanvas = crop; }
-            try { inputCanvas = __ocrNormalizeSize(inputCanvas); } catch (_) { }
-            raw = await engine.recognize(inputCanvas, preferDigits ? { max_new_tokens: 16, do_sample: false, temperature: 0 } : { max_new_tokens: 128, do_sample: false, temperature: 0 });
+            if (preferDigits) {
+                try { inputCanvas = __ocrPreprocessDigitCanvas(crop, { dilate: 0 }); } catch (_) { inputCanvas = crop; }
+                try { inputCanvas = __ocrNormalizeSize(inputCanvas); } catch (_) { }
+                raw = await engine.recognize(inputCanvas, { max_new_tokens: 16, do_sample: false, temperature: 0 });
+            } else {
+                raw = await __ocrVotingRecognize(engine, crop);
+            }
 
             if (preferDigits) {
                 const rawTrim = String(raw || '').trim();
@@ -566,6 +723,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             }
 
             let latex = isTrocr ? __ocrTidyMathText(raw) : __ocrUnwrapRoman(__ocrCleanLatex(raw));
+            latex = __ocrNormalizeTimesVsX(latex);
 
             function __ocrIsShortPlainToken(s: string): boolean {
                 const t = String(s || '').trim(); if (!t || t.length > 6 || t.indexOf('\\') !== -1) return false;
@@ -591,18 +749,21 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
                 }
             }
 
+            latex = String(latex || '').replace(/\s*\\div\s*/g, ':');
             __ocrLog('OCR result: ' + latex);
             const pair = wrap!.closest('.lia-canvas-pair');
             const ok = __liaFindAndSetInputBeforeNode((pair || wrap!) as Element, latex);
             if (!ok) { __ocrLog('Could not find an input field before this @canvas.'); }
-            else { rectActionBtn.textContent = '✅ submitted'; setTimeout(() => { rectActionBtn.textContent = oldText; }, 900); }
+            else { rectActionBtn.textContent = trOcr('submitted', '✅ submitted'); setTimeout(() => { rectActionBtn.textContent = oldText; }, 900); }
         } catch (err) {
             __ocrLog('OCR error: ' + (err && (err as any).message ? (err as any).message : String(err)));
-            rectActionBtn.textContent = '⚠ Error';
+            rectActionBtn.textContent = trOcr('ocrError', '⚠ Error');
             setTimeout(() => { rectActionBtn.textContent = oldText; }, 900);
         } finally {
             __rectProgStop(1);
             rectActionBtn.disabled = false;
+            __ocrBusy = false;
+            __liaRefreshOcrTexts();
         }
     }
 
@@ -652,15 +813,15 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     function buildPenMenu(): void {
         if (!menu) return; (menu as any).__mode = 'pen';
         const auto = getAutoPen(); let html = '';
-        html += `<span class="lia-heading-row"><span class="lia-tool-heading">Pen</span><button class="lia-menu-icon-btn" type="button" data-act="close" aria-label="Close">${__menuCloseBtnSvg()}</button></span>`;
+        html += `<span class="lia-heading-row"><span class="lia-tool-heading">${trCanvas('pen', 'Pen')}</span><button class="lia-menu-icon-btn" type="button" data-act="close" aria-label="Close">${__menuCloseBtnSvg()}</button></span>`;
         html += `<span class="lia-color-grid">`;
         for (let i = 0; i < COLORS.length; i++) {
             const c = COLORS[i], col = (c.key === 'auto') ? auto : (c.value || auto);
             html += `<button class="lia-color-item" type="button" data-act="color" data-idx="${i}" data-active="${i === colorIndex ? '1' : '0'}" style="background:${col};" aria-label="Color ${c.key}"></button>`;
         }
         html += `</span>`;
-        html += `<span class="lia-row"><span class="lia-preview"><span class="lia-preview-line" data-k="pw" style="height:${Math.max(2, Math.min(14, penWidth))}px;"></span></span><input class="lia-slider" type="range" min="1" max="100" step="1" value="${penWidth}" data-act="penWidth" aria-label="Pen width"><span style="font-weight:800;min-width:2.6em;text-align:right">${penWidth}</span></span>`;
-        html += `<span class="lia-row"><span class="lia-preview"><span class="lia-preview-line" data-k="pa" style="opacity:${penAlpha};"></span></span><input class="lia-slider" type="range" min="0.15" max="1" step="0.05" value="${penAlpha}" data-act="penAlpha" aria-label="Opacity"><span style="font-weight:800;min-width:2.6em;text-align:right">${Math.round(penAlpha * 100)}%</span></span>`;
+        html += `<span class="lia-row"><span class="lia-preview"><span class="lia-preview-line" data-k="pw" style="height:${Math.max(2, Math.min(14, penWidth))}px;"></span></span><input class="lia-slider" type="range" min="1" max="100" step="1" value="${penWidth}" data-act="penWidth" aria-label="Pen width"><span class="lia-menu-value" data-k="pwv" style="font-weight:800;min-width:2.6em;text-align:right">${penWidth}</span></span>`;
+        html += `<span class="lia-row"><span class="lia-preview"><span class="lia-preview-line" data-k="pa" style="opacity:${penAlpha};"></span></span><input class="lia-slider" type="range" min="0.15" max="1" step="0.05" value="${penAlpha}" data-act="penAlpha" aria-label="Opacity"><span class="lia-menu-value" data-k="pav" style="font-weight:800;min-width:2.6em;text-align:right">${Math.round(penAlpha * 100)}%</span></span>`;
         menu.innerHTML = html;
         menu.onclick = (e: MouseEvent) => {
             const el = (e.target && (e.target as Element).closest) ? (e.target as Element).closest('[data-act]') : null;
@@ -669,22 +830,23 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             if (act === 'color') { const idx = Number(el.getAttribute('data-idx')); if (isFinite(idx)) colorIndex = clamp(idx, 0, COLORS.length - 1); tool = 'pen'; updateUI(); persist(); buildPenMenu(); return; }
         };
         const w = menu.querySelector('input[data-act="penWidth"]') as HTMLInputElement | null;
-        if (w) w.oninput = () => { penWidth = clamp(Number(w.value), 1, 100); updateUI(); persist(); const line = menu.querySelector('[data-k="pw"]') as HTMLElement | null; if (line) line.style.height = Math.max(2, Math.min(14, penWidth)) + 'px'; const t = w.parentElement && w.parentElement.querySelector('span[style*="min-width"]'); if (t) t.textContent = String(penWidth); };
+        if (w) w.oninput = () => { penWidth = clamp(Number(w.value), 1, 100); updateUI(); persist(); const line = menu.querySelector('[data-k="pw"]') as HTMLElement | null; if (line) line.style.height = Math.max(2, Math.min(14, penWidth)) + 'px'; const tv = menu.querySelector('[data-k="pwv"]') as HTMLElement | null; if (tv) tv.textContent = String(penWidth); };
         const a = menu.querySelector('input[data-act="penAlpha"]') as HTMLInputElement | null;
-        if (a) a.oninput = () => { penAlpha = clamp(Number(a.value), 0.05, 1); updateUI(); persist(); const line = menu.querySelector('[data-k="pa"]') as HTMLElement | null; if (line) line.style.opacity = String(penAlpha); const t = a.parentElement && a.parentElement.querySelector('span[style*="min-width"]'); if (t) t.textContent = Math.round(penAlpha * 100) + '%'; };
+        if (a) a.oninput = () => { penAlpha = clamp(Number(a.value), 0.05, 1); updateUI(); persist(); const line = menu.querySelector('[data-k="pa"]') as HTMLElement | null; if (line) line.style.opacity = String(penAlpha); const tv = menu.querySelector('[data-k="pav"]') as HTMLElement | null; if (tv) tv.textContent = Math.round(penAlpha * 100) + '%'; };
     }
 
     function buildEraserMenu(): void {
         if (!menu) return; (menu as any).__mode = 'eraser';
-        menu.innerHTML = `<span class="lia-heading-row"><span class="lia-tool-heading">Eraser</span><span style="display:flex;gap:8px;align-items:center"><button class="lia-menu-icon-btn" type="button" data-act="clear" aria-label="Clear all">${__menuTrashSvg()}</button><button class="lia-menu-icon-btn" type="button" data-act="close" aria-label="Close">${__menuCloseBtnSvg()}</button></span></span><span class="lia-row"><span class="lia-preview"><span class="lia-preview-line lia-preview-line--eraser" style="height:${Math.max(2, Math.min(18, eraserWidth))}px;"></span></span><input class="lia-slider" type="range" min="4" max="500" step="1" value="${eraserWidth}" data-act="eraserWidth" aria-label="Eraser width"><span style="font-weight:800;min-width:2.6em;text-align:right">${eraserWidth}</span></span>`;
+        menu.innerHTML = `<span class="lia-heading-row"><span class="lia-tool-heading">${trCanvas('eraser', 'Eraser')}</span><span style="display:flex;gap:8px;align-items:center"><button class="lia-menu-icon-btn" type="button" data-act="clear" aria-label="Clear all">${__menuTrashSvg()}</button><button class="lia-menu-icon-btn" type="button" data-act="close" aria-label="Close">${__menuCloseBtnSvg()}</button></span></span><span class="lia-row"><span class="lia-preview"><span class="lia-preview-line lia-preview-line--eraser" style="height:${Math.max(2, Math.min(18, eraserWidth))}px;"></span></span><input class="lia-slider" type="range" min="4" max="500" step="1" value="${eraserWidth}" data-act="eraserWidth" aria-label="Eraser width"><span class="lia-menu-value" data-k="ewv" style="font-weight:800;min-width:2.6em;text-align:right">${eraserWidth}</span></span>`;
         menu.onclick = (e: MouseEvent) => { const el = (e.target as Element)?.closest?.('[data-act]'); if (!el) return; const act = el.getAttribute('data-act'); if (act === 'close') { setMenuOpen(false); return; } if (act === 'clear') { clearAllDrawing(); return; } };
         const w = menu.querySelector('input[data-act="eraserWidth"]') as HTMLInputElement | null;
-        if (w) w.oninput = () => { eraserWidth = clamp(Number(w.value), 2, 500); updateUI(); persist(); const t = w.parentElement && w.parentElement.querySelector('span[style*="min-width"]'); if (t) t.textContent = String(eraserWidth); };
+        if (w) w.oninput = () => { eraserWidth = clamp(Number(w.value), 2, 500); updateUI(); persist(); const tv = menu.querySelector('[data-k="ewv"]') as HTMLElement | null; if (tv) tv.textContent = String(eraserWidth); };
     }
 
     function buildBgMenu(): void {
         if (!menu) return; (menu as any).__mode = 'bg';
-        menu.innerHTML = `<span class="lia-heading-row"><span class="lia-tool-heading">Background</span><button class="lia-menu-icon-btn" type="button" data-act="close" aria-label="Close">${__menuCloseBtnSvg()}</button></span><span class="lia-bg-tiles"><button class="lia-bg-tile" type="button" data-act="bg" data-mode="none" data-active="${bgMode === 'none' ? '1' : '0'}" aria-label="No background"></button><button class="lia-bg-tile" type="button" data-act="bg" data-mode="grid" data-active="${bgMode === 'grid' ? '1' : '0'}" aria-label="Grid"></button><button class="lia-bg-tile" type="button" data-act="bg" data-mode="lined" data-active="${bgMode === 'lined' ? '1' : '0'}" aria-label="Lined"></button></span><span class="lia-row"><span style="font-weight:800;opacity:.8;min-width:4.8em">Spacing</span><input class="lia-slider" type="range" min="8" max="80" step="1" value="${bgStep}" data-act="bgStep" aria-label="Background spacing"><span style="font-weight:800;min-width:2.6em;text-align:right">${bgStep}</span></span>`;
+        const labelBackground = trCanvas('background', 'Background');
+        menu.innerHTML = `<span class="lia-heading-row"><span class="lia-tool-heading">${labelBackground}</span><button class="lia-menu-icon-btn" type="button" data-act="close" aria-label="Close">${__menuCloseBtnSvg()}</button></span><span class="lia-bg-tiles"><button class="lia-bg-tile" type="button" data-act="bg" data-mode="none" data-active="${bgMode === 'none' ? '1' : '0'}" aria-label="No background"></button><button class="lia-bg-tile" type="button" data-act="bg" data-mode="grid" data-active="${bgMode === 'grid' ? '1' : '0'}" aria-label="Grid"></button><button class="lia-bg-tile" type="button" data-act="bg" data-mode="lined" data-active="${bgMode === 'lined' ? '1' : '0'}" aria-label="Lined"></button></span><span class="lia-row"><span class="lia-menu-label" style="font-weight:800;opacity:.8;min-width:4.8em">Spacing</span><input class="lia-slider" type="range" min="8" max="80" step="1" value="${bgStep}" data-act="bgStep" aria-label="Background spacing"><span class="lia-menu-value" data-k="bgsv" style="font-weight:800;min-width:2.6em;text-align:right">${bgStep}</span></span>`;
         try {
             const accent = rgbaFromAny(getAccentCssVar(), 0.65);
             const tiles = menu.querySelectorAll('.lia-bg-tile');
@@ -697,7 +859,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         } catch (_) { }
         menu.onclick = (e: MouseEvent) => { const el = (e.target as Element)?.closest?.('[data-act]'); if (!el) return; const act = el.getAttribute('data-act'); if (act === 'close') { setMenuOpen(false); return; } if (act === 'bg') { const m = String(el.getAttribute('data-mode') || 'none'); bgMode = (m === 'grid' || m === 'lined') ? m : 'none'; present(); persist(); buildBgMenu(); updateUI(); return; } };
         const s = menu.querySelector('input[data-act="bgStep"]') as HTMLInputElement | null;
-        if (s) s.oninput = () => { bgStep = clamp(Number(s.value), 6, 300); present(); persist(); const t = s.parentElement && s.parentElement.querySelector('span[style*="min-width"]'); if (t) t.textContent = String(bgStep); };
+        if (s) s.oninput = () => { bgStep = clamp(Number(s.value), 6, 300); present(); persist(); const tv = menu.querySelector('[data-k="bgsv"]') as HTMLElement | null; if (tv) tv.textContent = String(bgStep); };
     }
 
     function clearMarkerRect(): void {
@@ -853,17 +1015,26 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
 
     function updateUI(): void {
         const col = penBaseColor(), accent = getAccentCssVar();
-        if (btnUndo) { btnUndo.disabled = (ITEMS.length === 0); btnUndo.title = 'Undo'; }
-        if (btnRedo) { btnRedo.disabled = (REDO.length === 0); btnRedo.title = 'Redo'; }
-        if (btnColor) { btnColor.style.background = col; btnColor.dataset.active = (tool === 'pen') ? '1' : '0'; btnColor.title = 'Pen'; }
-        if (btnEraser) { btnEraser.dataset.active = (tool === 'eraser') ? '1' : '0'; btnEraser.title = 'Eraser'; }
-        if (btnRect) { btnRect.style.background = 'transparent'; btnRect.dataset.active = (tool === 'rect') ? '1' : '0'; btnRect.title = 'Select & Submit'; }
+        const labelPen = trCanvas('pen', 'Pen');
+        const labelEraser = trCanvas('eraser', 'Eraser');
+        if (btnUndo) { btnUndo.disabled = (ITEMS.length === 0); btnUndo.title = 'Undo'; btnUndo.setAttribute('aria-label', 'Undo'); }
+        if (btnRedo) { btnRedo.disabled = (REDO.length === 0); btnRedo.title = 'Redo'; btnRedo.setAttribute('aria-label', 'Redo'); }
+        if (btnColor) { btnColor.style.background = col; btnColor.dataset.active = (tool === 'pen') ? '1' : '0'; btnColor.title = labelPen; btnColor.setAttribute('aria-label', labelPen); }
+        if (btnEraser) { btnEraser.dataset.active = (tool === 'eraser') ? '1' : '0'; btnEraser.title = labelEraser; btnEraser.setAttribute('aria-label', labelEraser); }
+        if (btnRect) {
+            const label = trOcr('selectSubmit', 'Submit as Solution');
+            btnRect.style.background = 'transparent';
+            btnRect.dataset.active = (tool === 'rect') ? '1' : '0';
+            btnRect.title = label;
+            btnRect.setAttribute('aria-label', label);
+        }
         if (btnBg) {
+            const labelBackground = trCanvas('background', 'Background');
             const gridCol = rgbaFromAny(accent, 0.65), s = 6, t = 1.8;
             btnBg.style.backgroundColor = 'transparent';
             btnBg.style.backgroundImage = `linear-gradient(to right, ${gridCol} ${t}px, transparent ${t}px), linear-gradient(to bottom, ${gridCol} ${t}px, transparent ${t}px)`;
             btnBg.style.backgroundSize = `${s}px ${s}px`; btnBg.style.backgroundPosition = 'center';
-            btnBg.dataset.active = (menuMode === 'bg') ? '1' : '0'; btnBg.title = 'Background';
+            btnBg.dataset.active = (menuMode === 'bg') ? '1' : '0'; btnBg.title = labelBackground; btnBg.setAttribute('aria-label', labelBackground);
         }
         if (tool !== 'eraser') hideEraserRing();
     }
@@ -879,10 +1050,39 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         setViewportTransformOn(sctx); applyPathStyleTo(sctx, it); sctx.beginPath(); sctx.moveTo(w.x, w.y);
         updateUI(); persist();
     }
+
+    function appendStrokePointWorld(wx: number, wy: number): void {
+        if (!currentPath) return;
+        currentPath.points.push({ x: wx, y: wy });
+        sctx.lineTo(wx, wy);
+    }
+
+    function appendStrokePointFromScreen(sx: number, sy: number): void {
+        if (!currentPath) return;
+        const pts = currentPath.points;
+        const last = pts && pts.length ? pts[pts.length - 1] : null;
+        if (!last) { const first = screenToWorld(sx, sy); appendStrokePointWorld(first.x, first.y); return; }
+        const prev = worldToScreen(last.x, last.y);
+        const dx = sx - prev.sx, dy = sy - prev.sy;
+        const d = Math.hypot(dx, dy);
+        if (d < STROKE_CAPTURE_MIN_STEP_PX) return;
+        if (d > STROKE_CAPTURE_TARGET_STEP_PX) {
+            const rawSteps = Math.floor(d / STROKE_CAPTURE_TARGET_STEP_PX);
+            const steps = Math.min(STROKE_CAPTURE_MAX_INTERP_POINTS, Math.max(0, rawSteps));
+            for (let i = 1; i <= steps; i++) {
+                const t = i / (steps + 1);
+                const mw = screenToWorld(prev.sx + dx * t, prev.sy + dy * t);
+                appendStrokePointWorld(mw.x, mw.y);
+            }
+        }
+        const w = screenToWorld(sx, sy);
+        appendStrokePointWorld(w.x, w.y);
+    }
+
     function extendStrokeToScreen(sx: number, sy: number): void {
         if (!currentPath) return;
-        const w = screenToWorld(sx, sy); currentPath.points.push({ x: w.x, y: w.y });
-        sctx.lineTo(w.x, w.y); sctx.stroke(); present(); persist();
+        appendStrokePointFromScreen(sx, sy);
+        sctx.stroke(); present(); persist();
     }
     function endStroke(): void { currentPath = null; }
 
@@ -913,6 +1113,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     }
 
     updateUI(); resizeToCss();
+    __liaRefreshOcrTexts();
     const ro = new ResizeObserver(() => resizeToCss()); ro.observe(canvas);
 
     function ensureCorners(): void {
@@ -941,7 +1142,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     }
     ensureCorners();
 
-    const onTheme = () => { updateUI(); rebuildHighlightLayer(); rebuildStrokeLayer(); present(); };
+    const onTheme = () => { __liaRefreshAllTexPreviewBorders(document); updateUI(); rebuildHighlightLayer(); rebuildStrokeLayer(); present(); };
     document.addEventListener('lia-canvas-theme', onTheme);
 
     if (btnUndo && !(btnUndo as any).__bound) { (btnUndo as any).__bound = true; btnUndo.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); doUndo(); }); }
@@ -964,6 +1165,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
 
     function cleanup(): void {
         ro.disconnect();
+        document.removeEventListener('lia:canvas-i18n-update', onI18nUpdate as EventListener);
         document.removeEventListener('lia-canvas-theme', onTheme);
         document.removeEventListener('click', onDocClick);
         document.removeEventListener('keydown', onDocKeydown);
@@ -1002,6 +1204,14 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     function mid(a: { sx: number; sy: number }, b: { sx: number; sy: number }): { sx: number; sy: number } { return { sx: (a.sx + b.sx) / 2, sy: (a.sy + b.sy) / 2 }; }
 
     canvas.addEventListener('pointerdown', (e) => {
+        if (String(e.pointerType || '').toLowerCase() === 'pen') {
+            PEN_TOUCH_GUARD.activePenPointers.add(e.pointerId);
+        }
+        if (String(e.pointerType || '').toLowerCase() === 'touch' && PEN_TOUCH_GUARD.activePenPointers.size > 0) {
+            if (e.cancelable) e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
         autoCloseSubmenus();
         if ((e.target as Element)?.classList?.contains('lia-resize-corner')) return;
         const p = getScreenPos(e); pointers.set(e.pointerId, p); canvas.setPointerCapture(e.pointerId);
@@ -1019,6 +1229,19 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     });
 
     canvas.addEventListener('pointermove', (e) => {
+        if (String(e.pointerType || '').toLowerCase() === 'pen') {
+            if ((e.pressure > 0) || (e.buttons !== 0)) {
+                PEN_TOUCH_GUARD.activePenPointers.add(e.pointerId);
+            } else {
+                PEN_TOUCH_GUARD.activePenPointers.delete(e.pointerId);
+            }
+        }
+        if (String(e.pointerType || '').toLowerCase() === 'touch' && PEN_TOUCH_GUARD.activePenPointers.size > 0) {
+            if (pointers.has(e.pointerId)) pointers.delete(e.pointerId);
+            if (e.cancelable) e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
         if (!pointers.has(e.pointerId)) return;
         const p = getScreenPos(e); pointers.set(e.pointerId, p);
         if (tool === 'eraser' && mode !== 'pan' && mode !== 'pinch' && mode !== 'rect') updateEraserRingFromScreen(p.sx, p.sy); else hideEraserRing();
@@ -1031,10 +1254,27 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         }
         if (mode === 'pan') { const dx = p.sx - lastPanSX, dy = p.sy - lastPanSY; lastPanSX = p.sx; lastPanSY = p.sy; VIEW.panX += dx; VIEW.panY += dy; rebuildHighlightLayer(); rebuildStrokeLayer(); present(); persist(); return; }
         if (mode === 'rect') { updateRectToScreen(p.sx, p.sy); return; }
-        if (mode === 'draw') extendStrokeToScreen(p.sx, p.sy);
+        if (mode === 'draw') {
+            let handled = false;
+            if (typeof (e as any).getCoalescedEvents === 'function') {
+                const coalesced: PointerEvent[] = (e as any).getCoalescedEvents();
+                if (Array.isArray(coalesced) && coalesced.length) {
+                    for (const ce of coalesced) {
+                        if (!ce) continue;
+                        const cp = getScreenPos(ce);
+                        extendStrokeToScreen(cp.sx, cp.sy);
+                    }
+                    handled = true;
+                }
+            }
+            if (!handled) extendStrokeToScreen(p.sx, p.sy);
+        }
     });
 
     function stopPointer(e: PointerEvent): void {
+        if (String(e.pointerType || '').toLowerCase() === 'pen') {
+            PEN_TOUCH_GUARD.activePenPointers.delete(e.pointerId);
+        }
         hideEraserRing(); if (pointers.has(e.pointerId)) pointers.delete(e.pointerId);
         try { canvas.releasePointerCapture(e.pointerId); } catch (_) { }
         if (mode === 'pinch') { if (pointers.size < 2) { pinchStart = null; mode = 'idle'; } return; }
@@ -1044,7 +1284,10 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     }
     canvas.addEventListener('pointerup', stopPointer);
     canvas.addEventListener('pointercancel', stopPointer);
-    canvas.addEventListener('pointerleave', () => {
+    canvas.addEventListener('pointerleave', (e: PointerEvent) => {
+        if (String(e.pointerType || '').toLowerCase() === 'pen') {
+            PEN_TOUCH_GUARD.activePenPointers.delete(e.pointerId);
+        }
         hideEraserRing();
         if (mode === 'draw') endStroke();
         if (mode !== 'pinch') mode = 'idle';

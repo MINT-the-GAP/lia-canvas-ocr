@@ -1,6 +1,103 @@
 // LiaScript input helpers: field value apply/read, TeX preview, input finder.
 
 import { getRootWindow } from '../index';
+import { liaT } from './i18n';
+
+// ---------------------------------------------------------------------------
+// Quiz state + border helpers
+// ---------------------------------------------------------------------------
+
+function __liaHasQuizStateColor(el: Element): boolean {
+    try {
+        if (!el || !el.classList) return false;
+        if (el.classList.contains('is-success')) return true;
+        if (el.classList.contains('is-failure')) return true;
+        if (el.classList.contains('is-warning')) return true;
+        if (el.classList.contains('is-partial')) return true;
+        if (el.classList.contains('is-resolved')) return true;
+        if (el.getAttribute && el.getAttribute('aria-invalid') === 'true') return true;
+    } catch (_) { }
+    return false;
+}
+
+function __liaIsUsableCssColor(v: string): boolean {
+    const s = String(v || '').trim().toLowerCase();
+    if (!s || s === 'transparent' || s === 'rgba(0, 0, 0, 0)' || s === 'rgba(0,0,0,0)') return false;
+    return true;
+}
+
+export function __liaRegisterCanvasTexField(el: HTMLElement): void {
+    if (!el) return;
+    (el as any).dataset.liaCanvasTex = '1';
+    const list: HTMLElement[] = (window as any).__LIA_CANVAS_TEX_FIELDS__ =
+        (window as any).__LIA_CANVAS_TEX_FIELDS__ || [];
+    if (list.indexOf(el) === -1) list.push(el);
+}
+
+function __liaSyncTexPreviewBorder(el: HTMLElement): void {
+    if (!el || !(el as any).__liaTexPreviewBox) return;
+    const box = (el as any).__liaTexPreviewBox as HTMLElement;
+    box.style.removeProperty('--lia-tex-preview-border');
+    if (!__liaHasQuizStateColor(el)) return;
+    let border = '';
+    try {
+        const cs = getComputedStyle(el);
+        border = cs.borderTopColor || cs.borderColor || cs.outlineColor || '';
+    } catch (_) { }
+    if (!__liaIsUsableCssColor(border)) return;
+    box.style.setProperty('--lia-tex-preview-border', border);
+}
+
+export function __liaRefreshAllTexPreviewBorders(root?: Element | Document): void {
+    const scope = (root && (root as any).querySelectorAll) ? root : document;
+    (scope as Element).querySelectorAll('.lia-canvas-pair').forEach((pair: Element) => {
+        const field = __liaFindInputBeforeNode(pair);
+        if (field) __liaSyncTexPreviewBorder(field as HTMLElement);
+    });
+}
+
+function __liaSyncCanvasTexPreview(el: HTMLElement): void {
+    if (!el || !(el as any).__liaTexPreviewBox) return;
+    const value = __liaReadFieldValue(el as Element);
+    const focused = (document.activeElement === el);
+    if ((el as any).__liaTexPreviewLastValue === value && (el as any).__liaTexPreviewLastFocused === focused) return;
+    (el as any).__liaTexPreviewLastValue = value;
+    (el as any).__liaTexPreviewLastFocused = focused;
+    const box = (el as any).__liaTexPreviewBox as HTMLElement;
+    const math = box.querySelector('.lia-tex-preview-math') as HTMLElement | null;
+    if (math) __liaRenderTexPreview(math, value);
+    if (focused) {
+        box.dataset.on = '0';
+        box.style.display = 'none';
+        el.style.display = '';
+        __liaAutoSizeTexWidgets(el);
+    } else {
+        __liaShowTexPreview(el);
+    }
+}
+
+function __liaForceRefreshCanvasTexPreviews(root?: Element | Document): void {
+    const scope = (root && (root as any).querySelectorAll) ? root : document;
+    (scope as Element).querySelectorAll('.lia-canvas-pair').forEach((pair: Element) => {
+        const field = __liaFindInputBeforeNode(pair);
+        if (!field) return;
+        __liaEnsureTexPreview(field as HTMLElement);
+        __liaSyncTexPreviewBorder(field as HTMLElement);
+        (field as any).__liaTexPreviewLastValue = null;
+        (field as any).__liaTexPreviewLastFocused = null;
+        __liaSyncCanvasTexPreview(field as HTMLElement);
+        if (document.activeElement !== field) __liaShowTexPreview(field as HTMLElement);
+    });
+}
+
+let __liaForceRefreshTimer = 0;
+
+function __liaQueueForceRefreshCanvasTexPreviews(delay: number): void {
+    clearTimeout(__liaForceRefreshTimer);
+    __liaForceRefreshTimer = setTimeout(() => {
+        __liaForceRefreshCanvasTexPreviews(document);
+    }, Math.max(0, delay || 0)) as unknown as number;
+}
 
 // ---------------------------------------------------------------------------
 // Field value helpers
@@ -201,6 +298,11 @@ function __liaRenderTexPreview(target: HTMLElement, tex: string): boolean {
 
 function __liaShowTexEditor(el: HTMLElement): void {
     if (!el || !(el as any).__liaTexPreviewBox) return;
+    const body = document.body;
+    if (body && (body.classList.contains('lia-snapshot-mode') || body.classList.contains('lia-course-frozen'))) {
+        __liaShowTexPreview(el);
+        return;
+    }
     const box = (el as any).__liaTexPreviewBox as HTMLElement;
     box.dataset.on = '0';
     box.style.display = 'none';
@@ -235,13 +337,21 @@ function __liaEnsureTexPreview(el: HTMLElement): HTMLElement | null {
     if (!el) return null;
     if ((el as any).__liaTexPreviewReady) return el;
     (el as any).__liaTexPreviewReady = true;
+    __liaRegisterCanvasTexField(el);
+    if (!(el as any).__liaTexPreviewBorderObserver) {
+        const mo = new MutationObserver(() => { __liaSyncTexPreviewBorder(el); });
+        mo.observe(el, { attributes: true, attributeFilter: ['class', 'style', 'aria-invalid'] });
+        (el as any).__liaTexPreviewBorderObserver = mo;
+    }
+    __liaSyncTexPreviewBorder(el);
 
     const box = document.createElement('span');
+        const editLabel = liaT('canvas.edit', 'Edit');
     box.className = 'lia-tex-preview';
     box.dataset.on = '0';
     box.innerHTML = `
     <span class="lia-tex-preview-math"></span>
-    <span class="lia-tex-preview-hint">Edit</span>
+        <span class="lia-tex-preview-hint">${editLabel}</span>
   `;
 
     box.addEventListener('click', (e: MouseEvent) => {
@@ -254,9 +364,10 @@ function __liaEnsureTexPreview(el: HTMLElement): HTMLElement | null {
     (el as any).__liaTexPreviewBox = box;
 
     el.addEventListener('input', () => {
-        const math = box.querySelector('.lia-tex-preview-math') as HTMLElement | null;
-        if (math) __liaRenderTexPreview(math, __liaReadFieldValue(el));
+        __liaSyncCanvasTexPreview(el);
     });
+    el.addEventListener('change', () => { __liaSyncCanvasTexPreview(el); });
+    el.addEventListener('focus', () => { __liaSyncCanvasTexPreview(el); });
 
     el.addEventListener('blur', () => {
         setTimeout(() => __liaShowTexPreview(el), 0);
@@ -280,7 +391,7 @@ function __liaEnsureTexPreview(el: HTMLElement): HTMLElement | null {
     });
 
     __liaShowTexPreview(el);
-    __liaAutoSizeTexWidgets(el);
+    __liaSyncCanvasTexPreview(el);
     return el;
 }
 
@@ -369,6 +480,53 @@ export function __liaFindAndSetInputBeforeNode(refEl: Element, value: string): b
 export function __liaInitTexPreviews(): void {
     document.querySelectorAll('.lia-canvas-pair').forEach(pair => {
         const field = __liaFindInputBeforeNode(pair);
-        if (field) __liaEnsureTexPreview(field as HTMLElement);
+        if (field) {
+            __liaEnsureTexPreview(field as HTMLElement);
+            __liaSyncTexPreviewBorder(field as HTMLElement);
+        }
     });
+}
+
+// ---------------------------------------------------------------------------
+// Polling + refresh bridge boot (runs once per module load)
+// ---------------------------------------------------------------------------
+
+if (!(window as any).__LIA_CANVAS_TEX_SYNC_BOOT__) {
+    (window as any).__LIA_CANVAS_TEX_SYNC_BOOT__ = true;
+    setInterval(() => {
+        const list: HTMLElement[] = (window as any).__LIA_CANVAS_TEX_FIELDS__ || [];
+        for (let i = list.length - 1; i >= 0; i--) {
+            const el = list[i];
+            if (!el || !el.isConnected) { list.splice(i, 1); continue; }
+            __liaSyncCanvasTexPreview(el);
+        }
+    }, 250);
+}
+
+if (!(window as any).__LIA_CANVAS_TEX_REFRESH_BRIDGE__) {
+    (window as any).__LIA_CANVAS_TEX_REFRESH_BRIDGE__ = true;
+    const onFreezeRefresh = () => {
+        __liaQueueForceRefreshCanvasTexPreviews(0);
+        __liaQueueForceRefreshCanvasTexPreviews(80);
+        __liaQueueForceRefreshCanvasTexPreviews(200);
+    };
+    try { window.addEventListener('lia:freeze-tex-refresh', onFreezeRefresh as EventListener, true); } catch (_) { }
+    try { document.addEventListener('lia:freeze-tex-refresh', onFreezeRefresh as EventListener, true); } catch (_) { }
+    document.addEventListener('focusout', (e: Event) => {
+        const t = e.target as Element | null;
+        if (!t) return;
+        if ((t as any).dataset && (t as any).dataset.liaCanvasTex === '1') {
+            __liaQueueForceRefreshCanvasTexPreviews(0);
+            return;
+        }
+        if ((t as any).matches && (t as any).matches('input, textarea, [contenteditable="true"]')) {
+            __liaQueueForceRefreshCanvasTexPreviews(0);
+        }
+    }, true);
+    document.addEventListener('change', (e: Event) => {
+        const t = e.target as Element | null;
+        if (!t) return;
+        if (!(t as any).matches || !(t as any).matches('input, textarea, [contenteditable="true"]')) return;
+        __liaQueueForceRefreshCanvasTexPreviews(0);
+    }, true);
 }
