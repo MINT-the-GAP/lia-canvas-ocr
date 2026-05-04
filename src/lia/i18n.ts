@@ -29,13 +29,19 @@ type I18nState = {
     cache: Record<string, string>;
     pending: Record<string, Promise<void> | undefined>;
     lang: string;
+    translateQueue: Array<{ cacheKey: string; lang: string; text: string }>;
+    translateTimer: ReturnType<typeof setTimeout> | null;
+    langWatchInterval: ReturnType<typeof setInterval> | null;
 };
 
 const I18N_STATE: I18nState = (window as any).__LIA_CANVAS_I18N_STATE__ =
     (window as any).__LIA_CANVAS_I18N_STATE__ || {
         cache: {},
         pending: {},
-        lang: normalizeLang(currentLiaLang())
+        lang: normalizeLang(currentLiaLang()),
+        translateQueue: [],
+        translateTimer: null,
+        langWatchInterval: null
     };
 
 const BUILTIN_TRANSLATIONS: Record<string, Record<string, string>> = {
@@ -99,14 +105,17 @@ function getBuiltinTranslation(lang: string, key: string): string | null {
 
 if (!(window as any).__LIA_CANVAS_I18N_LANG_WATCH__) {
     (window as any).__LIA_CANVAS_I18N_LANG_WATCH__ = true;
-    setInterval(() => {
+    I18N_STATE.langWatchInterval = setInterval(() => {
         const now = normalizeLang(currentLiaLang());
         if (now === I18N_STATE.lang) return;
         I18N_STATE.lang = now;
+        // Clear translation cache so strings are re-fetched for the new language
+        I18N_STATE.cache = {};
+        I18N_STATE.pending = {};
         document.dispatchEvent(new CustomEvent('lia:canvas-i18n-update', {
             detail: { lang: now, reason: 'lang-change' }
         }));
-    }, 500);
+    }, 2000);
 }
 
 async function translateWithMyMemory(toLang: string, text: string): Promise<string | null> {
@@ -147,24 +156,53 @@ function sanitizeTranslatedText(s: string): string {
     return out;
 }
 
+// Drains the queue sequentially to avoid bursting the MyMemory free-tier limit.
+async function drainTranslateQueue(): Promise<void> {
+    while (I18N_STATE.translateQueue.length > 0) {
+        const item = I18N_STATE.translateQueue.shift()!;
+        const { cacheKey, lang, text } = item;
+
+        // May have been resolved by a previous drain or cache hit
+        if (I18N_STATE.cache[cacheKey]) {
+            delete I18N_STATE.pending[cacheKey];
+            continue;
+        }
+
+        try {
+            const translated = await translateWithMyMemory(lang, text);
+            const clean = translated ? sanitizeTranslatedText(translated) : '';
+            if (clean && clean !== text) {
+                I18N_STATE.cache[cacheKey] = clean;
+                document.dispatchEvent(new CustomEvent('lia:canvas-i18n-update', {
+                    detail: { lang, key: cacheKey, translated: clean }
+                }));
+            }
+        } catch (_) { }
+
+        delete I18N_STATE.pending[cacheKey];
+
+        // Small delay between requests to stay within rate limits
+        if (I18N_STATE.translateQueue.length > 0) {
+            await new Promise<void>(r => setTimeout(r, 150));
+        }
+    }
+}
+
 function startTranslation(cacheKey: string, lang: string, sourceText: string): void {
     if (I18N_STATE.pending[cacheKey]) return;
     const normalizedSource = String(sourceText || '').replace(/&/g, 'and').replace(/…/g, '...');
 
-    I18N_STATE.pending[cacheKey] = (async () => {
-        const translated = await translateWithMyMemory(lang, normalizedSource);
-        const clean = translated ? sanitizeTranslatedText(translated) : '';
-        if (clean && clean !== sourceText) {
-            I18N_STATE.cache[cacheKey] = clean;
-            document.dispatchEvent(new CustomEvent('lia:canvas-i18n-update', {
-                detail: { lang, key: cacheKey, translated: clean }
-            }));
-        }
-    })().then(() => {
-        delete I18N_STATE.pending[cacheKey];
-    }, () => {
-        delete I18N_STATE.pending[cacheKey];
-    });
+    // Mark as pending immediately so duplicate calls are deduplicated
+    I18N_STATE.pending[cacheKey] = Promise.resolve();
+    I18N_STATE.translateQueue.push({ cacheKey, lang, text: normalizedSource });
+
+    // Schedule a single drain pass; if one is already running it will pick up the new item
+    if (I18N_STATE.translateTimer === null) {
+        I18N_STATE.translateTimer = setTimeout(() => {
+            I18N_STATE.translateTimer = null;
+            drainTranslateQueue();
+        }, 0);
+    }
 }
 
 export function liaLang(): string {

@@ -10,6 +10,12 @@ export function ensureOcrBar(): any {
 
     ensureCss();
 
+    // Remove stale i18n listener before re-creating or reusing the bar
+    if (LIA.bar && (LIA.bar as any).__i18nListener) {
+        document.removeEventListener('lia:canvas-i18n-update', (LIA.bar as any).__i18nListener);
+        delete (LIA.bar as any).__i18nListener;
+    }
+
     if (LIA.bar && LIA.bar.el && LIA.bar.el.isConnected) {
         try {
             const el = LIA.bar.el;
@@ -372,10 +378,13 @@ export function ensureOcrBar(): any {
             });
         }
 
-        document.addEventListener('lia:canvas-i18n-update', () => {
+        const onI18nUpdate = (): void => {
             applyStaticTexts();
             render();
-        });
+        };
+        document.addEventListener('lia:canvas-i18n-update', onI18nUpdate);
+        LIA.bar = LIA.bar || ({} as any);
+        (LIA.bar as any).__i18nListener = onI18nUpdate;
     }
 
     LIA.bar = { el: bar, loadEl: loadWrap, set, log, get: () => ({ ...state }) };
