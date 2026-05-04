@@ -249,7 +249,10 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     }
 
     function __ocrNormalizeTimesVsX(input: string): string {
-        if (!input || input.indexOf('\\times') === -1) return input;
+        if (!input) return input;
+        // Normalize \div to : consistently (same as post-OCR step, moved here so voting benefits too)
+        if (input.indexOf('\\div') !== -1) input = input.replace(/\s*\\div\s*/g, ':');
+        if (input.indexOf('\\times') === -1) return input;
         let out = '', i = 0;
         const s = input;
         while (i < s.length) {
@@ -503,9 +506,9 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         const scoreA = __ocrScoreLatex(latexA);
         const scoreB = __ocrScoreLatex(latexB);
         const scoreC = __ocrScoreLatex(latexC);
-        if (scoreA >= scoreB && scoreA >= scoreC) return rawA;
-        if (scoreB >= scoreC) return rawB;
-        return rawC;
+        if (scoreA >= scoreB && scoreA >= scoreC) return latexA;
+        if (scoreB >= scoreC) return latexB;
+        return latexC;
     }
 
     function __ocrRotateCanvas(src: HTMLCanvasElement, deg: number): HTMLCanvasElement {
@@ -722,7 +725,8 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
                 return out.trim();
             }
 
-            let latex = isTrocr ? __ocrTidyMathText(raw) : __ocrUnwrapRoman(__ocrCleanLatex(raw));
+            // voting path already returns cleaned+normalized output; non-voting paths still need it
+            let latex = isTrocr ? __ocrTidyMathText(raw) : (preferDigits ? __ocrUnwrapRoman(__ocrCleanLatex(raw)) : raw);
             latex = __ocrNormalizeTimesVsX(latex);
 
             function __ocrIsShortPlainToken(s: string): boolean {
@@ -749,7 +753,6 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
                 }
             }
 
-            latex = String(latex || '').replace(/\s*\\div\s*/g, ':');
             __ocrLog('OCR result: ' + latex);
             const pair = wrap!.closest('.lia-canvas-pair');
             const ok = __liaFindAndSetInputBeforeNode((pair || wrap!) as Element, latex);

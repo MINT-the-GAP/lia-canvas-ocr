@@ -91,12 +91,23 @@ function __liaForceRefreshCanvasTexPreviews(root?: Element | Document): void {
 }
 
 let __liaForceRefreshTimer = 0;
+// Separate timers for the staggered freeze-refresh passes (0ms, 80ms, 200ms)
+const __liaForceRefreshTimers: number[] = [0, 0, 0];
 
 function __liaQueueForceRefreshCanvasTexPreviews(delay: number): void {
     clearTimeout(__liaForceRefreshTimer);
     __liaForceRefreshTimer = setTimeout(() => {
         __liaForceRefreshCanvasTexPreviews(document);
     }, Math.max(0, delay || 0)) as unknown as number;
+}
+
+function __liaScheduleStaggeredRefresh(delays: number[]): void {
+    delays.forEach((delay, i) => {
+        clearTimeout(__liaForceRefreshTimers[i]);
+        __liaForceRefreshTimers[i] = setTimeout(() => {
+            __liaForceRefreshCanvasTexPreviews(document);
+        }, delay) as unknown as number;
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -506,9 +517,7 @@ if (!(window as any).__LIA_CANVAS_TEX_SYNC_BOOT__) {
 if (!(window as any).__LIA_CANVAS_TEX_REFRESH_BRIDGE__) {
     (window as any).__LIA_CANVAS_TEX_REFRESH_BRIDGE__ = true;
     const onFreezeRefresh = () => {
-        __liaQueueForceRefreshCanvasTexPreviews(0);
-        __liaQueueForceRefreshCanvasTexPreviews(80);
-        __liaQueueForceRefreshCanvasTexPreviews(200);
+        __liaScheduleStaggeredRefresh([0, 80, 200]);
     };
     try { window.addEventListener('lia:freeze-tex-refresh', onFreezeRefresh as EventListener, true); } catch (_) { }
     try { document.addEventListener('lia:freeze-tex-refresh', onFreezeRefresh as EventListener, true); } catch (_) { }
