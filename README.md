@@ -38,7 +38,7 @@ script:   ./dist/index.js
           --{{0}}--
 This template adds a handwriting canvas with LaTeX OCR to any LiaScript answer
 field. Students draw their solution on the canvas, draw a selection rectangle
-around it, and click "Select & Submit" — the handwriting is recognized via
+around it, and click "Submit as Solution" — the handwriting is recognized via
 [Transformers.js](https://huggingface.co/docs/transformers.js) and inserted
 directly into the input field as LaTeX.
 
@@ -74,7 +74,7 @@ the project.
           --{{0}}--
 Place `@canvas` directly below any answer field. A small pen icon will appear
 next to the field. Clicking it opens the drawing canvas. The student draws
-their answer, uses the "Select & Submit" tool to draw a rectangle around it,
+their answer, uses the "Submit as Solution" tool to draw a rectangle around it,
 and the OCR result is inserted into the input field automatically.
 
 ``` markdown
@@ -105,7 +105,7 @@ __$b)\;\;$__ $50 + 30 =$ [[ 80 ]]
 | Eraser | Erase parts of the drawing |
 | Background | Set a blank, grid, or lined background |
 | Undo / Redo | Step through drawing history |
-| Select & Submit | Draw a rectangle, then submit the selected area for OCR |
+| Submit as Solution | Draw a rectangle, then submit the selected area for OCR |
 
           --{{0}}--
 The canvas supports touch and stylus input with pinch-to-zoom and pan. It can
@@ -121,7 +121,7 @@ in the browser via Transformers.js and ONNX Runtime WebAssembly. No data is
 sent to any server. The model (~900 MB) is downloaded once and cached by the
 browser.
 
-The model loads lazily — only when the student first clicks "Select & Submit".
+The model loads lazily — only when the student first clicks "Submit as Solution".
 
 ## Implementation
 

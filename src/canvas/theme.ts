@@ -3,22 +3,28 @@
 import { SVG_RECT, SVG_ERASER, SVG_UNDO, SVG_REDO, SVG_TRASH } from './icons';
 
 export function ensureCss(): void {
-    if (document.getElementById('__lia_canvas_ocr_css_v1')) return;
+  const old = document.getElementById('__lia_canvas_ocr_css_v1');
+  if (old && old.parentNode) old.parentNode.removeChild(old);
+  if (document.getElementById('__lia_canvas_ocr_css_v2')) return;
 
     const st = document.createElement('style');
-    st.id = '__lia_canvas_ocr_css_v1';
+  st.id = '__lia_canvas_ocr_css_v2';
 
     st.textContent = `
 :root{
   --canvas-border: #000;
   --canvas-pen: #000;
   --canvas-accent: #0b5fff;
+  --canvas-panel-bg: rgba(255,255,255,0.84);
+  --canvas-overlay-soft: rgba(0,0,0,0.10);
 }
 
 @media (prefers-color-scheme: dark){
   :root{
     --canvas-border: #fff;
     --canvas-pen: #fff;
+    --canvas-panel-bg: rgba(22,22,24,0.84);
+    --canvas-overlay-soft: rgba(255,255,255,0.10);
   }
 }
 
@@ -189,12 +195,13 @@ canvas.lia-canvas-freeze-preview{
   padding: 12px 14px;
   border: 1px solid color-mix(in srgb, var(--canvas-border) 18%, transparent);
   border-radius: 14px;
-  background: color-mix(in srgb, canvas 72%, transparent);
+  background: var(--canvas-panel-bg);
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
   box-shadow: 0 8px 32px rgba(0,0,0,0.18), 0 1.5px 4px rgba(0,0,0,0.08);
   display: none;
   gap: 10px;
+  font-size: 1rem;
 }
 
 .lia-tool-menu[data-open="1"]{
@@ -234,7 +241,7 @@ canvas.lia-canvas-freeze-preview{
 }
 
 .lia-tool-heading{
-  font-size: 0.95rem;
+  font-size: 1.3rem;
   font-weight: 700;
   line-height: 1.1;
   padding-left: 2px;
@@ -297,6 +304,12 @@ canvas.lia-canvas-freeze-preview{
   display: flex;
   align-items: center;
   gap: 10px;
+  font-size: 0.98rem;
+}
+
+.lia-menu-label,
+.lia-menu-value{
+  font-size: 0.98rem;
 }
 
 .lia-preview{
@@ -327,6 +340,7 @@ canvas.lia-canvas-freeze-preview{
 .lia-slider{
   width: 180px;
   accent-color: var(--canvas-accent);
+  font-size: 0.98rem;
 }
 
 .lia-bg-tiles{
@@ -477,17 +491,12 @@ canvas.lia-canvas-freeze-preview{
   margin: 0;
   border: 2px solid var(--canvas-border);
   border-radius: 14px;
-  background: rgba(0,0,0,0.07);
+  background: var(--canvas-overlay-soft);
   backdrop-filter: blur(6px);
   box-sizing: border-box;
   flex: 0 0 100%;
   align-self: stretch;
-}
-
-@media (prefers-color-scheme: dark){
-  .lia-ocrbar{
-    background: rgba(255,255,255,0.08);
-  }
+  font-size: 1.22rem;
 }
 
 .lia-ocr-head{
@@ -499,6 +508,7 @@ canvas.lia-canvas-freeze-preview{
 
 .lia-ocr-title{
   font-weight: 850;
+  font-size: 1.14em;
   letter-spacing: 0.2px;
   line-height: 1;
 }
@@ -551,6 +561,7 @@ canvas.lia-canvas-freeze-preview{
   opacity: 0.75;
   font-weight: 750;
   white-space: nowrap;
+  font-size: 1em;
 }
 
 .lia-ocr-pill .v{
@@ -559,6 +570,7 @@ canvas.lia-canvas-freeze-preview{
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: min(52vw, 520px);
+  font-size: 1.04em;
 }
 
 .lia-ocr-actions{
@@ -574,11 +586,12 @@ canvas.lia-canvas-freeze-preview{
   background: transparent;
   color: var(--canvas-accent);
   border-radius: 999px;
-  padding: 6px 10px;
+  padding: 9px 13px;
   font-weight: 850;
   cursor: pointer;
   user-select: none;
   line-height: 1;
+  font-size: 1em;
 }
 
 .lia-ocr-select{
@@ -619,6 +632,7 @@ canvas.lia-canvas-freeze-preview{
 
 .lia-ocr-progtxt{
   font-weight: 850;
+  font-size: 1em;
   min-width: 44px;
   text-align: right;
 }
@@ -632,7 +646,7 @@ canvas.lia-canvas-freeze-preview{
   border: 2px solid var(--canvas-border);
   background: transparent;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: 0.92em;
+  font-size: 1.02em;
   line-height: 1.25;
   white-space: pre-wrap;
   box-sizing: border-box;
@@ -664,7 +678,7 @@ canvas.lia-canvas-freeze-preview{
   padding: 14px 16px;
   border: 1px solid color-mix(in srgb, var(--canvas-border) 18%, transparent);
   border-radius: 14px;
-  background: color-mix(in srgb, canvas 72%, transparent);
+  background: var(--canvas-panel-bg);
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
   box-shadow: 0 8px 32px rgba(0,0,0,0.18), 0 1.5px 4px rgba(0,0,0,0.08);
@@ -689,13 +703,13 @@ canvas.lia-canvas-freeze-preview{
 }
 
 .lia-ocr-loadmsg .t{
-  font-size: 0.88rem;
+  font-size: 1.6rem;
   font-weight: 600;
   opacity: 0.9;
 }
 
 .lia-ocr-loadmsg .p{
-  font-size: 0.82rem;
+  font-size: 1.42rem;
   font-weight: 700;
   min-width: 3em;
   text-align: right;
@@ -705,7 +719,7 @@ canvas.lia-canvas-freeze-preview{
 .lia-ocr-loaddetail{
   margin-top: 4px;
   opacity: 0.5;
-  font-size: 0.78rem;
+  font-size: 1.3rem;
   font-weight: 500;
 }
 
@@ -747,14 +761,14 @@ canvas.lia-canvas-freeze-preview{
 }
 
 .lia-ocr-loaderror-msg{
-  font-size: 0.85rem;
+  font-size: 1.05rem;
   font-weight: 600;
   color: #c00;
 }
 
 .lia-ocr-retry-btn{
   pointer-events: all;
-  font-size: 0.8rem;
+  font-size: 1rem;
   padding: 4px 10px;
 }
 
@@ -768,17 +782,11 @@ canvas.lia-canvas-freeze-preview{
   padding: 4px 8px;
   border-radius: 999px;
   border: 2px solid var(--canvas-border);
-  background: rgba(0,0,0,0.10);
+  background: var(--canvas-overlay-soft);
   backdrop-filter: blur(6px);
   box-sizing: border-box;
   align-items: center;
   gap: 8px;
-}
-
-@media (prefers-color-scheme: dark){
-  .lia-rect-progress{
-    background: rgba(255,255,255,0.10);
-  }
 }
 
 .lia-rect-progress[data-on="1"]{
@@ -817,7 +825,7 @@ canvas.lia-canvas-freeze-preview{
   max-width: 100%;
   width: fit-content;
   padding: 4px 10px;
-  border: 2px solid var(--canvas-accent);
+  border: 2px solid var(--lia-tex-preview-border, var(--canvas-accent));
   border-radius: 999px;
   background: transparent;
   cursor: text;
@@ -899,6 +907,8 @@ export function applyThemeVars(): void {
         const border = isDark ? '#fff' : '#000';
         root.style.setProperty('--canvas-border', border);
         root.style.setProperty('--canvas-pen', border);
+        root.style.setProperty('--canvas-panel-bg', isDark ? 'rgba(22,22,24,0.84)' : 'rgba(255,255,255,0.84)');
+        root.style.setProperty('--canvas-overlay-soft', isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)');
         const accent = getAccentColor(doc) || getAccentColor(document);
         if (accent) root.style.setProperty('--canvas-accent', accent);
         document.dispatchEvent(new Event('lia-canvas-theme'));

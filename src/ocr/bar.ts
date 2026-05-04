@@ -2,11 +2,19 @@
 
 import { LIA } from '../index';
 import { ensureCss } from '../canvas/theme';
+import { liaT } from '../lia/i18n';
 
 export function ensureOcrBar(): any {
     const SHOW_BAR = (LIA.SHOW_BAR === true);
+    const tt = (key: string, fallback: string) => liaT('ocr.' + key, fallback);
 
     ensureCss();
+
+    // Remove stale i18n listener before re-creating or reusing the bar
+    if (LIA.bar && (LIA.bar as any).__i18nListener) {
+        document.removeEventListener('lia:canvas-i18n-update', (LIA.bar as any).__i18nListener);
+        delete (LIA.bar as any).__i18nListener;
+    }
 
     if (LIA.bar && LIA.bar.el && LIA.bar.el.isConnected) {
         try {
@@ -31,9 +39,9 @@ export function ensureOcrBar(): any {
     loadWrap.className = 'lia-ocr-loadwrap';
     loadWrap.dataset.on = '0';
     loadWrap.dataset.indet = '0';
-    loadWrap.innerHTML = `
+        loadWrap.innerHTML = `
     <div class="lia-ocr-loadmsg">
-      <span class="t">Loading OCR engine…</span>
+            <span class="t">Loading OCR engine...</span>
       <span class="p">…</span>
     </div>
     <div class="lia-ocr-loadtrack"><div class="lia-ocr-loadfill"></div></div>
@@ -150,14 +158,33 @@ export function ensureOcrBar(): any {
     }
 
     function render(): void {
+        const phaseLabel = (p: string): string => {
+            const v = String(p || '').toLowerCase();
+            if (v === 'idle') return tt('phase.idle', 'idle');
+            if (v === 'import') return tt('phase.import', 'import');
+            if (v === 'download') return tt('phase.download', 'download');
+            if (v === 'pipeline') return tt('phase.pipeline', 'pipeline');
+            return p || '—';
+        };
+
+        const statusLabel = (s: string): string => {
+            const v = String(s || '').toLowerCase();
+            if (v === 'idle') return tt('status.idle', 'idle');
+            if (v === 'ready') return tt('status.ready', 'ready');
+            if (v === 'working') return tt('status.working', 'working');
+            if (v === 'loading') return tt('status.loading', 'loading');
+            if (v === 'error') return tt('status.error', 'error');
+            return s || 'idle';
+        };
+
         if (bar) {
             bar.dataset.state = String(state.status || 'idle');
             setText('model', state.model || '—');
             setText('backend', state.backend || '—');
             setText('precision', state.precision || '—');
-            setText('loaded', state.loaded ? 'yes' : 'no');
-            setText('phase', state.phase || '—');
-            setText('status', state.status || 'idle');
+            setText('loaded', state.loaded ? tt('yes', 'yes') : tt('no', 'no'));
+            setText('phase', phaseLabel(state.phase || '—'));
+            setText('status', statusLabel(state.status || 'idle'));
 
             if (prog && fill && ptxt) {
                 if (state.progress === null || state.progress === undefined || !isFinite(state.progress)) {
@@ -183,6 +210,12 @@ export function ensureOcrBar(): any {
         }
 
         if (loadFill && loadTxt && loadPct) {
+            if (loadErrorEl) {
+                const em = loadErrorEl.querySelector('.lia-ocr-loaderror-msg') as HTMLElement | null;
+                if (em) em.textContent = tt('load.failed', 'Loading failed.');
+            }
+            if (retryBtn) retryBtn.textContent = tt('retry', 'Try again');
+
             const status = String(state.status || 'idle');
             const phase = String(state.phase || 'idle');
             const isLoading =
@@ -196,7 +229,7 @@ export function ensureOcrBar(): any {
             if (isError) {
                 loadWrap.dataset.on = '1';
                 loadWrap.dataset.indet = '0';
-                if (loadTxt) loadTxt.textContent = 'Loading failed.';
+                if (loadTxt) loadTxt.textContent = tt('load.failed', 'Loading failed.');
                 if (loadPct) loadPct.textContent = '';
                 if (loadDetail) loadDetail.textContent = '';
                 if (loadFill) loadFill.style.width = '0%';
@@ -204,17 +237,17 @@ export function ensureOcrBar(): any {
                 loadWrap.dataset.on = '1';
 
                 if (phase === 'download') {
-                    loadTxt.textContent = 'Loading OCR engine…';
-                    if (loadDetail) loadDetail.innerHTML = 'This download only happens once and is cached afterwards.';
+                    loadTxt.textContent = tt('load.engine', 'Loading OCR engine...');
+                    if (loadDetail) loadDetail.textContent = tt('load.downloadDetail', 'This download only happens once and is cached afterwards.');
                 } else if (phase === 'import') {
-                    loadTxt.textContent = 'Loading OCR engine… (importing library)';
-                    if (loadDetail) loadDetail.textContent = 'First start may take a moment.';
+                    loadTxt.textContent = tt('load.importing', 'Loading OCR engine... (importing library)');
+                    if (loadDetail) loadDetail.textContent = tt('load.firstStart', 'First start may take a moment.');
                 } else if (phase === 'pipeline') {
-                    loadTxt.textContent = 'Loading OCR engine… (initializing model)';
-                    if (loadDetail) loadDetail.textContent = 'First start may take a moment.';
+                    loadTxt.textContent = tt('load.initializing', 'Loading OCR engine... (initializing model)');
+                    if (loadDetail) loadDetail.textContent = tt('load.firstStart', 'First start may take a moment.');
                 } else {
-                    loadTxt.textContent = 'Loading OCR engine…';
-                    if (loadDetail) loadDetail.textContent = 'First start may take a moment.';
+                    loadTxt.textContent = tt('load.engine', 'Loading OCR engine...');
+                    if (loadDetail) loadDetail.textContent = tt('load.firstStart', 'First start may take a moment.');
                 }
 
                 if (state.progress !== null && state.progress !== undefined && isFinite(state.progress)) {
@@ -265,6 +298,33 @@ export function ensureOcrBar(): any {
     }
 
     if (bar) {
+        const titleEl = bar.querySelector('.lia-ocr-title') as HTMLElement | null;
+        const pills = bar.querySelectorAll('.lia-ocr-pill .k');
+        const btnLoad = bar.querySelector('button[data-act="load"]') as HTMLButtonElement | null;
+        const btnToggle = bar.querySelector('button[data-act="toggle"]') as HTMLButtonElement | null;
+        const btnCopy = bar.querySelector('button[data-act="copy"]') as HTMLButtonElement | null;
+        const modelSel = bar.querySelector('select[data-act="model"]') as HTMLSelectElement | null;
+        const precSel = bar.querySelector('select[data-act="precision"]') as HTMLSelectElement | null;
+
+        const applyStaticTexts = (): void => {
+            if (titleEl) titleEl.textContent = tt('title', 'LaTeX-OCR');
+            if (pills && pills.length >= 6) {
+                (pills[0] as HTMLElement).textContent = tt('pill.model', 'Model');
+                (pills[1] as HTMLElement).textContent = tt('pill.backend', 'Backend');
+                (pills[2] as HTMLElement).textContent = tt('pill.precision', 'Precision');
+                (pills[3] as HTMLElement).textContent = tt('pill.loaded', 'Loaded');
+                (pills[4] as HTMLElement).textContent = tt('pill.phase', 'Phase');
+                (pills[5] as HTMLElement).textContent = tt('pill.status', 'Status');
+            }
+            if (btnLoad) btnLoad.textContent = tt('btn.load', 'Load/Reload');
+            if (btnToggle) btnToggle.textContent = tt('btn.log', 'Log');
+            if (btnCopy) btnCopy.textContent = tt('btn.copy', 'Copy');
+            if (modelSel) modelSel.setAttribute('aria-label', tt('aria.model', 'Model'));
+            if (precSel) precSel.setAttribute('aria-label', tt('aria.precision', 'Precision'));
+        };
+
+        applyStaticTexts();
+
         bar.addEventListener('click', (e: MouseEvent) => {
             const btn = (e.target as Element)?.closest?.('button[data-act]') as HTMLElement | null;
             if (!btn) return;
@@ -277,20 +337,20 @@ export function ensureOcrBar(): any {
 
             if (act === 'copy') {
                 const report = [
-                    'LaTeX-OCR Status Report',
-                    'Model: ' + (state.model || ''),
-                    'Backend: ' + (state.backend || ''),
-                    'Precision: ' + (state.precision || ''),
-                    'Loaded: ' + (state.loaded ? 'yes' : 'no'),
-                    'Phase: ' + (state.phase || ''),
-                    'Status: ' + (state.status || ''),
-                    'Progress: ' + (state.progress === null ? '—' : String(state.progress)),
+                    tt('report.title', 'LaTeX-OCR Status Report'),
+                    tt('pill.model', 'Model') + ': ' + (state.model || ''),
+                    tt('pill.backend', 'Backend') + ': ' + (state.backend || ''),
+                    tt('pill.precision', 'Precision') + ': ' + (state.precision || ''),
+                    tt('pill.loaded', 'Loaded') + ': ' + (state.loaded ? tt('yes', 'yes') : tt('no', 'no')),
+                    tt('pill.phase', 'Phase') + ': ' + (state.phase || ''),
+                    tt('pill.status', 'Status') + ': ' + (state.status || ''),
+                    tt('report.progress', 'Progress') + ': ' + (state.progress === null ? '—' : String(state.progress)),
                     '',
-                    'Log:',
+                    tt('report.log', 'Log') + ':',
                     logEl?.textContent || ''
                 ].join('\n');
-                try { navigator.clipboard.writeText(report); log('Report copied to clipboard.'); }
-                catch (_) { log('Copy failed (clipboard blocked).'); }
+                try { navigator.clipboard.writeText(report); log(tt('log.copied', 'Report copied to clipboard.')); }
+                catch (_) { log(tt('log.copyFailed', 'Copy failed (clipboard blocked).')); }
                 return;
             }
 
@@ -317,6 +377,14 @@ export function ensureOcrBar(): any {
                 if (LIA.ocr && LIA.ocr.setModel) LIA.ocr.setModel(m);
             });
         }
+
+        const onI18nUpdate = (): void => {
+            applyStaticTexts();
+            render();
+        };
+        document.addEventListener('lia:canvas-i18n-update', onI18nUpdate);
+        LIA.bar = LIA.bar || ({} as any);
+        (LIA.bar as any).__i18nListener = onI18nUpdate;
     }
 
     LIA.bar = { el: bar, loadEl: loadWrap, set, log, get: () => ({ ...state }) };
