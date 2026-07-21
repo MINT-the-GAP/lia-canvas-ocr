@@ -1,10 +1,13 @@
 {
   "name": "lia-canvas-ocr",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "LiaScript canvas + LaTeX-OCR widget",
   "scripts": {
-    "build": "parcel build src/index.ts --dist-dir dist --no-scope-hoist",
-    "dev": "parcel watch src/index.ts --dist-dir dist --no-scope-hoist"
+    "build": "parcel build src/index.ts --dist-dir dist --no-scope-hoist --no-source-maps",
+    "dev": "parcel watch src/index.ts --dist-dir dist --no-scope-hoist",
+    "typecheck": "tsc --noEmit",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test test/*.test.mts",
+    "check": "npm run typecheck && npm test && npm run build"
   },
   "browserslist": [
     "> 0.5%",

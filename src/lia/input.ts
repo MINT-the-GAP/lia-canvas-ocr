@@ -2,6 +2,7 @@
 
 import { getRootWindow } from '../index';
 import { liaT } from './i18n';
+import { formatTexForPreview } from './tex-preview';
 
 // ---------------------------------------------------------------------------
 // Quiz state + border helpers
@@ -265,6 +266,7 @@ function __liaRenderTexPreview(target: HTMLElement, tex: string): boolean {
     const src = String(tex || '').trim();
     target.innerHTML = '';
     if (!src) return false;
+    const previewTex = formatTexForPreview(src);
 
     const box = target.closest ? target.closest('.lia-tex-preview') : null;
     const el = box ? (box.previousElementSibling as HTMLElement | null) : null;
@@ -279,7 +281,7 @@ function __liaRenderTexPreview(target: HTMLElement, tex: string): boolean {
 
     try {
         if (KATEX && typeof KATEX.render === 'function') {
-            KATEX.render(src, target, { throwOnError: false, displayMode: false });
+            KATEX.render(previewTex, target, { throwOnError: false, displayMode: false });
             resizeLater();
             return true;
         }
@@ -290,7 +292,7 @@ function __liaRenderTexPreview(target: HTMLElement, tex: string): boolean {
             if (!target || !target.isConnected) return;
             target.innerHTML = '';
             try {
-                katex.render(src, target, { throwOnError: false, displayMode: false });
+                katex.render(previewTex, target, { throwOnError: false, displayMode: false });
             } catch (_) {
                 target.textContent = src;
             }
