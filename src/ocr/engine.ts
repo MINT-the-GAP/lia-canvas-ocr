@@ -52,10 +52,17 @@ async function __ocrGetTransformers(): Promise<any> {
 function __ocrProgressTo01(p: unknown): number | null {
     try {
         if (p === null || p === undefined) return null;
-        if (typeof p === 'number' && isFinite(p)) return Math.max(0, Math.min(1, p));
+        if (typeof p === 'number' && isFinite(p)) {
+            const value = p > 1 ? p / 100 : p;
+            return Math.max(0, Math.min(1, value));
+        }
         const obj = (p && typeof p === 'object') ? p as Record<string, any> : null;
         if (!obj) return null;
-        if (isFinite(obj.progress)) return Math.max(0, Math.min(1, Number(obj.progress)));
+        if (isFinite(obj.progress)) {
+            const raw = Number(obj.progress);
+            const value = raw > 1 ? raw / 100 : raw;
+            return Math.max(0, Math.min(1, value));
+        }
         if (isFinite(obj.loaded) && isFinite(obj.total) && Number(obj.total) > 0) {
             return Math.max(0, Math.min(1, Number(obj.loaded) / Number(obj.total)));
         }
@@ -112,15 +119,25 @@ export function ensureOcrEngine(): any {
             });
             bar.log('Loading model (' + prec + ') …');
 
-            const LOAD_TIMEOUT_MS = 60_000;
-            let timeoutId: ReturnType<typeof setTimeout> | null = null;
-            const timeoutPromise = new Promise<never>((_, reject) => {
-                timeoutId = setTimeout(() => reject(new Error('OCR model load timed out after 60s')), LOAD_TIMEOUT_MS);
+            // Keep a short guard for importing the runtime itself. Model weights
+            // are much larger and must not be aborted by the same fixed timer:
+            // a healthy first download can legitimately take several minutes.
+            const IMPORT_TIMEOUT_MS = 60_000;
+            let importTimeoutId: ReturnType<typeof setTimeout> | null = null;
+            const importTimeoutPromise = new Promise<never>((_, reject) => {
+                importTimeoutId = setTimeout(
+                    () => reject(new Error('OCR runtime import timed out after 60s')),
+                    IMPORT_TIMEOUT_MS
+                );
             });
 
             this.loading = (async () => {
                 try {
-                    const t = await Promise.race([__ocrGetTransformers(), timeoutPromise]);
+                    const t = await Promise.race([__ocrGetTransformers(), importTimeoutPromise]);
+                    if (importTimeoutId !== null) {
+                        clearTimeout(importTimeoutId);
+                        importTimeoutId = null;
+                    }
                     const { pipeline, env } = t;
 
                     try {
@@ -134,16 +151,13 @@ export function ensureOcrEngine(): any {
 
                     bar.set({ phase: 'pipeline' });
 
-                    const pipe = await Promise.race([
-                        pipeline(this.task, this.model, {
-                            dtype,
-                            progress_callback: (p: unknown) => {
-                                const v = __ocrProgressTo01(p);
-                                if (v !== null) bar.set({ progress: v, phase: 'download' });
-                            }
-                        }),
-                        timeoutPromise
-                    ]);
+                    const pipe = await pipeline(this.task, this.model, {
+                        dtype,
+                        progress_callback: (p: unknown) => {
+                            const v = __ocrProgressTo01(p);
+                            if (v !== null) bar.set({ progress: v, phase: 'download' });
+                        }
+                    });
 
                     this.pipe = pipe;
                     bar.set({ status: 'ready', phase: 'ready', loaded: true, progress: null });
@@ -155,7 +169,7 @@ export function ensureOcrEngine(): any {
                     bar.log('Load failed: ' + (err && (err as any).message ? (err as any).message : String(err)));
                     throw err;
                 } finally {
-                    if (timeoutId !== null) clearTimeout(timeoutId);
+                    if (importTimeoutId !== null) clearTimeout(importTimeoutId);
                     this.loading = null;
                 }
             })();
