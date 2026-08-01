@@ -13,7 +13,7 @@ comment:  A LiaScript template that adds a handwriting canvas with LaTeX OCR
           to any answer field. Students draw their solution, select it, and
           the recognized LaTeX is inserted directly into the answer field.
 
-script:   ./dist/index.js
+script:   https://cdn.jsdelivr.net/gh/MINT-the-GAP/lia-canvas-ocr@main/dist/index.js
 
 @canvas: @canvas_(@uid)
 
@@ -128,10 +128,35 @@ The model loads lazily when "Submit as Solution" is used for the first time.
 The established preprocessing and voting path remains active, and a recognized
 result is written directly into the current LiaScript answer field.
 
-When developing locally, `Alt+L` starts the LiaScript development server but
-does not rebuild this template bundle. Run `npm run dev` alongside it (or
-`npm run build` once), then use `Ctrl+F5` in the external preview browser after
-JavaScript changes to reload imported assets.
+For local template development, temporarily change the working copy's header
+to `script: ./dist/index.js`; do not commit that override. `Alt+L` starts the
+LiaScript development server but does not rebuild this template bundle, so run
+`npm run dev` alongside it (or `npm run build` once). Then use `Ctrl+F5` in the
+external preview browser after JavaScript changes to reload the locally served
+asset with the development server's JavaScript MIME type.
+
+### Browser stability regression
+
+Older Chromium versions could enter an endless microtask loop after import:
+the theme `MutationObserver` watched the root `style` attribute while the theme
+sync wrote the same canvas custom properties back to that attribute on every
+callback. The runtime now writes only changed values, disconnects its observer
+during owned writes, coalesces theme refreshes, and starts canvas-specific
+global work only after a `.lia-canvas-pair` is actually rendered.
+
+The browser regression suite serves the local `dist/index.js` through request
+interception as `application/javascript`; it intentionally does not execute a
+Raw GitHub `dist` URL, which is delivered as `text/plain` with `nosniff`.
+
+``` bash
+npm run test:browser:chromium-131
+npm run test:browser:current
+```
+
+The first command requires Chrome/Chromium 131, either through
+`CHROMIUM_131_EXECUTABLE_PATH` or in Puppeteer's standard Chrome-for-Testing
+cache. Install the current Playwright browser matrix once with
+`npx playwright install chromium firefox webkit`.
 
 ## Implementation
 

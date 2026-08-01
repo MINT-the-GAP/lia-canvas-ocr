@@ -31,7 +31,7 @@ type I18nState = {
     lang: string;
     translateQueue: Array<{ cacheKey: string; lang: string; text: string }>;
     translateTimer: ReturnType<typeof setTimeout> | null;
-    langWatchInterval: ReturnType<typeof setInterval> | null;
+    langWatchObserver: MutationObserver | null;
 };
 
 const I18N_STATE: I18nState = (window as any).__LIA_CANVAS_I18N_STATE__ =
@@ -41,7 +41,7 @@ const I18N_STATE: I18nState = (window as any).__LIA_CANVAS_I18N_STATE__ =
         lang: normalizeLang(currentLiaLang()),
         translateQueue: [],
         translateTimer: null,
-        langWatchInterval: null
+        langWatchObserver: null
     };
 
 const BUILTIN_TRANSLATIONS: Record<string, Record<string, string>> = {
@@ -103,19 +103,40 @@ function getBuiltinTranslation(lang: string, key: string): string | null {
     return null;
 }
 
-if (!(window as any).__LIA_CANVAS_I18N_LANG_WATCH__) {
-    (window as any).__LIA_CANVAS_I18N_LANG_WATCH__ = true;
-    I18N_STATE.langWatchInterval = setInterval(() => {
-        const now = normalizeLang(currentLiaLang());
-        if (now === I18N_STATE.lang) return;
+let syncingLanguage = false;
+
+function syncLanguage(): string {
+    const now = normalizeLang(currentLiaLang());
+    if (now === I18N_STATE.lang || syncingLanguage) return now;
+    syncingLanguage = true;
+    try {
         I18N_STATE.lang = now;
-        // Clear translation cache so strings are re-fetched for the new language
+        // Clear translation cache so strings are re-fetched for the new language.
         I18N_STATE.cache = {};
         I18N_STATE.pending = {};
         document.dispatchEvent(new CustomEvent('lia:canvas-i18n-update', {
             detail: { lang: now, reason: 'lang-change' }
         }));
-    }, 2000);
+    } finally {
+        syncingLanguage = false;
+    }
+    return now;
+}
+
+export function ensureI18nLanguageWatch(): void {
+    if (I18N_STATE.langWatchObserver) return;
+    const legacyTimer = (I18N_STATE as any).langWatchInterval;
+    if (legacyTimer) {
+        clearInterval(legacyTimer);
+        (I18N_STATE as any).langWatchInterval = null;
+    }
+    const root = document.documentElement;
+    if (!root) return;
+    I18N_STATE.langWatchObserver = new MutationObserver(() => syncLanguage());
+    I18N_STATE.langWatchObserver.observe(root, {
+        attributes: true,
+        attributeFilter: ['lang']
+    });
 }
 
 async function translateWithMyMemory(toLang: string, text: string): Promise<string | null> {
@@ -206,7 +227,8 @@ function startTranslation(cacheKey: string, lang: string, sourceText: string): v
 }
 
 export function liaLang(): string {
-    return normalizeLang(currentLiaLang());
+    ensureI18nLanguageWatch();
+    return syncLanguage();
 }
 
 export function liaT(key: string, fallbackEn: string): string {

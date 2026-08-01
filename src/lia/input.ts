@@ -29,24 +29,25 @@ function __liaIsUsableCssColor(v: string): boolean {
 
 export function __liaRegisterCanvasTexField(el: HTMLElement): void {
     if (!el) return;
+    ensureTexSyncBoot();
     (el as any).dataset.liaCanvasTex = '1';
-    const list: HTMLElement[] = (window as any).__LIA_CANVAS_TEX_FIELDS__ =
-        (window as any).__LIA_CANVAS_TEX_FIELDS__ || [];
-    if (list.indexOf(el) === -1) list.push(el);
 }
 
 function __liaSyncTexPreviewBorder(el: HTMLElement): void {
     if (!el || !(el as any).__liaTexPreviewBox) return;
     const box = (el as any).__liaTexPreviewBox as HTMLElement;
-    box.style.removeProperty('--lia-tex-preview-border');
-    if (!__liaHasQuizStateColor(el)) return;
     let border = '';
-    try {
-        const cs = getComputedStyle(el);
-        border = cs.borderTopColor || cs.borderColor || cs.outlineColor || '';
-    } catch (_) { }
-    if (!__liaIsUsableCssColor(border)) return;
-    box.style.setProperty('--lia-tex-preview-border', border);
+    if (__liaHasQuizStateColor(el)) {
+        try {
+            const cs = getComputedStyle(el);
+            border = cs.borderTopColor || cs.borderColor || cs.outlineColor || '';
+        } catch (_) { }
+        if (!__liaIsUsableCssColor(border)) border = '';
+    }
+    const current = box.style.getPropertyValue('--lia-tex-preview-border').trim();
+    if (current === border) return;
+    if (border) box.style.setProperty('--lia-tex-preview-border', border);
+    else box.style.removeProperty('--lia-tex-preview-border');
 }
 
 export function __liaRefreshAllTexPreviewBorders(root?: Element | Document): void {
@@ -352,8 +353,17 @@ function __liaEnsureTexPreview(el: HTMLElement): HTMLElement | null {
     (el as any).__liaTexPreviewReady = true;
     __liaRegisterCanvasTexField(el);
     if (!(el as any).__liaTexPreviewBorderObserver) {
-        const mo = new MutationObserver(() => { __liaSyncTexPreviewBorder(el); });
-        mo.observe(el, { attributes: true, attributeFilter: ['class', 'style', 'aria-invalid'] });
+        const mo = new MutationObserver(() => {
+            __liaSyncTexPreviewBorder(el);
+            __liaSyncCanvasTexPreview(el);
+        });
+        mo.observe(el, {
+            attributes: true,
+            attributeFilter: ['class', 'style', 'aria-invalid', 'value'],
+            characterData: true,
+            childList: true,
+            subtree: true
+        });
         (el as any).__liaTexPreviewBorderObserver = mo;
     }
     __liaSyncTexPreviewBorder(el);
@@ -491,6 +501,7 @@ export function __liaFindAndSetInputBeforeNode(refEl: Element, value: string): b
 }
 
 export function __liaInitTexPreviews(): void {
+    ensureTexSyncBoot();
     document.querySelectorAll('.lia-canvas-pair').forEach(pair => {
         const field = __liaFindInputBeforeNode(pair);
         if (field) {
@@ -501,23 +512,12 @@ export function __liaInitTexPreviews(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Polling + refresh bridge boot (runs once per module load)
+// Event-driven refresh bridge boot (starts only when a canvas pair is present)
 // ---------------------------------------------------------------------------
 
-if (!(window as any).__LIA_CANVAS_TEX_SYNC_BOOT__) {
+export function ensureTexSyncBoot(): void {
+    if ((window as any).__LIA_CANVAS_TEX_SYNC_BOOT__) return;
     (window as any).__LIA_CANVAS_TEX_SYNC_BOOT__ = true;
-    setInterval(() => {
-        const list: HTMLElement[] = (window as any).__LIA_CANVAS_TEX_FIELDS__ || [];
-        for (let i = list.length - 1; i >= 0; i--) {
-            const el = list[i];
-            if (!el || !el.isConnected) { list.splice(i, 1); continue; }
-            __liaSyncCanvasTexPreview(el);
-        }
-    }, 250);
-}
-
-if (!(window as any).__LIA_CANVAS_TEX_REFRESH_BRIDGE__) {
-    (window as any).__LIA_CANVAS_TEX_REFRESH_BRIDGE__ = true;
     const onFreezeRefresh = () => {
         __liaScheduleStaggeredRefresh([0, 80, 200]);
     };

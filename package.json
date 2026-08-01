@@ -6,7 +6,14 @@
     "build": "parcel build src/index.ts --dist-dir dist --no-scope-hoist --no-source-maps",
     "dev": "parcel watch src/index.ts --dist-dir dist --no-scope-hoist",
     "typecheck": "tsc --noEmit",
-    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test test/*.test.mts",
+    "test": "npm run test:unit",
+    "test:unit": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test test/*.test.mts",
+    "test:browser": "npm run test:browser:current",
+    "test:browser:current": "npm run build && npm run test:browser:smoke",
+    "test:browser:smoke": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test test/browser/cross-browser.test.mts",
+    "test:browser:chromium-131": "npm run build && npm run test:browser:chromium-131:run",
+    "test:browser:chromium-131:run": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test test/browser/chromium-131.test.mts",
+    "test:browser:full": "npm run build && npm run test:browser:chromium-131:run && npm run test:browser:smoke",
     "check": "npm run typecheck && npm test && npm run build"
   },
   "browserslist": [
@@ -21,6 +28,7 @@
     "@babel/preset-typescript": "^7.24.0",
     "core-js": "3.37",
     "parcel": "^2.16.4",
+    "playwright": "1.62.1",
     "typescript": "^5.4.0"
   }
 }

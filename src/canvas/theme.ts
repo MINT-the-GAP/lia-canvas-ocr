@@ -873,10 +873,11 @@ export function luminance(rgb: [number, number, number]): number {
 export function getAccentColor(doc?: Document): string | null {
     try {
         const d = doc || document;
+        const view = d.defaultView || window;
         const body = d.body || d.documentElement;
         const existing = d.querySelector('.lia-btn');
         if (existing) {
-            const bg = getComputedStyle(existing).backgroundColor;
+            const bg = view.getComputedStyle(existing).backgroundColor;
             if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') return bg;
         }
         const probe = d.createElement('button');
@@ -888,31 +889,61 @@ export function getAccentColor(doc?: Document): string | null {
         probe.style.top = '-9999px';
         probe.style.visibility = 'hidden';
         body.appendChild(probe);
-        const bg = getComputedStyle(probe).backgroundColor;
+        const bg = view.getComputedStyle(probe).backgroundColor;
         probe.remove();
         if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') return bg;
     } catch (e) { }
     return null;
 }
 
-export function applyThemeVars(): void {
-    ensureCss();
+export function getThemeDocument(): Document {
     try {
-        const doc = (window.parent && window.parent.document) ? window.parent.document : document;
+        if (window.parent && window.parent !== window && window.parent.document) {
+            return window.parent.document;
+        }
+    } catch (_) { }
+    return document;
+}
+
+let applyingThemeVars = false;
+
+function setCssVarIfChanged(root: HTMLElement, name: string, value: string): boolean {
+    const next = String(value || '').trim();
+    if (!next) return false;
+    if (root.style.getPropertyValue(name).trim() === next) return false;
+    root.style.setProperty(name, next);
+    return true;
+}
+
+export function applyThemeVars(): boolean {
+    if (applyingThemeVars) return false;
+    applyingThemeVars = true;
+    try {
+        ensureCss();
+        const doc = getThemeDocument();
+        const view = doc.defaultView || window;
         const root = document.documentElement;
-        const bg = getComputedStyle(doc.body || doc.documentElement).backgroundColor
-            || getComputedStyle(doc.documentElement).backgroundColor;
+        const bg = view.getComputedStyle(doc.body || doc.documentElement).backgroundColor
+            || view.getComputedStyle(doc.documentElement).backgroundColor;
         const rgb = parseRgb(bg);
         const isDark = rgb ? (luminance(rgb) < 0.5) : false;
         const border = isDark ? '#fff' : '#000';
-        root.style.setProperty('--canvas-border', border);
-        root.style.setProperty('--canvas-pen', border);
-        root.style.setProperty('--canvas-panel-bg', isDark ? 'rgba(22,22,24,0.84)' : 'rgba(255,255,255,0.84)');
-        root.style.setProperty('--canvas-overlay-soft', isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)');
+        let changed = false;
+        changed = setCssVarIfChanged(root, '--canvas-border', border) || changed;
+        changed = setCssVarIfChanged(root, '--canvas-pen', border) || changed;
+        changed = setCssVarIfChanged(root, '--canvas-panel-bg',
+            isDark ? 'rgba(22,22,24,0.84)' : 'rgba(255,255,255,0.84)') || changed;
+        changed = setCssVarIfChanged(root, '--canvas-overlay-soft',
+            isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)') || changed;
         const accent = getAccentColor(doc) || getAccentColor(document);
-        if (accent) root.style.setProperty('--canvas-accent', accent);
-        document.dispatchEvent(new Event('lia-canvas-theme'));
-    } catch (e) { }
+        if (accent) changed = setCssVarIfChanged(root, '--canvas-accent', accent) || changed;
+        if (changed) document.dispatchEvent(new Event('lia-canvas-theme'));
+        return changed;
+    } catch (_) {
+        return false;
+    } finally {
+        applyingThemeVars = false;
+    }
 }
 
 export const COLORS: Array<{ key: string; value: string | null }> = [

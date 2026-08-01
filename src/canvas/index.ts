@@ -31,16 +31,21 @@ const STROKE_CAPTURE_MAX_INTERP_POINTS = 12;  // maximum interpolated points per
 // Pen-touch guard (cross-canvas, prevents accidental touch when stylus is active)
 // ---------------------------------------------------------------------------
 
-const PEN_TOUCH_GUARD: { activePenPointers: Set<number> } =
-    (window as any).__LIA_CANVAS_PEN_TOUCH_GUARD__ =
-    (window as any).__LIA_CANVAS_PEN_TOUCH_GUARD__ || { activePenPointers: new Set<number>() };
+type PenTouchGuard = { activePenPointers: Set<number> };
 
-if (!(window as any).__LIA_CANVAS_GLOBAL_TOUCH_SUPPRESSOR__) {
+function getPenTouchGuard(): PenTouchGuard {
+    return (window as any).__LIA_CANVAS_PEN_TOUCH_GUARD__ =
+        (window as any).__LIA_CANVAS_PEN_TOUCH_GUARD__ || { activePenPointers: new Set<number>() };
+}
+
+function ensureGlobalTouchSuppressor(): PenTouchGuard {
+    const guard = getPenTouchGuard();
+    if ((window as any).__LIA_CANVAS_GLOBAL_TOUCH_SUPPRESSOR__) return guard;
     (window as any).__LIA_CANVAS_GLOBAL_TOUCH_SUPPRESSOR__ = true;
     const suppressTouchIfPenActive = (evt: Event): void => {
         const isPointerEvent = String(evt.type || '').indexOf('pointer') === 0;
         if (isPointerEvent && String((evt as PointerEvent).pointerType || '') !== 'touch') return;
-        if (!PEN_TOUCH_GUARD.activePenPointers.size) return;
+        if (!guard.activePenPointers.size) return;
         if (evt.cancelable) evt.preventDefault();
         evt.stopPropagation();
     };
@@ -51,12 +56,13 @@ if (!(window as any).__LIA_CANVAS_GLOBAL_TOUCH_SUPPRESSOR__) {
     const __penCleanup = (e: Event): void => {
         const pe = e as PointerEvent;
         if (String(pe.pointerType || '').toLowerCase() === 'pen') {
-            PEN_TOUCH_GUARD.activePenPointers.delete(pe.pointerId);
+            guard.activePenPointers.delete(pe.pointerId);
         }
     };
     document.addEventListener('pointerup', __penCleanup, { capture: true });
     document.addEventListener('pointercancel', __penCleanup, { capture: true });
     document.addEventListener('pointerleave', __penCleanup, { capture: true });
+    return guard;
 }
 
 // ---------------------------------------------------------------------------
@@ -90,6 +96,8 @@ export function canvasMarkup(): string {
 function setupCanvas(canvas: HTMLCanvasElement): void {
     const wrap = canvas.closest('.lia-draw-wrap') as HTMLElement | null;
     if (!wrap) return;
+    const penTouchGuard = ensureGlobalTouchSuppressor();
+    const canvasPenPointers = new Set<number>();
     const trOcr = (key: string, fallback: string) => liaT('ocr.' + key, fallback);
     const trCanvas = (key: string, fallback: string) => liaT('canvas.' + key, fallback);
 
@@ -629,6 +637,8 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     // Rect progress
     let __rectProgRAF = 0;
     let __rectProgStart = 0;
+    let __rectProgHideTimer = 0;
+    const RECT_PROGRESS_ANIMATION_MAX_MS = 8000;
 
     function __rectProgSet01(v: number): void {
         if (!rectProg || !rectProgFill || !rectProgTxt) return;
@@ -639,19 +649,33 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     function __rectProgShow(): void { if (!rectProg) return; rectProg.dataset.on = '1'; __rectProgSet01(0); scheduleRectActionUpdate(); }
     function __rectProgHide(): void { if (!rectProg) return; rectProg.dataset.on = '0'; __rectProgSet01(0); }
     function __rectProgStartPseudo(): void {
+        if (__rectProgRAF) cancelAnimationFrame(__rectProgRAF);
+        if (__rectProgHideTimer) clearTimeout(__rectProgHideTimer);
+        __rectProgRAF = 0;
+        __rectProgHideTimer = 0;
         __rectProgShow(); __rectProgStart = performance.now();
         const tick = () => {
             const t = performance.now() - __rectProgStart; let v = 0;
             if (t < 900) v = (t / 900) * 0.70;
             else if (t < 2200) v = 0.70 + ((t - 900) / 1300) * 0.20;
             else v = 0.90 + Math.min(0.08, ((t - 2200) / 5000) * 0.08);
-            __rectProgSet01(v); __rectProgRAF = requestAnimationFrame(tick);
+            __rectProgSet01(v);
+            if (!__ocrBusy || !wrap!.isConnected || t >= RECT_PROGRESS_ANIMATION_MAX_MS) {
+                __rectProgRAF = 0;
+                return;
+            }
+            __rectProgRAF = requestAnimationFrame(tick);
         };
         __rectProgRAF = requestAnimationFrame(tick);
     }
     function __rectProgStop(final01: number): void {
         if (__rectProgRAF) { cancelAnimationFrame(__rectProgRAF); __rectProgRAF = 0; }
-        __rectProgSet01(final01); setTimeout(() => __rectProgHide(), 250);
+        if (__rectProgHideTimer) clearTimeout(__rectProgHideTimer);
+        __rectProgSet01(final01);
+        __rectProgHideTimer = setTimeout(() => {
+            __rectProgHideTimer = 0;
+            __rectProgHide();
+        }, 250) as unknown as number;
     }
 
     async function __ocrFromMarkedRect({ auto = false } = {}): Promise<void> {
@@ -1109,6 +1133,9 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         hideEraserRing();
         const dpr = window.devicePixelRatio || 1, cssW = canvas.clientWidth, cssH = canvas.clientHeight;
         const pxW = Math.max(1, Math.round(cssW * dpr)), pxH = Math.max(1, Math.round(cssH * dpr));
+        if (canvas.width === pxW && canvas.height === pxH
+            && hiLayer.width === pxW && hiLayer.height === pxH
+            && strokeLayer.width === pxW && strokeLayer.height === pxH) return;
         canvas.width = pxW; canvas.height = pxH;
         hiLayer.width = pxW; hiLayer.height = pxH;
         strokeLayer.width = pxW; strokeLayer.height = pxH;
@@ -1166,22 +1193,42 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     window.addEventListener('keydown', onWinKeydown);
     window.addEventListener('keyup', onWinKeyup);
 
+    let cleanedUp = false;
+    let teardownObs: MutationObserver | null = null;
     function cleanup(): void {
+        if (cleanedUp) return;
+        cleanedUp = true;
         ro.disconnect();
+        if (__rectProgRAF) { cancelAnimationFrame(__rectProgRAF); __rectProgRAF = 0; }
+        if (__rectBtnRAF) { cancelAnimationFrame(__rectBtnRAF); __rectBtnRAF = 0; }
+        if (__rectProgHideTimer) { clearTimeout(__rectProgHideTimer); __rectProgHideTimer = 0; }
+        if (__liaCanvasFreezeNotifyTimer) {
+            clearTimeout(__liaCanvasFreezeNotifyTimer);
+            __liaCanvasFreezeNotifyTimer = 0;
+        }
+        for (const pointerId of canvasPenPointers) {
+            penTouchGuard.activePenPointers.delete(pointerId);
+        }
+        canvasPenPointers.clear();
+        pointers.clear();
         document.removeEventListener('lia:canvas-i18n-update', onI18nUpdate as EventListener);
         document.removeEventListener('lia-canvas-theme', onTheme);
         document.removeEventListener('click', onDocClick);
         document.removeEventListener('keydown', onDocKeydown);
         window.removeEventListener('keydown', onWinKeydown);
         window.removeEventListener('keyup', onWinKeyup);
-        teardownObs.disconnect();
+        if (teardownObs) {
+            teardownObs.disconnect();
+            teardownObs = null;
+        }
     }
 
-    const teardownObs = new MutationObserver(() => {
+    const pair = wrap.closest('.lia-canvas-pair');
+    const teardownRoot = pair?.parentElement || wrap.parentElement || document.body;
+    teardownObs = new MutationObserver(() => {
         if (!wrap.isConnected) cleanup();
     });
-    const teardownRoot = wrap.parentElement || document.body;
-    teardownObs.observe(teardownRoot, { childList: true, subtree: true });
+    teardownObs.observe(teardownRoot, { childList: true });
 
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
@@ -1208,9 +1255,10 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
 
     canvas.addEventListener('pointerdown', (e) => {
         if (String(e.pointerType || '').toLowerCase() === 'pen') {
-            PEN_TOUCH_GUARD.activePenPointers.add(e.pointerId);
+            canvasPenPointers.add(e.pointerId);
+            penTouchGuard.activePenPointers.add(e.pointerId);
         }
-        if (String(e.pointerType || '').toLowerCase() === 'touch' && PEN_TOUCH_GUARD.activePenPointers.size > 0) {
+        if (String(e.pointerType || '').toLowerCase() === 'touch' && penTouchGuard.activePenPointers.size > 0) {
             if (e.cancelable) e.preventDefault();
             e.stopPropagation();
             return;
@@ -1234,12 +1282,14 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     canvas.addEventListener('pointermove', (e) => {
         if (String(e.pointerType || '').toLowerCase() === 'pen') {
             if ((e.pressure > 0) || (e.buttons !== 0)) {
-                PEN_TOUCH_GUARD.activePenPointers.add(e.pointerId);
+                canvasPenPointers.add(e.pointerId);
+                penTouchGuard.activePenPointers.add(e.pointerId);
             } else {
-                PEN_TOUCH_GUARD.activePenPointers.delete(e.pointerId);
+                canvasPenPointers.delete(e.pointerId);
+                penTouchGuard.activePenPointers.delete(e.pointerId);
             }
         }
-        if (String(e.pointerType || '').toLowerCase() === 'touch' && PEN_TOUCH_GUARD.activePenPointers.size > 0) {
+        if (String(e.pointerType || '').toLowerCase() === 'touch' && penTouchGuard.activePenPointers.size > 0) {
             if (pointers.has(e.pointerId)) pointers.delete(e.pointerId);
             if (e.cancelable) e.preventDefault();
             e.stopPropagation();
@@ -1276,7 +1326,8 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
 
     function stopPointer(e: PointerEvent): void {
         if (String(e.pointerType || '').toLowerCase() === 'pen') {
-            PEN_TOUCH_GUARD.activePenPointers.delete(e.pointerId);
+            canvasPenPointers.delete(e.pointerId);
+            penTouchGuard.activePenPointers.delete(e.pointerId);
         }
         hideEraserRing(); if (pointers.has(e.pointerId)) pointers.delete(e.pointerId);
         try { canvas.releasePointerCapture(e.pointerId); } catch (_) { }
@@ -1289,7 +1340,8 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     canvas.addEventListener('pointercancel', stopPointer);
     canvas.addEventListener('pointerleave', (e: PointerEvent) => {
         if (String(e.pointerType || '').toLowerCase() === 'pen') {
-            PEN_TOUCH_GUARD.activePenPointers.delete(e.pointerId);
+            canvasPenPointers.delete(e.pointerId);
+            penTouchGuard.activePenPointers.delete(e.pointerId);
         }
         hideEraserRing();
         if (mode === 'draw') endStroke();

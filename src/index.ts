@@ -38,9 +38,17 @@ export const LIA: any = (window as any).__LIA_CANVAS_OCR__ = (window as any).__L
 
 import { ensureOcrBar } from './ocr/bar';
 import { ensureOcrEngine } from './ocr/engine';
-import { applyThemeVars, getAccentColor } from './canvas/theme';
+import { applyThemeVars, getThemeDocument } from './canvas/theme';
 import { ensureCanvasFreezeApi } from './canvas/freeze';
 import { initAll, canvasMarkup } from './canvas/index';
+
+const CANVAS_PAIR_SELECTOR = '.lia-canvas-pair';
+const THEME_ATTRIBUTES = ['class', 'style', 'data-theme', 'data-color-scheme'];
+
+let discoveryObserver: MutationObserver | null = null;
+let themeObserver: MutationObserver | null = null;
+let themeSyncFrame = 0;
+let themeSyncRunning = false;
 
 // ---------------------------------------------------------------------------
 // Single registry — guards against double-init across iframes
@@ -61,76 +69,152 @@ if (!ROOT[REGKEY].inited[DOC_ID]) {
 // ---------------------------------------------------------------------------
 
 function boot(): void {
-  // ---- OCR bar ----
+  if (document.querySelector(CANVAS_PAIR_SELECTOR)) {
+    startCanvasRuntime();
+    return;
+  }
+
+  if (LIA.discoveryBoot) return;
+  LIA.discoveryBoot = true;
+
+  const root = document.body || document.documentElement;
+  discoveryObserver = new MutationObserver((records) => {
+    for (const record of records) {
+      for (const node of Array.from(record.addedNodes)) {
+        if (nodeContainsCanvasPair(node)) {
+          startCanvasRuntime();
+          return;
+        }
+      }
+    }
+  });
+  discoveryObserver.observe(root, { childList: true, subtree: true });
+  LIA.discoveryObserver = discoveryObserver;
+
+  // Close the query/observe race without polling.
+  if (document.querySelector(CANVAS_PAIR_SELECTOR)) startCanvasRuntime();
+}
+
+function nodeContainsCanvasPair(node: Node): boolean {
+  if (node.nodeType !== Node.ELEMENT_NODE) return false;
+  const el = node as Element;
+  return el.matches(CANVAS_PAIR_SELECTOR) || !!el.querySelector(CANVAS_PAIR_SELECTOR);
+}
+
+function startCanvasRuntime(): void {
+  if (LIA.canvasBoot) return;
+  LIA.canvasBoot = true;
+  LIA.uidSeq = LIA.uidSeq || 0;
+
+  if (discoveryObserver) {
+    discoveryObserver.disconnect();
+    discoveryObserver = null;
+  }
+  if (LIA.discoveryObserver) {
+    try { LIA.discoveryObserver.disconnect(); } catch (_) { }
+    LIA.discoveryObserver = null;
+  }
+
   if (!LIA.barBoot) {
     LIA.barBoot = true;
     ensureOcrBar();
-
-    const syncAccent = () => {
-      try {
-        const acc = getAccentColor(document);
-        if (acc) document.documentElement.style.setProperty('--canvas-accent', acc);
-      } catch (_) { }
-    };
-    syncAccent();
-    setTimeout(syncAccent, 0);
   }
 
-  // ---- Theme vars ----
-  applyThemeVars();
-  new MutationObserver(() => applyThemeVars())
-    .observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style'] });
-  window.addEventListener('resize', () => applyThemeVars());
+  installThemeSync();
+  ensureOcrEngine();
+  ensureCanvasFreezeApi();
+  initAll();
+  bindLauncher();
+}
 
-  // ---- Canvas + OCR engine ----
-  if (!LIA.canvasBoot) {
-    LIA.canvasBoot = true;
-    LIA.uidSeq = LIA.uidSeq || 0;
+function observeThemeSources(): void {
+  if (!themeObserver) return;
+  const sourceDoc = getThemeDocument();
+  const options: MutationObserverInit = {
+    attributes: true,
+    attributeFilter: THEME_ATTRIBUTES,
+  };
+  const targets = [sourceDoc.documentElement, sourceDoc.body].filter(
+    (target, index, all): target is HTMLElement => !!target && all.indexOf(target) === index
+  );
+  for (const target of targets) {
+    try { themeObserver.observe(target, options); } catch (_) { }
+  }
+}
 
-    ensureOcrEngine();
-    ensureCanvasFreezeApi();
+function runThemeSync(): void {
+  if (themeSyncRunning) return;
+  themeSyncRunning = true;
+  if (themeObserver) themeObserver.disconnect();
+  try {
+    applyThemeVars();
+  } finally {
+    if (themeObserver) themeObserver.takeRecords();
+    observeThemeSources();
+    themeSyncRunning = false;
+  }
+}
 
-    initAll();
+function queueThemeSync(): void {
+  if (themeSyncFrame) return;
+  themeSyncFrame = requestAnimationFrame(() => {
+    themeSyncFrame = 0;
+    runThemeSync();
+  });
+}
 
-    // Launcher click handler
-    if (!LIA.launcherBound) {
-      LIA.launcherBound = true;
+function installThemeSync(): void {
+  if (LIA.themeBoot) return;
+  LIA.themeBoot = true;
+  themeObserver = new MutationObserver(() => queueThemeSync());
+  LIA.themeObserver = themeObserver;
+  runThemeSync();
 
-      document.addEventListener('click', (e: MouseEvent) => {
-        const btn = (e.target as Element)?.closest?.('.lia-canvas-launch') as HTMLElement | null;
-        if (!btn) return;
+  try {
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    if (typeof media.addEventListener === 'function') media.addEventListener('change', queueThemeSync);
+    else if (typeof media.addListener === 'function') media.addListener(queueThemeSync);
+  } catch (_) { }
+  window.addEventListener('resize', queueThemeSync, { passive: true });
+}
 
-        const pair = btn.closest('.lia-canvas-pair') as HTMLElement | null;
-        if (!pair) return;
+function bindLauncher(): void {
+  if (LIA.launcherBound) return;
+  LIA.launcherBound = true;
 
-        const mount = pair.querySelector('.lia-canvas-mount') as HTMLElement | null;
-        if (!mount) return;
+  document.addEventListener('click', (e: MouseEvent) => {
+    const btn = (e.target as Element)?.closest?.('.lia-canvas-launch') as HTMLElement | null;
+    if (!btn) return;
 
-        if (!mount.dataset.uid) {
-          LIA.uidSeq = (LIA.uidSeq || 0) + 1;
-          mount.dataset.uid = 'c' + LIA.uidSeq;
-        }
+    const pair = btn.closest('.lia-canvas-pair') as HTMLElement | null;
+    if (!pair) return;
 
-        try {
-          const parent = mount.parentElement;
-          if (parent) {
-            const cs = getComputedStyle(parent);
-            if (String(cs.display).includes('flex') && String(cs.flexWrap) === 'nowrap') {
-              parent.style.flexWrap = 'wrap';
-            }
-          }
-        } catch (_) { }
+    const mount = pair.querySelector('.lia-canvas-mount') as HTMLElement | null;
+    if (!mount) return;
 
-        if (mount.dataset.open !== '1') {
-          mount.dataset.open = '1';
-          if (!mount.querySelector('.lia-draw-wrap')) {
-            mount.innerHTML = canvasMarkup();
-            initAll();
-          }
-        } else {
-          mount.dataset.open = '0';
-        }
-      }, true);
+    if (!mount.dataset.uid) {
+      LIA.uidSeq = (LIA.uidSeq || 0) + 1;
+      mount.dataset.uid = 'c' + LIA.uidSeq;
     }
-  }
+
+    try {
+      const parent = mount.parentElement;
+      if (parent) {
+        const cs = getComputedStyle(parent);
+        if (String(cs.display).includes('flex') && String(cs.flexWrap) === 'nowrap') {
+          parent.style.flexWrap = 'wrap';
+        }
+      }
+    } catch (_) { }
+
+    if (mount.dataset.open !== '1') {
+      mount.dataset.open = '1';
+      if (!mount.querySelector('.lia-draw-wrap')) {
+        mount.innerHTML = canvasMarkup();
+        initAll();
+      }
+    } else {
+      mount.dataset.open = '0';
+    }
+  }, true);
 }
