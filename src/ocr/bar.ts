@@ -62,7 +62,8 @@ export function ensureOcrBar(): any {
 
     if (retryBtn) {
         retryBtn.addEventListener('click', () => {
-            if (LIA.ocr && LIA.ocr.ensureLoaded) LIA.ocr.ensureLoaded(true);
+            const engine = LIA.activeOcrLoadEngine || LIA.ocr;
+            if (engine && engine.ensureLoaded) engine.ensureLoaded(true);
         });
     }
 

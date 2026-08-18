@@ -70,6 +70,7 @@ function __liaSyncCanvasTexPreview(el: HTMLElement): void {
     if (math) __liaRenderTexPreview(math, value);
     if (focused) {
         box.dataset.on = '0';
+        box.dataset.multiline = '0';
         box.style.display = 'none';
         el.style.display = '';
         __liaAutoSizeTexWidgets(el);
@@ -146,6 +147,28 @@ export function __liaReadFieldValue(el: Element | null): string {
     return '';
 }
 
+function __liaIsSerializedCalculationPreview(
+    source: string,
+    previewTex: string
+): boolean {
+    const value = String(source || '').trim();
+    return (
+        value.startsWith('[') &&
+        previewTex.startsWith('\\begin{aligned}') &&
+        previewTex.endsWith('\\end{aligned}')
+    ) || (
+        value.startsWith('{') && (
+            (
+                previewTex.startsWith('\\begin{array}') &&
+                previewTex.endsWith('\\end{array}')
+            ) || (
+                previewTex.startsWith('\\begin{aligned}') &&
+                previewTex.endsWith('\\end{aligned}')
+            )
+        )
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Auto-size TeX widget
 // ---------------------------------------------------------------------------
@@ -156,20 +179,39 @@ export function __liaAutoSizeTexWidgets(el: Element): void {
     const box = (el as any).__liaTexPreviewBox as HTMLElement | null || null;
     const math = box ? box.querySelector('.lia-tex-preview-math') as HTMLElement | null : null;
 
-    function getAvailableWidth(node: Element | null): number {
+    function getIntrinsicContentWidth(node: HTMLElement): number {
         try {
-            const parent = (node && (node as HTMLElement).parentElement) ? (node as HTMLElement).parentElement : null;
-            if (!parent) return 900;
-            const pr = parent.getBoundingClientRect();
-            if (!pr || !pr.width) return 900;
-            return Math.max(80, Math.floor(pr.width - 8));
+            // KaTeX's visible HTML tree keeps its natural inline width even
+            // when the scroll container below is stretched to `width: 100%`.
+            // Measuring that tree avoids feeding yesterday's assigned widget
+            // width back into the next autosize pass.
+            const rendered = node.querySelector('.katex-html, .katex') as HTMLElement | null;
+            const renderedWidth = rendered?.getBoundingClientRect().width || 0;
+            if (renderedWidth > 0) return renderedWidth;
         } catch (_) { }
-        return 900;
+        try {
+            // The synchronous browser-test renderer and the text fallback do
+            // not create KaTeX children. A DOM Range measures their glyphs,
+            // not the allocated width of the 100%-wide container.
+            if (node.childNodes.length && document.createRange) {
+                const range = document.createRange();
+                range.selectNodeContents(node);
+                const width = range.getBoundingClientRect().width || 0;
+                try { range.detach(); } catch (_) { }
+                if (width > 0) return width;
+            }
+        } catch (_) { }
+        try {
+            return node.getBoundingClientRect().width || 0;
+        } catch (_) { }
+        return 0;
     }
 
     function applyWidth(px: number): void {
-        const avail = getAvailableWidth(box || el as HTMLElement);
-        const w = Math.max(80, Math.min(Math.ceil(px), avail));
+        // Keep the intrinsic target as the inline width. `max-width: 100%`
+        // performs the responsive clamp without destroying that target, so a
+        // widget shrunk by a narrow parent expands correctly when space returns.
+        const w = Math.max(80, Math.ceil(px));
         try {
             (el as HTMLElement).style.width = w + 'px';
             (el as HTMLElement).style.maxWidth = '100%';
@@ -194,10 +236,12 @@ export function __liaAutoSizeTexWidgets(el: Element): void {
         try {
             let wanted = 140;
             if (box && math && box.dataset.on === '1') {
-                const inner = math.scrollWidth || math.getBoundingClientRect().width || 0;
+                const inner = getIntrinsicContentWidth(math);
                 const hint = box.querySelector('.lia-tex-preview-hint') as HTMLElement | null;
                 const hintW = hint ? (hint.getBoundingClientRect().width || 0) : 0;
-                wanted = inner + hintW + 32;
+                wanted = box.dataset.multiline === '1'
+                    ? Math.max(inner, hintW) + 24
+                    : inner + hintW + 32;
             } else {
                 const raw = __liaReadFieldValue(el as Element);
                 wanted = Math.max(140, raw.length * 0.62 * 16 + 28);
@@ -263,13 +307,20 @@ function __liaEnsureKatex(): Promise<any> {
 // TeX preview rendering
 // ---------------------------------------------------------------------------
 
-function __liaRenderTexPreview(target: HTMLElement, tex: string): boolean {
+export function __liaRenderTexPreview(target: HTMLElement, tex: string): boolean {
     const src = String(tex || '').trim();
     target.innerHTML = '';
-    if (!src) return false;
-    const previewTex = formatTexForPreview(src);
-
     const box = target.closest ? target.closest('.lia-tex-preview') : null;
+    if (!src) {
+        if (box instanceof HTMLElement) box.dataset.multiline = '0';
+        return false;
+    }
+    const previewTex = formatTexForPreview(src);
+    if (box instanceof HTMLElement) {
+        box.dataset.multiline = __liaIsSerializedCalculationPreview(src, previewTex)
+            ? '1'
+            : '0';
+    }
     const el = box ? (box.previousElementSibling as HTMLElement | null) : null;
 
     const ROOT_WIN = getRootWindow() as any;
@@ -310,6 +361,16 @@ function __liaRenderTexPreview(target: HTMLElement, tex: string): boolean {
     return false;
 }
 
+function __liaSyncMultilinePreviewPair(el: HTMLElement, multiline: boolean): void {
+    try {
+        document.querySelectorAll('.lia-canvas-pair').forEach(pair => {
+            if (__liaFindInputBeforeNode(pair) !== el) return;
+            if (multiline) pair.setAttribute('data-lia-preview-multiline', '1');
+            else pair.removeAttribute('data-lia-preview-multiline');
+        });
+    } catch (_) { }
+}
+
 function __liaShowTexEditor(el: HTMLElement): void {
     if (!el || !(el as any).__liaTexPreviewBox) return;
     const body = document.body;
@@ -319,8 +380,10 @@ function __liaShowTexEditor(el: HTMLElement): void {
     }
     const box = (el as any).__liaTexPreviewBox as HTMLElement;
     box.dataset.on = '0';
+    box.dataset.multiline = '0';
     box.style.display = 'none';
     el.style.display = '';
+    __liaSyncMultilinePreviewPair(el, false);
     __liaAutoSizeTexWidgets(el);
     try { el.focus(); if (typeof (el as any).select === 'function') (el as any).select(); } catch (_) { }
 }
@@ -333,8 +396,10 @@ function __liaShowTexPreview(el: HTMLElement): void {
 
     if (!value) {
         box.dataset.on = '0';
+        box.dataset.multiline = '0';
         box.style.display = 'none';
         el.style.display = '';
+        __liaSyncMultilinePreviewPair(el, false);
         return;
     }
 
@@ -342,8 +407,9 @@ function __liaShowTexPreview(el: HTMLElement): void {
     if (math) __liaRenderTexPreview(math, value);
 
     box.dataset.on = '1';
-    box.style.display = 'inline-flex';
+    box.style.display = box.dataset.multiline === '1' ? 'inline-grid' : 'inline-flex';
     el.style.display = 'none';
+    __liaSyncMultilinePreviewPair(el, box.dataset.multiline === '1');
     __liaAutoSizeTexWidgets(el);
 }
 
@@ -372,6 +438,7 @@ function __liaEnsureTexPreview(el: HTMLElement): HTMLElement | null {
         const editLabel = liaT('canvas.edit', 'Edit');
     box.className = 'lia-tex-preview';
     box.dataset.on = '0';
+    box.dataset.multiline = '0';
     box.innerHTML = `
     <span class="lia-tex-preview-math"></span>
         <span class="lia-tex-preview-hint">${editLabel}</span>
@@ -494,6 +561,10 @@ function __liaRefreshTexPreviewNear(refEl: Element): void {
 export function __liaFindAndSetInputBeforeNode(refEl: Element, value: string): boolean {
     const el = __liaFindInputBeforeNode(refEl);
     if (!el) return false;
+    if (__liaReadFieldValue(el) === String(value)) {
+        __liaRefreshTexPreviewNear(refEl);
+        return true;
+    }
     const ok = __liaApplyValue(el, value);
     if (!ok) return false;
     __liaRefreshTexPreviewNear(refEl);

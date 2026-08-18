@@ -14,8 +14,17 @@ export const LIASCRIPT_STABLE_URL =
 export const SYNTHETIC_ORIGIN = 'https://lia-canvas-ocr.invalid';
 export const NO_CANVAS_COURSE_URL = `${SYNTHETIC_ORIGIN}/courses/chromium-131-repro.md`;
 export const CANVAS_COURSE_URL = `${SYNTHETIC_ORIGIN}/courses/canvas-interactions.md`;
+export const CANVAS_MIXED_COURSE_URL = `${SYNTHETIC_ORIGIN}/courses/canvas-mixed-interactions.md`;
+export const CALCULATION_QUIZ_COURSE_URL = `${SYNTHETIC_ORIGIN}/courses/calculation-quiz.md`;
+export const COLUMN_ADDITION_COURSE_URL = `${SYNTHETIC_ORIGIN}/courses/column-addition.md`;
+export const WRITTEN_ARITHMETIC_COURSE_URL =
+  `${SYNTHETIC_ORIGIN}/courses/written-arithmetic.md`;
 export const TEMPLATE_URL = `${SYNTHETIC_ORIGIN}/template.md`;
 export const BUNDLE_URL = `${SYNTHETIC_ORIGIN}/dist/index.js`;
+export const ALGEBRITE_TEMPLATE_URL =
+  'https://cdn.jsdelivr.net/gh/LiaTemplates/algebrite@0.6.3/README.md';
+export const ALGEBRITE_BUNDLE_URL =
+  'https://cdn.jsdelivr.net/gh/LiaTemplates/algebrite@0.6.3/dist/index.js';
 
 const DEFAULT_WINDOWS_CHROMIUM_131 =
   'C:\\Users\\MaSaLo\\.cache\\puppeteer\\chrome\\win64-131.0.6778.204\\chrome-win64\\chrome.exe';
@@ -28,8 +37,16 @@ export const CHROMIUM_131_EXECUTABLE_PATH =
 const FIXTURE_URLS = {
   [NO_CANVAS_COURSE_URL]: new URL('../fixtures/chromium-131-repro.md', import.meta.url),
   [CANVAS_COURSE_URL]: new URL('../fixtures/canvas-interactions.md', import.meta.url),
+  [CANVAS_MIXED_COURSE_URL]: new URL('../fixtures/canvas-mixed-interactions.md', import.meta.url),
+  [CALCULATION_QUIZ_COURSE_URL]: new URL('../fixtures/calculation-quiz.md', import.meta.url),
+  [COLUMN_ADDITION_COURSE_URL]: new URL('../fixtures/column-addition.md', import.meta.url),
+  [WRITTEN_ARITHMETIC_COURSE_URL]: new URL(
+    '../fixtures/written-arithmetic.md',
+    import.meta.url,
+  ),
   [TEMPLATE_URL]: new URL('../fixtures/lia-canvas-ocr-local.md', import.meta.url),
   [BUNDLE_URL]: new URL('../../dist/index.js', import.meta.url),
+  [ALGEBRITE_TEMPLATE_URL]: new URL('../fixtures/algebrite-local.md', import.meta.url),
 } as const;
 
 export type Diagnostics = {
@@ -56,6 +73,7 @@ export type BrowserHarness = {
   pageErrors: string[];
   requestFailures: string[];
   modelRequests: string[];
+  chunkRequests: string[];
   routeHits: Record<string, number>;
   bundleContentType: () => string;
 };
@@ -215,9 +233,23 @@ function installBrowserDiagnostics(context: BrowserContext): Promise<void> {
 }
 
 export async function createHarness(
-  browser: Browser,
-  options: { hasTouch?: boolean } = {},
+  browser: Browser | null,
+  options: {
+    hasTouch?: boolean;
+    withAlgebrite?: boolean;
+    context?: BrowserContext;
+  } = {},
 ): Promise<BrowserHarness> {
+  const withAlgebrite = options.withAlgebrite !== false;
+  const algebriteBrowserIife = withAlgebrite
+    ? await readFile(
+        new URL(
+          '../../node_modules/algebrite/dist/algebrite.bundle-for-browser.js',
+          import.meta.url,
+        ),
+        'utf8',
+      )
+    : '';
   const fixtureEntries = await Promise.all(
     Object.entries(FIXTURE_URLS).map(async ([url, file]) => [
       url,
@@ -225,20 +257,66 @@ export async function createHarness(
     ] as const),
   );
   const fixtures = Object.fromEntries(fixtureEntries);
+  if (!withAlgebrite) {
+    fixtures[ALGEBRITE_TEMPLATE_URL] = '<!--\nversion: 0.6.3\n-->';
+  }
   const routeHits: Record<string, number> = {};
   const consoleErrors: string[] = [];
   const pageErrors: string[] = [];
   const requestFailures: string[] = [];
   const modelRequests: string[] = [];
+  const chunkRequests: string[] = [];
   let bundleMime = '';
 
-  const context = await browser.newContext({
-    colorScheme: 'light',
-    hasTouch: options.hasTouch ?? false,
-    serviceWorkers: 'block',
-    viewport: { width: 1280, height: 900 },
-  });
+  const context = options.context ?? await browser!.newContext({
+      colorScheme: 'light',
+      hasTouch: options.hasTouch ?? false,
+      serviceWorkers: 'block',
+      viewport: { width: 1280, height: 900 },
+    });
   await installBrowserDiagnostics(context);
+
+  if (withAlgebrite) {
+    await context.route(ALGEBRITE_BUNDLE_URL, route => {
+      routeHits[ALGEBRITE_BUNDLE_URL] = (routeHits[ALGEBRITE_BUNDLE_URL] ?? 0) + 1;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/javascript; charset=utf-8',
+        headers: {
+          'access-control-allow-origin': '*',
+          'cache-control': 'no-store',
+          'x-content-type-options': 'nosniff',
+        },
+        body: algebriteBrowserIife,
+      });
+    });
+  }
+
+  await context.route(SYNTHETIC_ORIGIN + '/dist/*.js', async route => {
+    const requestedUrl = route.request().url();
+    if (requestedUrl === BUNDLE_URL) return route.fallback();
+    const fileName = new URL(requestedUrl).pathname.split('/').pop() || '';
+    if (!/^[A-Za-z0-9._-]+\.js$/u.test(fileName)) return route.abort();
+    try {
+      const body = await readFile(
+        new URL('../../dist/' + fileName, import.meta.url),
+        'utf8',
+      );
+      routeHits[requestedUrl] = (routeHits[requestedUrl] ?? 0) + 1;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/javascript; charset=utf-8',
+        headers: {
+          'access-control-allow-origin': '*',
+          'cache-control': 'no-store',
+          'x-content-type-options': 'nosniff',
+        },
+        body,
+      });
+    } catch {
+      return route.abort();
+    }
+  });
 
   for (const [url, body] of Object.entries(fixtures)) {
     await context.route(url, route => {
@@ -267,6 +345,10 @@ export async function createHarness(
     pageErrors.push(error.stack ?? error.message);
   });
   page.on('request', request => {
+    if (request.url().startsWith(SYNTHETIC_ORIGIN + '/dist/') &&
+        request.url() !== BUNDLE_URL) {
+      chunkRequests.push(request.url());
+    }
     if (/transformers|huggingface|onnx|texify2/i.test(request.url())) {
       modelRequests.push(request.url());
     }
@@ -291,6 +373,7 @@ export async function createHarness(
     pageErrors,
     requestFailures,
     modelRequests,
+    chunkRequests,
     routeHits,
     bundleContentType: () => bundleMime,
   };
@@ -363,9 +446,38 @@ export function resetIdleDiagnostics(page: Page): Promise<void> {
   );
 }
 
-export function assertSyntheticDelivery(harness: BrowserHarness, courseUrl: string): void {
+export function assertSyntheticDelivery(
+  harness: BrowserHarness,
+  courseUrl: string,
+  templateUrl = TEMPLATE_URL,
+  expectAlgebrite: boolean | 'missing' = false,
+): void {
   assert.ok(harness.routeHits[courseUrl] >= 1, 'synthetic course was not requested');
-  assert.ok(harness.routeHits[TEMPLATE_URL] >= 1, 'synthetic template was not requested');
+  assert.ok(harness.routeHits[templateUrl] >= 1, 'synthetic template was not requested');
+  if (expectAlgebrite === true || expectAlgebrite === 'missing') {
+    assert.ok(
+      harness.routeHits[ALGEBRITE_TEMPLATE_URL] >= 1,
+      'the direct Algebrite template import was not requested',
+    );
+  } else {
+    assert.equal(
+      harness.routeHits[ALGEBRITE_TEMPLATE_URL] ?? 0,
+      0,
+      'a Canvas-only course must not load the Algebrite template',
+    );
+  }
+  if (expectAlgebrite === true) {
+    assert.ok(
+      harness.routeHits[ALGEBRITE_BUNDLE_URL] >= 1,
+      'the imported Algebrite browser bundle was not requested',
+    );
+  } else {
+    assert.equal(
+      harness.routeHits[ALGEBRITE_BUNDLE_URL] ?? 0,
+      0,
+      'the missing-CAS fixture must not load an Algebrite browser bundle',
+    );
+  }
   assert.ok(harness.routeHits[BUNDLE_URL] >= 1, 'synthetic bundle was not requested');
   assert.match(
     harness.bundleContentType(),

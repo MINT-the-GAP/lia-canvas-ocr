@@ -81,6 +81,7 @@ export function ensureOcrEngine(): any {
         precision: bar.get().precision || 'fp32',
         pipe: null as any,
         loading: null as Promise<any> | null,
+        loadGeneration: 0,
 
         async setModel(m: string): Promise<any> {
             const next = String(m || this.model || 'Xenova/texify2');
@@ -105,6 +106,9 @@ export function ensureOcrEngine(): any {
             if (this.loading) return this.loading;
 
             const prec = this.precision || 'fp32';
+            const model = String(this.model || 'Xenova/texify2');
+            const task = String(this.task || 'image-to-text');
+            const generation = ++this.loadGeneration;
             const dtypeMap: Record<string, string> = { fp32: 'fp32', fp16: 'fp16', int8: 'q8' };
             const dtype = dtypeMap[prec] || 'fp32';
 
@@ -149,28 +153,40 @@ export function ensureOcrEngine(): any {
                         env.backends.onnx.wasm = env.backends.onnx.wasm || {};
                     } catch (_) { }
 
-                    bar.set({ phase: 'pipeline' });
+                    if (generation === this.loadGeneration) {
+                        bar.set({ phase: 'pipeline' });
+                    }
 
-                    const pipe = await pipeline(this.task, this.model, {
+                    const pipe = await pipeline(task, model, {
                         dtype,
                         progress_callback: (p: unknown) => {
+                            if (generation !== this.loadGeneration) return;
                             const v = __ocrProgressTo01(p);
                             if (v !== null) bar.set({ progress: v, phase: 'download' });
                         }
                     });
 
+                    if (generation !== this.loadGeneration ||
+                        model !== String(this.model || '') ||
+                        prec !== String(this.precision || 'fp32')) {
+                        const stale = new Error('Discarded stale OCR model load.');
+                        (stale as any).__liaOcrLoadStale = true;
+                        throw stale;
+                    }
                     this.pipe = pipe;
                     bar.set({ status: 'ready', phase: 'ready', loaded: true, progress: null });
                     bar.log('Model loaded (' + prec + ').');
                     return pipe;
 
                 } catch (err) {
-                    bar.set({ status: 'error', phase: 'error', loaded: false, progress: null });
-                    bar.log('Load failed: ' + (err && (err as any).message ? (err as any).message : String(err)));
+                    if (generation === this.loadGeneration) {
+                        bar.set({ status: 'error', phase: 'error', loaded: false, progress: null });
+                        bar.log('Load failed: ' + (err && (err as any).message ? (err as any).message : String(err)));
+                    }
                     throw err;
                 } finally {
                     if (importTimeoutId !== null) clearTimeout(importTimeoutId);
-                    this.loading = null;
+                    if (generation === this.loadGeneration) this.loading = null;
                 }
             })();
 
@@ -232,14 +248,14 @@ export function ensureOcrEngine(): any {
                 }
 
                 if (x && typeof x === 'object') {
-                    if (typeof (x as any).toDataURL === 'function') {
-                        const url = (x as any).toDataURL('image/png');
-                        return { input: url, revoke: null };
-                    }
                     if (typeof (x as any).toBlob === 'function' || typeof (x as any).convertToBlob === 'function') {
                         const blob = await toBlobFromCanvasLike(x);
                         const url2 = URL.createObjectURL(blob);
                         return { input: url2, revoke: () => URL.revokeObjectURL(url2) };
+                    }
+                    if (typeof (x as any).toDataURL === 'function') {
+                        const url = (x as any).toDataURL('image/png');
+                        return { input: url, revoke: null };
                     }
                 }
 
