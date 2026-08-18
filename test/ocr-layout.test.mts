@@ -1082,6 +1082,57 @@ test('keeps every confirmed literal bar but no hooked or unknown stem', () => {
     );
 });
 
+test('rejects the real-formula slash geometry as a structural bar', () => {
+    const columns = new Array<number>(90).fill(0);
+    for (let x = 36; x <= 53; x++) columns[x] = 3;
+    const slash = {
+        x0: 36,
+        y0: 1,
+        x1: 53,
+        y1: 43,
+        hasTopHook: false,
+        slantRatio: 0.64 * 0.62
+    };
+    assert.deepEqual(
+        selectOcrStructuralBars(
+            [slash],
+            { x0: 4, y0: 0, x1: 84, y1: 44 },
+            columns
+        ),
+        []
+    );
+});
+
+test('retains vertical and moderately slanted confirmed structural bars', () => {
+    const columns = new Array<number>(120).fill(0);
+    for (let x = 12; x <= 14; x++) columns[x] = 43;
+    for (let x = 64; x <= 76; x++) columns[x] = 4;
+    const vertical = {
+        x0: 12,
+        y0: 1,
+        x1: 14,
+        y1: 43,
+        hasTopHook: false,
+        slantRatio: 0
+    };
+    const slanted = {
+        x0: 64,
+        y0: 1,
+        x1: 76,
+        y1: 43,
+        hasTopHook: false,
+        slantRatio: 16 / 60
+    };
+    assert.deepEqual(
+        selectOcrStructuralBars(
+            [vertical, slanted],
+            { x0: 4, y0: 0, x1: 110, y1: 44 },
+            columns
+        ),
+        [vertical, slanted]
+    );
+});
+
 test('keeps only complete nested vector-delimiter sequences on one line', () => {
     const columns = new Array<number>(130).fill(0);
     const hints = [

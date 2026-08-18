@@ -239,6 +239,9 @@ optionally limits recognition to a marked area; closing the rectangle restores
 the whole drawing as the render scope. A dedicated **Submit to render** button
 recognizes the selected handwriting, or all handwriting when no selection is
 present, and displays the rendered TeX directly below the canvas.
+While recognition is running, the submit button reports that state. If
+recognition fails, the exact error remains visible below the canvas and the
+button changes to **Try again** instead of failing silently.
 The rendered result is line-based. **Edit recognition** opens an inline TeX
 editor with one equation per line; applying a correction re-renders and
 re-checks the block without invoking OCR again. Consecutive rows are connected
@@ -369,10 +372,12 @@ npm run test:browser:real
 ```
 
 `test:browser:real` is the opt-in real-model check. It downloads/caches
-FormulaNet, draws the three-line path `3x-5=7 | +5`, `3x=12 | :3`, `x=4`, and
-requires both detected transitions to validate. It is intentionally excluded
-from the normal smoke suite because model download and inference are dependent
-on the machine and network.
+FormulaNet and verifies two complete scenarios: the three-line path
+`8x-7=11 | +7`, `8x=18 | :8`, `x=9/4`, including both transitions, and the
+documented written addition `4728+3596=8324`, including all three carries, its
+calculation rule, the pair-specific answer field, and the native LiaScript
+check. It is intentionally excluded from the normal smoke suite because model
+download and inference are dependent on the machine and network.
 
 The first command requires Chrome/Chromium 131, either through
 `CHROMIUM_131_EXECUTABLE_PATH` or in Puppeteer's standard Chrome-for-Testing

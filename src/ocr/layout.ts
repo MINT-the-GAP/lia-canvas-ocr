@@ -15,6 +15,8 @@ export type OcrVerticalStrokeHint = {
     x1: number;
     y1: number;
     hasTopHook?: boolean;
+    /** Absolute endpoint slope |dx| / |dy| before stroke-width padding. */
+    slantRatio?: number;
 };
 
 export type OcrOperationSeparator = {
@@ -694,6 +696,11 @@ export function selectOcrStructuralBars(
         // false is written only for a positively classified hookless bar.
         // Missing information must never be upgraded to structural evidence.
         if (hint.hasTopHook !== false) continue;
+        const slantRatio = Number(hint.slantRatio);
+        // A slash can be tall enough to pass the general vertical-stem
+        // classifier. Literal bars may lean slightly, but a stronger diagonal
+        // must remain available to FormulaNet as fraction/division ink.
+        if (Number.isFinite(slantRatio) && slantRatio > 1 / 3) continue;
         const x0 = Math.max(lineBox.x0, Math.floor(Math.min(hint.x0, hint.x1)));
         const x1 = Math.min(lineBox.x1, Math.ceil(Math.max(hint.x0, hint.x1)));
         const y0 = Math.max(lineBox.y0, Math.floor(Math.min(hint.y0, hint.y1)));

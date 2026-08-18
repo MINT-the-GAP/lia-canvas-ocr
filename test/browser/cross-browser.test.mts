@@ -13,6 +13,7 @@ import {
   CALCULATION_QUIZ_COURSE_URL,
   CANVAS_COURSE_URL,
   CANVAS_MIXED_COURSE_URL,
+  MULTI_INSTANCE_COURSE_URL,
   NO_CANVAS_COURSE_URL,
   assertNoRuntimeErrors,
   assertSyntheticDelivery,
@@ -791,6 +792,235 @@ for (const project of projects) {
         );
         assert.deepEqual(harness.modelRequests, []);
         assert.deepEqual(harness.chunkRequests, []);
+        assertNoRuntimeErrors(harness, diagnostics);
+      } finally {
+        await harness.context.close();
+        await browser.close();
+      }
+    },
+  );
+
+  test(
+    `current ${project.name} smoke: multiple canvases bind to their own quiz fields`,
+    { timeout: 90_000 },
+    async t => {
+      if (!requestedProjects.has(project.name)) {
+        t.skip(`excluded by LIA_BROWSER_PROJECTS=${[...requestedProjects].join(',')}`);
+        return;
+      }
+
+      const browser = await project.browserType.launch({ headless: true });
+      const harness = await createHarness(browser);
+      try {
+        await openCourse(
+          harness,
+          MULTI_INSTANCE_COURSE_URL,
+          '.lia-canvas-pair .lia-canvas-launch',
+        );
+        const page = harness.page;
+        const classicPairs = page.locator(
+          '.lia-canvas-pair:not([data-canvas-mode=plus])',
+        );
+        const calculationPairs = page.locator(
+          '.lia-canvas-pair[data-canvas-mode=plus][data-canvas-output=answer]',
+        );
+        assert.equal(await classicPairs.count(), 2);
+        assert.equal(await calculationPairs.count(), 2);
+        assert.equal(await page.locator('.lia-quiz__input').count(), 4);
+
+        await page.evaluate(() => {
+          (window as any).__liaMultiClassicValue = '11';
+          (window as any).__liaMultiCalculationResponses = ['x+1=2', 'x=1'];
+          const classicOcr = {
+            model: 'multi-instance-classic-stub',
+            precision: 'fp32',
+            task: 'image-to-text',
+            ensureLoaded: async () => true,
+            recognize: async () => (window as any).__liaMultiClassicValue,
+          };
+          const calculationOcr = {
+            model: 'multi-instance-calculation-stub',
+            precision: 'fp32',
+            task: 'image-to-text',
+            cacheKey: 'multi-instance-calculation-v1',
+            outputKind: 'latex',
+            inputProfile: 'formulanet-line-384',
+            calculationSinglePass: true,
+            ensureLoaded: async () => true,
+            recognize: async () => {
+              const response = (window as any).__liaMultiCalculationResponses.shift();
+              if (typeof response !== 'string') {
+                throw new Error('Missing multi-instance calculation response');
+              }
+              return response;
+            },
+          };
+          window.__LIA_CANVAS_OCR__.ocr = classicOcr;
+          window.__LIA_CANVAS_OCR__.canvasPlusOcr = calculationOcr;
+        });
+
+        const fieldValues = () => page.locator('.lia-quiz__input').evaluateAll(
+          fields => fields.map(field => (field as HTMLInputElement).value),
+        );
+        const submitClassic = async (index: number, value: string) => {
+          await page.evaluate(next => {
+            (window as any).__liaMultiClassicValue = next;
+          }, value);
+          const pair = classicPairs.nth(index);
+          await pair.scrollIntoViewIfNeeded();
+          await pair.locator('.lia-canvas-launch:visible').click();
+          const canvas = pair.locator('canvas.lia-draw:visible');
+          await canvas.waitFor({ state: 'visible', timeout: 10_000 });
+          await canvas.scrollIntoViewIfNeeded();
+          const box = await canvas.boundingBox();
+          assert.ok(box, `classic canvas ${index} has no bounding box`);
+          await drawMouseStroke(
+            page,
+            box.x + box.width * 0.42,
+            box.y + box.height * 0.38,
+            box.x + box.width * 0.58,
+            box.y + box.height * 0.58,
+          );
+          await pair.locator('.lia-rect-btn:visible').click();
+          await canvas.scrollIntoViewIfNeeded();
+          const selectionBox = await canvas.boundingBox();
+          assert.ok(selectionBox, `classic selection surface ${index} is unavailable`);
+          await drawMouseStroke(
+            page,
+            selectionBox.x + selectionBox.width * 0.25,
+            selectionBox.y + selectionBox.height * 0.20,
+            selectionBox.x + selectionBox.width * 0.75,
+            selectionBox.y + selectionBox.height * 0.78,
+          );
+          await pair.locator('.lia-rect-action:visible').click();
+          await page.waitForFunction(
+            ({ fieldIndex, expected }) =>
+              (document.querySelectorAll('.lia-quiz__input')[fieldIndex] as
+                HTMLInputElement | undefined)?.value === expected,
+            { fieldIndex: index, expected: value },
+            { timeout: 10_000 },
+          );
+        };
+        const submitCalculation = async (index: number, values: string[]) => {
+          await page.evaluate(next => {
+            (window as any).__liaMultiCalculationResponses = [...next];
+          }, values);
+          const pair = calculationPairs.nth(index);
+          await pair.scrollIntoViewIfNeeded();
+          await pair.locator('.lia-canvas-launch:visible').click();
+          const canvas = pair.locator('canvas.lia-draw:visible');
+          await canvas.waitFor({ state: 'visible', timeout: 10_000 });
+          await canvas.scrollIntoViewIfNeeded();
+          const box = await canvas.boundingBox();
+          assert.ok(box, `calculation canvas ${index} has no bounding box`);
+          await drawMouseStroke(
+            page,
+            box.x + box.width * 0.38,
+            box.y + box.height * 0.18,
+            box.x + box.width * 0.56,
+            box.y + box.height * 0.34,
+          );
+          await drawMouseStroke(
+            page,
+            box.x + box.width * 0.56,
+            box.y + box.height * 0.18,
+            box.x + box.width * 0.38,
+            box.y + box.height * 0.34,
+          );
+          await drawMouseStroke(
+            page,
+            box.x + box.width * 0.38,
+            box.y + box.height * 0.62,
+            box.x + box.width * 0.56,
+            box.y + box.height * 0.78,
+          );
+          await drawMouseStroke(
+            page,
+            box.x + box.width * 0.56,
+            box.y + box.height * 0.62,
+            box.x + box.width * 0.38,
+            box.y + box.height * 0.78,
+          );
+          await pair.locator('.lia-canvasplus-submit:visible').click();
+          const expected = JSON.stringify(values);
+          await page.waitForFunction(
+            ({ fieldIndex, expectedValue }) =>
+              (document.querySelectorAll('.lia-quiz__input')[fieldIndex] as
+                HTMLInputElement | undefined)?.value === expectedValue,
+            { fieldIndex: index + 2, expectedValue: expected },
+            { timeout: 10_000 },
+          );
+        };
+
+        await submitClassic(0, '11');
+        assert.deepEqual(await fieldValues(), ['11', '', '', '']);
+        await submitClassic(1, '22');
+        assert.deepEqual(await fieldValues(), ['11', '22', '', '']);
+        await submitCalculation(0, ['x+1=2', 'x=1']);
+        assert.deepEqual(
+          await fieldValues(),
+          ['11', '22', JSON.stringify(['x+1=2', 'x=1']), ''],
+        );
+        await submitCalculation(1, ['x+2=4', 'x=2']);
+        assert.deepEqual(
+          await fieldValues(),
+          [
+            '11',
+            '22',
+            JSON.stringify(['x+1=2', 'x=1']),
+            JSON.stringify(['x+2=4', 'x=2']),
+          ],
+        );
+
+        const solvedQuizStates = () => page.locator('.lia-quiz__input').evaluateAll(
+          fields => fields.map(field =>
+            Boolean(field.closest('.lia-quiz')?.classList.contains('solved')),
+          ),
+        );
+        const checkQuiz = async (index: number) => {
+          await page.evaluate(fieldIndex => {
+            document.querySelectorAll('[data-multi-instance-check]').forEach(
+              node => node.removeAttribute('data-multi-instance-check'),
+            );
+            const field = document.querySelectorAll('.lia-quiz__input')[fieldIndex];
+            const quiz = field?.closest('.lia-quiz');
+            const button = Array.from(
+              quiz?.querySelectorAll<HTMLButtonElement>('button.lia-quiz__check') || [],
+            ).at(-1);
+            if (!button || button.disabled) {
+              throw new Error('Native Check button is unavailable for quiz ' + fieldIndex);
+            }
+            button.setAttribute('data-multi-instance-check', '1');
+          }, index);
+          await page.locator('[data-multi-instance-check]').click();
+          await page.waitForFunction(fieldIndex => {
+            const field = document.querySelectorAll('.lia-quiz__input')[fieldIndex];
+            const quiz = field?.closest('.lia-quiz');
+            return Boolean(
+              quiz?.classList.contains('solved') &&
+              quiz.querySelector('.lia-quiz__feedback.text-success'),
+            );
+          }, index, { timeout: 10_000 });
+        };
+
+        assert.deepEqual(await solvedQuizStates(), [false, false, false, false]);
+        await checkQuiz(0);
+        assert.deepEqual(await solvedQuizStates(), [true, false, false, false]);
+        await checkQuiz(2);
+        assert.deepEqual(await solvedQuizStates(), [true, false, true, false]);
+        await checkQuiz(1);
+        assert.deepEqual(await solvedQuizStates(), [true, true, true, false]);
+        await checkQuiz(3);
+        assert.deepEqual(await solvedQuizStates(), [true, true, true, true]);
+
+        const diagnostics = await snapshotDiagnostics(page);
+        assertSyntheticDelivery(
+          harness,
+          MULTI_INSTANCE_COURSE_URL,
+          undefined,
+          true,
+        );
+        assert.deepEqual(harness.modelRequests, []);
         assertNoRuntimeErrors(harness, diagnostics);
       } finally {
         await harness.context.close();
@@ -3166,10 +3396,76 @@ for (const project of projects) {
             })),
             { ensureLoadedCalls: 1, recognizeCalls: 0 },
           );
-          assert.ok(
-            (await plusPair.locator('.lia-canvasplus-standalone-status[role=alert]').innerText()).trim(),
-            'calculation OCR errors must expose an accessible message',
+          const visibleError = plusPair.locator(
+            '.lia-canvasplus-standalone-status[role=alert]',
           );
+          assert.equal(
+            await visibleError.isVisible(),
+            true,
+            'calculation OCR errors must be visible without opening developer tools',
+          );
+          assert.match(
+            (await visibleError.innerText()).trim(),
+            /synthetic model load failure/i,
+            'the visible error must include the actionable failure reason',
+          );
+          assert.match(await plusSubmit.innerText(), /try again/i);
+          assert.equal(
+            await plusPair.getAttribute('data-ocr-error'),
+            'synthetic model load failure',
+          );
+
+          await page.evaluate(() => {
+            window.__LIA_CANVAS_OCR__.canvasPlusOcr = {
+              model: 'missing-recognize-method',
+            };
+          });
+          await plusSubmit.click();
+          await page.waitForFunction(
+            selector => /OCR.*engine|OCR-Engine/i.test(
+              String(
+                (document.querySelector(selector) as HTMLElement | null)
+                  ?.dataset.ocrError || '',
+              ),
+            ),
+            plusPairSelector,
+            { timeout: 10_000 },
+          );
+          const missingEngineError = String(
+            await plusPair.getAttribute('data-ocr-error') || '',
+          );
+          assert.match(missingEngineError, /OCR.*engine|OCR-Engine/i);
+          assert.doesNotMatch(missingEngineError, /synthetic model load failure/i);
+          assert.match(
+            (await visibleError.innerText()).trim(),
+            /OCR.*engine|OCR-Engine/i,
+          );
+
+          await page.evaluate(() => {
+            const retryOcr = {
+              model: 'calculation-retry-model',
+              precision: 'fp32',
+              task: 'image-to-text',
+              cacheKey: 'calculation-retry-v1',
+              outputKind: 'latex',
+              inputProfile: 'formulanet-line-384',
+              calculationSinglePass: true,
+              ensureLoaded: async () => true,
+              recognize: async () => '3x^{2}-7=9',
+            };
+            window.__LIA_CANVAS_OCR__.ocr = retryOcr;
+            window.__LIA_CANVAS_OCR__.canvasPlusOcr = retryOcr;
+          });
+          await plusSubmit.click();
+          await page.waitForFunction(
+            selector =>
+              document.querySelector(selector + ' .lia-canvasplus-output')
+                ?.getAttribute('data-state') === 'ready',
+            plusPairSelector,
+            { timeout: 10_000 },
+          );
+          assert.equal(await plusPair.getAttribute('data-ocr-error'), null);
+          assert.match(await plusSubmit.innerText(), /submit to render/i);
 
           const removedListeners = await navigateToSecondPageAndCaptureCleanup(page);
           assert.ok(

@@ -330,7 +330,7 @@ function liveAnswerPairForJob(job: NativeResolveJob): HTMLElement | null {
     return null;
 }
 
-function applyNativeResolveSubmission(
+function applyNativeQuizSubmission(
     field: HTMLElement,
     submission: string
 ): boolean {
@@ -345,6 +345,14 @@ function applyNativeResolveSubmission(
     return applied;
 }
 
+function applyNativeQuizSubmissionForPair(
+    pair: HTMLElement,
+    submission: string
+): boolean {
+    const field = findNativeQuizFieldBeforePair(pair);
+    return field ? applyNativeQuizSubmission(field, submission) : false;
+}
+
 function retryNativeResolveJob(job: NativeResolveJob): void {
     if (job.cancelled || nativeResolveJobs.get(job.pair) !== job) return;
     if (performance.now() >= job.deadline) {
@@ -356,7 +364,7 @@ function retryNativeResolveJob(job: NativeResolveJob): void {
             const quiz = pair ? findNativeQuizAfterPair(pair) : null;
             const field = pair ? findNativeQuizFieldBeforePair(pair) : null;
             if (quiz?.classList.contains('resolved') && field) {
-                applyNativeResolveSubmission(field, job.submission);
+                applyNativeQuizSubmission(field, job.submission);
             }
         }
         finishNativeResolveJob(job);
@@ -418,7 +426,7 @@ function runNativeResolveJob(job: NativeResolveJob): void {
                 job.deadline,
                 now + NATIVE_RESOLVE_POST_APPLY_SETTLE_MS + 500
             );
-            applyNativeResolveSubmission(field, writtenSubmission);
+            applyNativeQuizSubmission(field, writtenSubmission);
             retryNativeResolveJob(job);
             return;
         }
@@ -440,7 +448,7 @@ function runNativeResolveJob(job: NativeResolveJob): void {
             job.deadline,
             now + NATIVE_RESOLVE_POST_APPLY_SETTLE_MS + 500
         );
-        applyNativeResolveSubmission(field, submission);
+        applyNativeQuizSubmission(field, submission);
         retryNativeResolveJob(job);
         return;
     }
@@ -448,7 +456,7 @@ function runNativeResolveJob(job: NativeResolveJob): void {
     if (__liaReadFieldValue(field) !== job.submission) {
         // A late native render restored the authored equation. Reapply only on
         // an observed overwrite and restart the finite quiet-period clock.
-        applyNativeResolveSubmission(field, job.submission);
+        applyNativeQuizSubmission(field, job.submission);
         job.stableSince = now;
     } else if (now - job.stableSince >= NATIVE_RESOLVE_POST_APPLY_SETTLE_MS) {
         finishNativeResolveJob(job);
@@ -858,8 +866,13 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             trCanvas('resizeBottomRight', 'Resize drawing area from the bottom right')
         );
         if (!__ocrBusy) rectActionBtn.textContent = trOcr('selectSubmit', 'Submit as Solution');
-        if (plusSubmitBtn && !__ocrBusy) {
-            plusSubmitBtn.textContent = trOcr('plus.renderBlock', 'Submit to render');
+        if (plusSubmitBtn) {
+            const state = String(plusStatus?.dataset.state || 'empty');
+            plusSubmitBtn.textContent = state === 'running'
+                ? trOcr('plus.rendering', 'Recognizing calculation block...')
+                : state === 'error' || state === 'error-stale'
+                    ? trOcr('retry', 'Try again')
+                    : trOcr('plus.renderBlock', 'Submit to render');
         }
         if (plusStatus) {
             const state = String(plusStatus.dataset.state || 'empty');
@@ -886,12 +899,19 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             } else if (state === 'running') {
                 plusStatus.textContent = trOcr('plus.rendering', 'Recognizing calculation block...');
             } else if (state === 'error') {
-                plusStatus.textContent = trOcr('plus.renderError', 'The calculation block could not be rendered.');
+                const message = trOcr(
+                    'plus.renderError',
+                    'The calculation block could not be rendered.'
+                );
+                const detail = String(canvasPair?.dataset.ocrError || '').trim();
+                plusStatus.textContent = detail ? message + ' ' + detail : message;
             } else if (state === 'error-stale') {
-                plusStatus.textContent = trOcr(
+                const message = trOcr(
                     'plus.renderErrorKeep',
                     'New recognition failed; the previous result remains visible.'
                 );
+                const detail = String(canvasPair?.dataset.ocrError || '').trim();
+                plusStatus.textContent = detail ? message + ' ' + detail : message;
             }
         }
         if (plusResult) {
@@ -2878,7 +2898,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         // An empty serialized value signals an oversized submission. Keep
         // the last native quiz value instead of silently clearing it.
         const applied = value && canvasPair
-            ? __liaFindAndSetInputBeforeNode(canvasPair, value)
+            ? applyNativeQuizSubmissionForPair(canvasPair, value)
             : false;
         canvasPair?.dispatchEvent(new CustomEvent('lia:canvasplus-answer', {
             bubbles: true,
@@ -2957,7 +2977,8 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
 
     function __plusClearStandaloneResult(): void {
         if (canvasPair) {
-            __liaFindAndSetInputBeforeNode(canvasPair, '');
+            delete canvasPair.dataset.ocrError;
+            applyNativeQuizSubmissionForPair(canvasPair, '');
         }
         __plusRenderedRevision = -1;
         __plusRenderedModelKey = '';
@@ -3383,6 +3404,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             x1: number;
             y1: number;
             hasTopHook: boolean;
+            slantRatio: number;
         }> = [];
         for (let itemIndex = 0; itemIndex < hintPathItems.length; itemIndex++) {
             const item = hintPathItems[itemIndex];
@@ -3460,7 +3482,8 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
                 y0: Math.max(0, y0),
                 x1: Math.min(outputWidth - 1, x1),
                 y1: Math.min(outputHeight - 1, y1),
-                hasTopHook: false
+                hasTopHook: false,
+                slantRatio: Math.abs(dx) / Math.max(Math.abs(dy), 1e-6)
             });
         }
         (output as any).__liaOcrVerticalStrokes = verticalStrokeHints;
@@ -3472,12 +3495,20 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     async function __plusRenderWholeBlock(): Promise<void> {
         if (!isCanvasPlus || __ocrBusy || cleanedUp || !wrap!.isConnected ||
             __plusIsFrozenView()) return;
+        if (canvasPair) delete canvasPair.dataset.ocrError;
+        LIA.lastCanvasPlusError = '';
         if (!__plusHasVisibleInkItems() || __plusRasterIsEmpty()) {
             __plusClearStandaloneResult();
             return;
         }
         const engine = __plusGetOcrEngine();
         if (!engine || !engine.recognize) {
+            const errorMessage = trOcr(
+                'plus.engineUnavailable',
+                'The calculation OCR engine is unavailable.'
+            );
+            if (canvasPair) canvasPair.dataset.ocrError = errorMessage;
+            LIA.lastCanvasPlusError = errorMessage;
             __plusSetStandaloneState('error');
             return;
         }

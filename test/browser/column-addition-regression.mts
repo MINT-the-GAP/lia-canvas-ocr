@@ -78,6 +78,13 @@ function digitStrokes(
       ]];
     case '7':
       return [[p(0, 0), p(1, 0), p(0.28, 1)]];
+    case '8':
+      return [[
+        p(0.50, 0.50), p(0.19, 0.35), p(0.22, 0.09), p(0.50, 0),
+        p(0.79, 0.10), p(0.81, 0.35), p(0.50, 0.50), p(0.19, 0.68),
+        p(0.22, 0.92), p(0.50, 1), p(0.81, 0.90), p(0.80, 0.65),
+        p(0.50, 0.50),
+      ]];
     case '9':
       return [[
         p(0.92, 0.46), p(0.20, 0.48), p(0, 0.28), p(0.18, 0.02),
@@ -108,6 +115,20 @@ function writtenAdditionStrokes(): Stroke[] {
   ];
 }
 
+export function readmeAdditionStrokes(): Stroke[] {
+  return [
+    ...numberStrokes('4728', 35),
+    [[100, 170], [126, 170]],
+    [[113, 156], [113, 184]],
+    ...numberStrokes('3596', 140),
+    [[154.16, 222.8], [170, 212], [170, 226.4], [170, 248]],
+    [[194.16, 222.8], [210, 212], [210, 226.4], [210, 248]],
+    [[234.16, 222.8], [250, 212], [250, 226.4], [250, 248]],
+    [[90, 265], [155, 263], [225, 265.5], [330, 264]],
+    ...numberStrokes('8324', 295),
+  ];
+}
+
 function threeDigitCarryAdditionStrokes(): Stroke[] {
   return [
     ...numberStrokes('372', 35),
@@ -121,7 +142,7 @@ function threeDigitCarryAdditionStrokes(): Stroke[] {
   ];
 }
 
-async function drawDesign(
+export async function drawDesign(
   page: Page,
   box: { x: number; y: number; width: number; height: number },
   strokes: readonly Stroke[],
@@ -137,7 +158,7 @@ async function drawDesign(
   }
 }
 
-async function answerBeforePair(page: Page, selector: string): Promise<string> {
+export async function answerBeforePair(page: Page, selector: string): Promise<string> {
   return page.evaluate(pairSelector => {
     const pair = document.querySelector(pairSelector);
     if (!pair) throw new Error('Canvas pair not found.');
@@ -156,7 +177,7 @@ async function answerBeforePair(page: Page, selector: string): Promise<string> {
   }, selector);
 }
 
-async function checkNativeQuiz(page: Page, selector: string): Promise<void> {
+export async function checkNativeQuiz(page: Page, selector: string): Promise<void> {
   await page.evaluate(pairSelector => {
     const pair = document.querySelector(pairSelector);
     if (!pair) throw new Error('Canvas pair not found.');

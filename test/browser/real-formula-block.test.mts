@@ -7,9 +7,17 @@ import { chromium, type Page } from 'playwright';
 
 import {
   CALCULATION_QUIZ_COURSE_URL,
+  LIASCRIPT_STABLE_URL,
+  REAL_COLUMN_ADDITION_COURSE_URL,
   createHarness,
   openCourse,
 } from './support.mts';
+import {
+  answerBeforePair,
+  checkNativeQuiz,
+  drawDesign,
+  readmeAdditionStrokes,
+} from './column-addition-regression.mts';
 
 type Point = readonly [number, number];
 type Glyph = readonly (readonly Point[])[];
@@ -83,6 +91,26 @@ async function drawFormulaLine(
   }
 }
 
+async function clearPersistedCourseState(
+  page: Page,
+  courseUrl: string,
+): Promise<void> {
+  await page.goto(LIASCRIPT_STABLE_URL, {
+    waitUntil: 'domcontentloaded',
+    timeout: 120_000,
+  });
+  await page.evaluate(databaseName => new Promise<void>((resolve, reject) => {
+    const request = indexedDB.deleteDatabase(databaseName);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(
+      request.error || new Error('Could not clear the persisted course state.'),
+    );
+    request.onblocked = () => reject(
+      new Error('Persisted course state is still open in another page.'),
+    );
+  }), courseUrl);
+}
+
 test(
   'real FormulaNet keeps a hookless operation bar distinct from hooked ones',
   { timeout: 12 * 60_000 },
@@ -109,6 +137,7 @@ test(
       await pair.locator('.lia-canvas-launch:visible').click();
       const canvas = pair.locator('canvas.lia-draw:visible');
       await canvas.waitFor({ state: 'visible', timeout: 10_000 });
+      await canvas.scrollIntoViewIfNeeded();
       const box = await canvas.boundingBox();
       assert.ok(box);
 
@@ -192,6 +221,159 @@ test(
       assert.equal(result.latex.includes(';'), false);
       assert.match(result.latex, /\\mid\s*:\s*8/);
       assert.deepEqual(harness.pageErrors, []);
+    } finally {
+      await harness.context.close();
+    }
+  },
+);
+
+test(
+  'real FormulaNet recognizes and checks the documented written addition',
+  { timeout: 20 * 60_000 },
+  async () => {
+    const context = await chromium.launchPersistentContext(
+      join(tmpdir(), 'lia-canvas-real-math-profile'),
+      {
+        args: ['--enable-unsafe-webgpu'],
+        colorScheme: 'light',
+        headless: true,
+        serviceWorkers: 'block',
+        viewport: { width: 1920, height: 1100 },
+      },
+    );
+    const harness = await createHarness(null, {
+      context,
+      withAlgebrite: false,
+    });
+    const httpErrors: string[] = [];
+    harness.page.on('response', response => {
+      if (response.status() >= 400) {
+        httpErrors.push(response.status() + ' ' + response.url());
+      }
+    });
+    const selector =
+      '.lia-canvas-pair[data-canvas-mode=plus][data-canvas-output=answer]';
+    try {
+      await clearPersistedCourseState(
+        harness.page,
+        REAL_COLUMN_ADDITION_COURSE_URL,
+      );
+      await openCourse(
+        harness,
+        REAL_COLUMN_ADDITION_COURSE_URL,
+        selector + ' .lia-canvas-launch',
+      );
+      const pair = harness.page.locator(selector);
+      assert.equal(await pair.count(), 1);
+      assert.equal(await pair.getAttribute('data-calculation-prompt'), '4728+3596');
+      await pair.locator('.lia-canvas-launch:visible').click();
+      assert.equal(await pair.getAttribute('data-calculation-kind'), 'column-addition');
+
+      const canvas = pair.locator('canvas.lia-draw:visible');
+      await canvas.waitFor({ state: 'visible', timeout: 10_000 });
+      await canvas.scrollIntoViewIfNeeded();
+      const box = await canvas.boundingBox();
+      assert.ok(box);
+      await drawDesign(harness.page, box, readmeAdditionStrokes());
+      await harness.page.evaluate(() => new Promise<void>(resolve => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      }));
+      await pair.locator('.lia-canvasplus-submit:visible').click();
+      await harness.page.waitForFunction(
+        pairSelector => {
+          const pair = document.querySelector(pairSelector) as HTMLElement | null;
+          const output = pair?.querySelector(
+            '.lia-canvasplus-output',
+          ) as HTMLElement | null;
+          return Boolean(
+            pair?.dataset.ocrError ||
+            output?.dataset.state === 'error' ||
+            (
+              output?.dataset.state === 'ready' &&
+              output.dataset.lineCount === '4' &&
+              String(output.dataset.latex || '').includes('\\hline')
+            )
+          );
+        },
+        selector,
+        { timeout: 15 * 60_000 },
+      );
+
+      const answer = await answerBeforePair(harness.page, selector);
+      const result = await pair.evaluate((element, submittedAnswer) => {
+        const output = element.querySelector(
+          '.lia-canvasplus-output',
+        ) as HTMLElement | null;
+        const registry = window.__LIA_CANVAS_OCR__ as any;
+        return {
+          state: output?.dataset.state || '',
+          latex: output?.dataset.latex || '',
+          lineCount: output?.dataset.lineCount || '',
+          ocrError: (element as HTMLElement).dataset.ocrError || '',
+          grade: registry.checkCalculationAnswer('4728+3596', submittedAnswer),
+          engine: {
+            model: registry.canvasPlusOcr?.model || '',
+            revision: registry.canvasPlusOcr?.modelRevision || '',
+            lastError: registry.canvasPlusOcr?.lastError || '',
+            lastOutput: registry.canvasPlusOcr?.lastOutput || '',
+            lastText: registry.canvasPlusOcr?.lastText || '',
+          },
+        };
+      }, answer);
+
+      console.log(JSON.stringify({
+        result,
+        answer,
+        modelRequests: harness.modelRequests,
+        consoleErrors: harness.consoleErrors,
+        pageErrors: harness.pageErrors,
+      }, null, 2));
+
+      assert.equal(result.ocrError, '', JSON.stringify(result.engine));
+      assert.equal(result.state, 'ready');
+      assert.equal(result.lineCount, '4');
+      assert.match(result.latex, /\\hline/u);
+      assert.equal(
+        (result.latex.match(/\{\\scriptstyle 1\}/gu) || []).length,
+        3,
+      );
+
+      const submission = JSON.parse(answer);
+      assert.equal(submission.kind, 'column-addition');
+      assert.equal(submission.version, 1);
+      assert.deepEqual(submission.operands, ['4728', '3596']);
+      assert.equal(submission.result, '8324');
+      assert.deepEqual(submission.carries, [null, '1', '1', '1']);
+      assert.deepEqual(
+        submission.layout.rules,
+        [{ kind: 'horizontal', afterRow: 2 }],
+      );
+      assert.equal(result.grade?.accepted, true);
+      assert.equal(result.engine.model, 'alephpi/FormulaNet');
+      assert.equal(
+        result.engine.revision,
+        '63e04c86fc96c2324811114351eeea8118bf6b28',
+      );
+      assert.equal(result.engine.lastError, '');
+
+      const latexBeforeCheck = result.latex;
+      await checkNativeQuiz(harness.page, selector);
+      assert.equal(await answerBeforePair(harness.page, selector), answer);
+      assert.equal(
+        await pair.locator('.lia-canvasplus-output').getAttribute('data-latex'),
+        latexBeforeCheck,
+      );
+
+      const unexpectedConsoleErrors = harness.consoleErrors.filter(
+        message => !message.includes('VerifyOutputSizes'),
+      );
+      const meaningfulPageErrors = harness.pageErrors.filter(
+        message => message.trim().length > 0,
+      );
+      assert.deepEqual(httpErrors, []);
+      assert.deepEqual(harness.requestFailures, []);
+      assert.deepEqual(unexpectedConsoleErrors, []);
+      assert.deepEqual(meaningfulPageErrors, []);
     } finally {
       await harness.context.close();
     }

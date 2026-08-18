@@ -89,6 +89,7 @@ const BUILTIN_TRANSLATIONS: Record<string, Record<string, string>> = {
         'ocr.plus.rendered': 'Rechenblock dargestellt.',
         'ocr.plus.stale': 'Handschrift geändert – bitte erneut darstellen.',
         'ocr.plus.renderError': 'Der Rechenblock konnte nicht erkannt werden.',
+        'ocr.plus.engineUnavailable': 'Die OCR-Engine f\u00fcr Rechenbl\u00f6cke ist nicht verf\u00fcgbar.',
         'ocr.plus.renderErrorKeep': 'Neue Erkennung fehlgeschlagen – das vorherige Ergebnis bleibt sichtbar.',
         'ocr.plus.resultTitle': 'Erkanntes Ergebnis',
         'ocr.plus.editResult': 'Erkennung bearbeiten',

@@ -15,8 +15,11 @@ export const SYNTHETIC_ORIGIN = 'https://lia-canvas-ocr.invalid';
 export const NO_CANVAS_COURSE_URL = `${SYNTHETIC_ORIGIN}/courses/chromium-131-repro.md`;
 export const CANVAS_COURSE_URL = `${SYNTHETIC_ORIGIN}/courses/canvas-interactions.md`;
 export const CANVAS_MIXED_COURSE_URL = `${SYNTHETIC_ORIGIN}/courses/canvas-mixed-interactions.md`;
+export const MULTI_INSTANCE_COURSE_URL = `${SYNTHETIC_ORIGIN}/courses/multi-instance.md`;
 export const CALCULATION_QUIZ_COURSE_URL = `${SYNTHETIC_ORIGIN}/courses/calculation-quiz.md`;
 export const COLUMN_ADDITION_COURSE_URL = `${SYNTHETIC_ORIGIN}/courses/column-addition.md`;
+export const REAL_COLUMN_ADDITION_COURSE_URL =
+  `${SYNTHETIC_ORIGIN}/courses/real-column-addition.md`;
 export const WRITTEN_ARITHMETIC_COURSE_URL =
   `${SYNTHETIC_ORIGIN}/courses/written-arithmetic.md`;
 export const TEMPLATE_URL = `${SYNTHETIC_ORIGIN}/template.md`;
@@ -38,8 +41,13 @@ const FIXTURE_URLS = {
   [NO_CANVAS_COURSE_URL]: new URL('../fixtures/chromium-131-repro.md', import.meta.url),
   [CANVAS_COURSE_URL]: new URL('../fixtures/canvas-interactions.md', import.meta.url),
   [CANVAS_MIXED_COURSE_URL]: new URL('../fixtures/canvas-mixed-interactions.md', import.meta.url),
+  [MULTI_INSTANCE_COURSE_URL]: new URL('../fixtures/multi-instance.md', import.meta.url),
   [CALCULATION_QUIZ_COURSE_URL]: new URL('../fixtures/calculation-quiz.md', import.meta.url),
   [COLUMN_ADDITION_COURSE_URL]: new URL('../fixtures/column-addition.md', import.meta.url),
+  [REAL_COLUMN_ADDITION_COURSE_URL]: new URL(
+    '../fixtures/real-column-addition.md',
+    import.meta.url,
+  ),
   [WRITTEN_ARITHMETIC_COURSE_URL]: new URL(
     '../fixtures/written-arithmetic.md',
     import.meta.url,

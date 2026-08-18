@@ -15,6 +15,7 @@ export function ensureCss(): void {
   --canvas-border: #000;
   --canvas-pen: #000;
   --canvas-accent: #0b5fff;
+  --canvas-error: #b3261e;
   --canvas-panel-bg: rgba(255,255,255,0.84);
   --canvas-overlay-soft: rgba(0,0,0,0.10);
 }
@@ -23,6 +24,7 @@ export function ensureCss(): void {
   :root{
     --canvas-border: #fff;
     --canvas-pen: #fff;
+    --canvas-error: #ffb4ab;
     --canvas-panel-bg: rgba(22,22,24,0.84);
     --canvas-overlay-soft: rgba(255,255,255,0.10);
   }
@@ -949,6 +951,23 @@ canvas.lia-canvas-freeze-preview{
 
 .lia-canvasplus-standalone-status:empty{
   display: none !important;
+}
+
+.lia-canvasplus-standalone-status[data-state=error],
+.lia-canvasplus-standalone-status[data-state=error-stale]{
+  position: static !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: min(34rem, 100%) !important;
+  margin: 6px 0 0 !important;
+  overflow: visible !important;
+  clip: auto !important;
+  clip-path: none !important;
+  white-space: normal !important;
+  color: var(--canvas-error);
+  font-size: 0.9em;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 .lia-canvasplus-standalone-result{

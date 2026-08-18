@@ -197,6 +197,20 @@ test('validates observed operands and result independently of carries', () => {
     );
 });
 
+test('rejects 8224 for the documented 4728 plus 3596 task', () => {
+    const wrongResult = createColumnAdditionSubmission({
+        operands: ['4728', '3596'],
+        result: '8224',
+        carries: [null, '1', '1', '1'],
+    });
+    assert.ok(wrongResult);
+    const grade = validateColumnAdditionSubmission('4728+3596', wrongResult);
+    assert.equal(grade.accepted, false);
+    assert.equal(grade.outcome, 'incorrect');
+    assert.equal(grade.reason, 'result-mismatch');
+    assert.equal(grade.expected?.result, '8324');
+});
+
 test('rejects malformed and oversized prompts/submissions safely', () => {
     assert.equal(parseColumnAdditionPrompt(`${'9'.repeat(MAX_COLUMN_ADDITION_DIGITS + 1)}+1`), null);
     assert.equal(createColumnAdditionSubmission({
