@@ -58,24 +58,70 @@ const hookedOne = (
   [x, y + height],
 ]);
 
+const broadCarryOne = (
+  x: number,
+  y: number,
+  height: number,
+  strokeWidth = 2,
+): OcrSymbolPath => path([
+  [x - height * 0.47, y + height * 0.44],
+  [x, y],
+  [x, y + height],
+], strokeWidth);
+
+const broadDeepOnePoints = (
+  x: number,
+  y: number,
+  height: number,
+): Array<[number, number]> => [
+  [x - height * 31 / 51, y + height * 35 / 51],
+  [x - height * 26 / 51, y + height * 31 / 51],
+  [x - height * 17 / 51, y + height * 22 / 51],
+  [x - height * 8 / 51, y + height * 10 / 51],
+  [x, y],
+  [x, y + height],
+];
+
+const broadDeepCarryOne = (
+  x: number,
+  y: number,
+  height: number,
+  strokeWidth = 4,
+): OcrSymbolPath => path(broadDeepOnePoints(x, y, height), strokeWidth);
+
 const screenshotAdditionPaths = (): OcrSymbolPath[] => [
-  digitLoop(180, 100),
-  digitLoop(220, 100),
-  digitLoop(260, 100),
-  digitLoop(300, 100),
+  // Keep the first operand at the 3.5-glyph-height spacing observed in the
+  // reported four-row stack (operand, operand, carries, result).
+  digitLoop(180, 89),
+  digitLoop(220, 89),
+  digitLoop(260, 89),
+  digitLoop(300, 89),
   path([[145, 230], [169, 230]]),
   path([[157, 216], [157, 244]]),
   hookedOne(188, 200, 60),
   digitLoop(220, 200),
   digitLoop(260, 200),
   digitLoop(300, 200),
-  hookedOne(228, 272, 28),
-  hookedOne(268, 272, 28),
-  path([[140, 330], [205, 328], [275, 330.5], [350, 329]], 3),
+  broadCarryOne(228, 272, 34),
+  broadCarryOne(268, 272, 34),
+  // The real canvas example drifts upward by a little over six percent.
+  // It is still an unambiguous long calculation rule.
+  path([[140, 330], [205, 329], [275, 332], [380, 315]], 3),
   digitLoop(180, 350),
   digitLoop(220, 350),
   digitLoop(260, 350),
   digitLoop(300, 350),
+];
+
+const spacedSubtractionPaths = (firstOperandY: number): OcrSymbolPath[] => [
+  ...[180, 220, 260, 300].map(x => digitLoop(x, firstOperandY)),
+  path([[145, 220], [179, 220]]),
+  ...[180, 220, 260, 300].map(x => digitLoop(x, 190)),
+  broadCarryOne(220, 275, 34),
+  broadCarryOne(260, 275, 34),
+  broadCarryOne(300, 275, 34),
+  path([[135, 330], [220, 329], [300, 331], [390, 330]], 3),
+  ...[180, 220, 260, 300].map(x => digitLoop(x, 350)),
 ];
 
 test('finds a screenshot-like calculation rule and only the two small carries', () => {
@@ -94,6 +140,90 @@ test('finds a screenshot-like calculation rule and only the two small carries', 
   assert.deepEqual(
     carries.map(hint => hint.rulePathIndexes),
     [[12], [12]],
+  );
+});
+
+test('keeps screenshot carries when responsive points shrink but pen width stays fixed', () => {
+  const scale = 0.503;
+  const paths = screenshotAdditionPaths().map(sourcePath => path(
+    sourcePath.points.map(point => [point.x * scale, point.y * scale]),
+    3,
+  ));
+  const rules = findOcrCalculationRuleHints(paths);
+  assert.deepEqual(rules.map(rule => rule.pathIndexes), [[12]]);
+  assert.deepEqual(
+    findOcrCarryOneHints(paths, rules).map(hint => hint.pathIndexes),
+    [[10], [11]],
+  );
+});
+
+test('compares thick carry ink with unpadded digit ink height', () => {
+  const paths: OcrSymbolPath[] = [
+    digitLoop(180, 70, 32, 75),
+    digitLoop(225, 70, 32, 75),
+    digitLoop(270, 70, 32, 75),
+    digitLoop(315, 70, 32, 75),
+    path([[145, 235], [171, 235]], 4),
+    path([[158, 220], [158, 250]], 4),
+    hookedOne(188, 195, 75),
+    digitLoop(225, 195, 32, 75),
+    digitLoop(270, 195, 32, 75),
+    digitLoop(315, 195, 32, 75),
+    broadCarryOne(228, 290, 51, 4),
+    broadCarryOne(273, 290, 51, 4),
+    path([[140, 360], [220, 359], [300, 361], [380, 360]], 3),
+    digitLoop(180, 390, 32, 75),
+    digitLoop(225, 390, 32, 75),
+    digitLoop(270, 390, 32, 75),
+    digitLoop(315, 390, 32, 75),
+  ];
+  // These raw 51 px carry paths are still clearly smaller than the 75 px
+  // digit paths. With a 4 px pen, their padded delimiter boxes used to cross
+  // the 72% cutoff even though the underlying glyph geometry did not change.
+  const rules = findOcrCalculationRuleHints(paths);
+
+  assert.deepEqual(rules.map(rule => rule.pathIndexes), [[12]]);
+  assert.deepEqual(
+    findOcrCarryOneHints(paths, rules).map(hint => hint.pathIndexes),
+    [[10], [11]],
+  );
+  assert.equal(
+    findOcrCarryOneHints(paths, rules).some(hint => hint.pathIndexes.includes(6)),
+    false,
+    'the full-height hooked operand one must remain excluded',
+  );
+});
+
+test('finds three deep-hook carries but excludes a full-size operand one', () => {
+  const paths: OcrSymbolPath[] = [
+    digitLoop(180, 70, 32, 75),
+    digitLoop(225, 70, 32, 75),
+    digitLoop(270, 70, 32, 75),
+    digitLoop(315, 70, 32, 75),
+    path([[145, 235], [171, 235]], 4),
+    path([[158, 220], [158, 250]], 4),
+    broadDeepCarryOne(188, 195, 75),
+    digitLoop(225, 195, 32, 75),
+    digitLoop(270, 195, 32, 75),
+    digitLoop(315, 195, 32, 75),
+    broadDeepCarryOne(228, 290, 51),
+    broadDeepCarryOne(273, 290, 51),
+    broadDeepCarryOne(318, 290, 51),
+    path([[140, 360], [220, 359], [300, 361], [380, 360]], 3),
+    digitLoop(180, 390, 32, 75),
+    digitLoop(225, 390, 32, 75),
+    digitLoop(270, 390, 32, 75),
+    digitLoop(315, 390, 32, 75),
+  ];
+  const rules = findOcrCalculationRuleHints(paths);
+  assert.deepEqual(rules.map(rule => rule.pathIndexes), [[13]]);
+  assert.deepEqual(
+    findOcrCarryOneHints(paths, rules).map(hint => hint.pathIndexes),
+    [[10], [11], [12]],
+  );
+  assert.equal(
+    findOcrCarryOneHints(paths, rules).some(hint => hint.pathIndexes.includes(6)),
+    false,
   );
 });
 
@@ -122,6 +252,100 @@ test('calculation-rule and carry hints are invariant to scale, direction, and pa
       [[6], [5]],
     );
   }
+});
+
+test('relaxes only the subtraction first-row distance from 3.6 to 4.5 glyph heights', () => {
+  const strictInside = spacedSubtractionPaths(85);
+  const relaxedOnly = spacedSubtractionPaths(80);
+  const relaxedEdge = spacedSubtractionPaths(30);
+  const outsideRelaxedLimit = spacedSubtractionPaths(25);
+
+  assert.deepEqual(
+    findOcrCalculationRuleHints(strictInside).map(rule => rule.pathIndexes),
+    [[12]],
+    '3.583 glyph heights stays inside the conservative 3.6 default',
+  );
+  assert.deepEqual(
+    findOcrCalculationRuleHints(relaxedOnly),
+    [],
+    '3.667 glyph heights must not change the conservative default',
+  );
+  assert.deepEqual(
+    findOcrCalculationRuleHints(relaxedOnly, {
+      maximumSecondAboveDistance: 4.5,
+    }).map(rule => rule.pathIndexes),
+    [[12]],
+    'the subtraction context preserves the same unambiguous long rule',
+  );
+  assert.deepEqual(
+    findOcrCalculationRuleHints(relaxedEdge, {
+      maximumSecondAboveDistance: 4.5,
+    }).map(rule => rule.pathIndexes),
+    [[12]],
+    'the documented 4.5-glyph selector edge is inclusive',
+  );
+  assert.deepEqual(
+    findOcrCalculationRuleHints(outsideRelaxedLimit, {
+      maximumSecondAboveDistance: 4.5,
+    }),
+    [],
+    'a first row beyond 4.5 glyph heights remains unconfirmed',
+  );
+});
+
+test('single-row multiplication rules require an independent compact dot', () => {
+  const expressionWith = (operator: OcrSymbolPath): OcrSymbolPath[] => [
+    digitLoop(120, 80),
+    digitLoop(160, 80),
+    digitLoop(200, 80),
+    operator,
+    digitLoop(270, 80),
+    path([[100, 190], [180, 189], [255, 191], [330, 190]], 3),
+    digitLoop(150, 220),
+    digitLoop(190, 220),
+    digitLoop(230, 220),
+    digitLoop(270, 220),
+  ];
+  const compactDot = path([
+    [239, 107], [244, 102], [249, 107], [244, 112], [239, 107],
+  ], 3);
+  const expression = expressionWith(compactDot);
+
+  assert.deepEqual(
+    findOcrCalculationRuleHints(expression),
+    [],
+    'the default still requires two full-size rows above a final rule',
+  );
+  assert.deepEqual(
+    findOcrCalculationRuleHints(expression, {
+      allowSingleMultiplicationRow: true,
+    }).map(rule => rule.pathIndexes),
+    [[5]],
+  );
+
+  const minusInsteadOfDot = expressionWith(path([[237, 107], [251, 107]], 3));
+  assert.deepEqual(
+    findOcrCalculationRuleHints(minusInsteadOfDot, {
+      allowSingleMultiplicationRow: true,
+    }),
+    [],
+    'a compact minus between digits is not multiplication evidence',
+  );
+
+  const oneRowFraction = [
+    digitLoop(140, 80),
+    digitLoop(180, 80),
+    path([[100, 170], [260, 168], [320, 170]], 3),
+    digitLoop(140, 200),
+    digitLoop(180, 200),
+  ];
+  assert.deepEqual(
+    findOcrCalculationRuleHints(oneRowFraction, {
+      allowSingleMultiplicationRow: true,
+    }),
+    [],
+    'the multiplication opt-in must not promote an ordinary fraction bar',
+  );
 });
 
 test('rejects a minus sign and an ordinary one-row fraction bar', () => {
@@ -295,6 +519,72 @@ test('recognizes a one-stroke top hook in either point direction', () => {
   ]), 'hooked-one');
 });
 
+test('recognizes deep one-stroke hooks without accepting seven, four, or nine', () => {
+  for (const hookDepth of [0.44, 0.46, 0.48, 0.52, 0.60, 0.68]) {
+    const points: Array<[number, number]> = [
+      [70, hookDepth * 60],
+      [100, 0],
+      [100, 60],
+    ];
+    assert.equal(classify([path(points, 3)]), 'hooked-one');
+    assert.equal(classify([path(points.slice().reverse(), 3)]), 'hooked-one');
+  }
+
+  const denseOne: Array<[number, number]> = [];
+  const denseSource: Array<[number, number]> = [[70, 31.2], [100, 0], [100, 60]];
+  for (let segment = 1; segment < denseSource.length; segment++) {
+    const from = denseSource[segment - 1];
+    const to = denseSource[segment];
+    if (!denseOne.length) denseOne.push(from);
+    for (let step = 1; step <= 12; step++) {
+      denseOne.push([
+        from[0] + (to[0] - from[0]) * step / 12,
+        from[1] + (to[1] - from[1]) * step / 12,
+      ]);
+    }
+  }
+  assert.equal(classify([path(denseOne, 3)]), 'hooked-one');
+  assert.equal(classify([path(denseOne.slice().reverse(), 3)]), 'hooked-one');
+  const broadDeepOne = broadDeepOnePoints(100, 0, 60);
+  assert.equal(classify([path(broadDeepOne, 3)]), 'hooked-one');
+  assert.equal(
+    classify([path(broadDeepOne.slice().reverse(), 3)]),
+    'hooked-one',
+  );
+  assert.equal(classify([
+    path(denseOne, 3),
+    path([[0, 80], [200, 52]], 3),
+  ], 0), 'hooked-one', 'a distant sloped rule is not an attached branch');
+
+  const seven = path([[70, 0], [100, 0], [78, 60]], 3);
+  const sevenStem = path([[100, 0], [78, 60]], 3);
+  const sevenHead = path([[70, 0], [100, 0]], 3);
+  const openFour = path([[100, 0], [72, 37], [108, 37], [100, 18], [100, 60]], 3);
+  const browserNine = path([
+    [99, 27.6], [76, 28.8], [70, 16.8], [75, 1.2],
+    [93, 0], [100, 14.4], [94, 60],
+  ], 3);
+
+  assert.notEqual(classify([seven]), 'hooked-one');
+  for (const headDrop of [0.05, 0.10, 0.15, 0.20]) {
+    for (const legEndX of [78, 84, 88]) {
+      const fallingSeven: Array<[number, number]> = [
+        [70, 0],
+        [100, headDrop * 60],
+        [legEndX, 60],
+      ];
+      assert.notEqual(classify([path(fallingSeven, 3)]), 'hooked-one');
+      assert.notEqual(
+        classify([path(fallingSeven.slice().reverse(), 3)]),
+        'hooked-one',
+      );
+    }
+  }
+  assert.notEqual(classify([sevenStem, sevenHead], 0), 'hooked-one');
+  assert.notEqual(classify([openFour]), 'hooked-one');
+  assert.notEqual(classify([browserNine]), 'hooked-one');
+});
+
 test('recognizes a separate hook before or after the stem path', () => {
   const stem = path([[20, 0], [20, 60]]);
   const hook = path([[8, 10], [20, 0]]);
@@ -302,6 +592,19 @@ test('recognizes a separate hook before or after the stem path', () => {
   assert.equal(classify([stem, hook], 0), 'hooked-one');
   assert.equal(classify([hook, stem], 1), 'hooked-one');
   assert.equal(classify([path([[20, 0], [8, 10]]), stem], 1), 'hooked-one');
+});
+
+test('recognizes a deep separate hook but rejects a horizontal seven head', () => {
+  const stem = path([[100, 0], [100, 60]], 3);
+  for (const hookDepth of [0.42, 0.46, 0.52, 0.60, 0.66]) {
+    const hook = path([[70, hookDepth * 60], [100, 0]], 3);
+    assert.equal(classify([stem, hook], 0), 'hooked-one');
+    assert.equal(classify([hook, stem], 1), 'hooked-one');
+  }
+  assert.notEqual(
+    classify([path([[100, 0], [78, 60]], 3), path([[70, 0], [100, 0]], 3)], 0),
+    'hooked-one',
+  );
 });
 
 test('keeps middle branches of pluses and fours ambiguous regardless of path order', () => {

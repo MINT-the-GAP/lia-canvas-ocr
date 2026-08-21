@@ -11,14 +11,60 @@ const localTemplate = readUtf8(
 const calculationCourse = readUtf8(
   new URL('./fixtures/calculation-quiz.md', import.meta.url),
 );
+const packageManifest = JSON.parse(
+  readUtf8(new URL('../package.json', import.meta.url)),
+) as { name?: unknown; version?: unknown };
+const packageLock = JSON.parse(
+  readUtf8(new URL('../package-lock.json', import.meta.url)),
+) as {
+  name?: unknown;
+  version?: unknown;
+  packages?: Record<string, { name?: unknown; version?: unknown }>;
+};
 const pinnedAlgebriteImport =
   'https://cdn.jsdelivr.net/gh/LiaTemplates/algebrite@0.6.3/README.md';
+const templateRuntimeVersion = '0.2.0';
 
 function berechneOcrMacroBodies(source: string): string[] {
   return [...source.matchAll(
     /^@BerechneOCR_[ \t]*\r?\n([\s\S]*?)^@end[ \t]*$/gm,
   )].map(match => match[1]);
 }
+
+test('template and npm metadata pin one query-free OCR runtime version', () => {
+  assert.equal(packageManifest.name, 'lia-canvas-ocr');
+  assert.equal(packageManifest.version, templateRuntimeVersion);
+  assert.equal(packageLock.name, packageManifest.name);
+  assert.equal(packageLock.version, templateRuntimeVersion);
+  assert.equal(packageLock.packages?.['']?.name, packageManifest.name);
+  assert.equal(packageLock.packages?.['']?.version, templateRuntimeVersion);
+
+  assert.match(
+    readme,
+    /^version:[ \t]+0\.2\.0[ \t]*$/mu,
+    'the LiaScript template version must match the npm runtime version',
+  );
+  assert.match(
+    readme,
+    /^script:[ \t]+\.\/dist\/index\.js[ \t]*$/mu,
+    'the runnable template must use a query-free local runtime URL',
+  );
+  assert.match(
+    readme,
+    /^script:[ \t]+https:\/\/cdn\.jsdelivr\.net\/gh\/MINT-the-GAP\/lia-canvas-ocr@main\/dist\/index\.js[ \t]*$/mu,
+    'the documented CDN runtime must use a query-free script URL',
+  );
+  assert.match(
+    readme,
+    /Keep\s+the LiaScript `script` URL free of query parameters so local previews and\s+template hosts route the JavaScript asset reliably\./u,
+    'the build instructions must document the query-free runtime requirement',
+  );
+  assert.doesNotMatch(
+    readme,
+    /^script:[^\r\n]*[?&](?:v|version)=/gmu,
+    'LiaScript runtime URLs must not use query cachebusters',
+  );
+});
 
 test('@BerechneOCR creates one native quiz with the calculation validator', () => {
   const readmeBodies = berechneOcrMacroBodies(readme);
@@ -152,7 +198,7 @@ test('README provides one live lettered quiz for every written arithmetic mode',
     },
     {
       label: '$c)\\;\\;$ Written multiplication',
-      prompt: 'Solve $738\\cdot6$ in writing. Add one place-value contribution row for each digit of the multiplicand, then draw the calculation rule and write the result.',
+      prompt: 'Solve $738\\cdot6$ in writing. Show every carry mark, or add one place-value contribution row for each digit of the multiplicand; then draw the calculation rule and write the result.',
       call: '@BerechneOCR(`738\\cdot6`)',
     },
     {
@@ -199,7 +245,7 @@ test('README provides one live lettered quiz for every written arithmetic mode',
   );
   assert.match(
     normalized,
-    /multiplication uses one place-value contribution row for every\s+digit of the multiplicand/u,
+    /multiplication accepts either the compact carry marks for a\s+single-digit multiplier or one place-value contribution row for every digit of\s+the multiplicand/u,
     'the documented multiplication layout must match the pinned school method',
   );
   assert.match(

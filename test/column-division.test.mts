@@ -8,6 +8,7 @@ import {
     createColumnDivisionSubmission,
     createExpectedColumnDivisionSubmission,
     decodeColumnDivisionSubmission,
+    inferColumnDivisionObservedStep,
     parseColumnDivisionPrompt,
     serializeColumnDivisionSubmission,
     validateColumnDivisionSubmission,
@@ -112,6 +113,32 @@ test('derives every pinned 8736:8 step and preserves partial 07', () => {
     ]);
 });
 
+test('infers quotient digits only from locally observed division equations', () => {
+    assert.deepEqual(inferColumnDivisionObservedStep('8', '0', '8'), {
+        quotientDigit: '1',
+        subtractedProduct: '8',
+        remainder: '0',
+    });
+    assert.deepEqual(inferColumnDivisionObservedStep('07', '7', '8'), {
+        quotientDigit: '0',
+        subtractedProduct: '0',
+        remainder: '7',
+    });
+    assert.deepEqual(inferColumnDivisionObservedStep('73', '1', '8'), {
+        quotientDigit: '9',
+        subtractedProduct: '72',
+        remainder: '1',
+    });
+    assert.deepEqual(inferColumnDivisionObservedStep('16', '0', '8'), {
+        quotientDigit: '2',
+        subtractedProduct: '16',
+        remainder: '0',
+    });
+    assert.equal(inferColumnDivisionObservedStep('8', '1', '8'), null);
+    assert.equal(inferColumnDivisionObservedStep('73', '2', '8'), null);
+    assert.equal(inferColumnDivisionObservedStep('99', '0', '1'), null);
+});
+
 test('derives the pinned 46872:6 partial-dividend sequence', () => {
     const submission = createExpectedColumnDivisionSubmission('46872:6=7812');
     assert.ok(submission);
@@ -167,16 +194,19 @@ test('serializes and decodes only the strict versioned object shape', () => {
     })), null);
 });
 
-test('renders the pinned alternating rows without color and with leading zero', () => {
+test('renders the pinned alternating rows with step colors and leading zero', () => {
     const submission = createExpectedColumnDivisionSubmission('8736:8=1092');
     assert.ok(submission);
     const latex = composeColumnDivisionLatex(submission);
     assert.equal(
         latex,
-        String.raw`\begin{aligned} 8736:8&=1092 \\ \underline{-8}\phantom{000}\phantom{:8}& \\ 07\phantom{00}\phantom{:8}& \\ \phantom{0}\underline{-0}\phantom{00}\phantom{:8}& \\ \phantom{0}73\phantom{0}\phantom{:8}& \\ \phantom{0}\underline{-72}\phantom{0}\phantom{:8}& \\ \phantom{00}16\phantom{:8}& \\ \phantom{00}\underline{-16}\phantom{:8}& \\ \phantom{000}0\phantom{:8}& \end{aligned}`,
+        String.raw`\begin{aligned} 8736:8&=1092 \\ \underline{-\textcolor{blue}{8}}\phantom{000}\phantom{:8}& \\ 07\phantom{00}\phantom{:8}& \\ \phantom{0}\underline{-\textcolor{green}{0}}\phantom{00}\phantom{:8}& \\ \phantom{0}73\phantom{0}\phantom{:8}& \\ \phantom{0}\underline{-\textcolor{orange}{72}}\phantom{0}\phantom{:8}& \\ \phantom{00}16\phantom{:8}& \\ \phantom{00}\underline{-\textcolor{red}{16}}\phantom{:8}& \\ \phantom{000}0\phantom{:8}& \end{aligned}`,
     );
     assert.match(latex, /07/u);
-    assert.doesNotMatch(latex, /color/iu);
+    assert.deepEqual(
+        Array.from(latex.matchAll(/\\textcolor\{([^}]+)\}/gu), match => match[1]),
+        ['blue', 'green', 'orange', 'red'],
+    );
 });
 
 test('validates quotient, remainder and every required long-division step', () => {

@@ -1,7 +1,6 @@
-// Dedicated handwritten-formula OCR for multi-line calculations.
-//
-// FormulaNet is kept separate from LIA.ocr so the classic @canvas recognizer
-// and its model settings remain unchanged.
+// Shared handwritten-formula OCR for classic selections and multi-line
+// calculations. The legacy LIA.ocr object remains available for compatibility;
+// both canvas flows reuse this FormulaNet instance through LIA.canvasPlusOcr.
 
 import { LIA } from '../index';
 import { ensureOcrBar } from './bar';
@@ -224,7 +223,7 @@ async function prepareFormulaTensor(runtime: FormulaRuntime, image: unknown): Pr
     return runtime.cat([channel, channel, channel], 1);
 }
 
-export function ensureCanvasPlusFormulaOcrEngine(): any {
+export function ensureFormulaOcrEngine(): any {
     if (LIA.canvasPlusOcr) return LIA.canvasPlusOcr;
 
     const bar = ensureOcrBar();
@@ -257,6 +256,7 @@ export function ensureCanvasPlusFormulaOcrEngine(): any {
             const generation = ++this.loadGeneration;
             LIA.activeOcrLoadEngine = this;
             bar.set({
+                model: this.model,
                 backend: 'wasm',
                 precision: 'fp32',
                 status: 'loading',
@@ -264,7 +264,7 @@ export function ensureCanvasPlusFormulaOcrEngine(): any {
                 loaded: false,
                 progress: 0
             });
-            bar.log('Loading FormulaNet calculation OCR...');
+            bar.log('Loading FormulaNet OCR...');
 
             this.loading = (async () => {
                 try {
@@ -300,6 +300,7 @@ export function ensureCanvasPlusFormulaOcrEngine(): any {
                     this.tokenizer = tokenizer;
                     this.lastError = '';
                     bar.set({
+                        model: this.model,
                         backend: 'wasm',
                         precision: 'fp32',
                         status: 'ready',
@@ -307,7 +308,7 @@ export function ensureCanvasPlusFormulaOcrEngine(): any {
                         loaded: true,
                         progress: null
                     });
-                    bar.log('FormulaNet calculation OCR ready.');
+                    bar.log('FormulaNet OCR ready.');
                     return this;
                 } catch (error) {
                     this.lastError = error && (error as any).message
@@ -327,12 +328,20 @@ export function ensureCanvasPlusFormulaOcrEngine(): any {
         },
 
         async recognize(image: unknown, _options?: Record<string, any>): Promise<string> {
+            const requestedMaxTokens = Number(_options?.max_new_tokens);
+            const maxNewTokens = Number.isFinite(requestedMaxTokens)
+                ? Math.max(1, Math.min(256, Math.floor(requestedMaxTokens)))
+                : 64;
             const run = async (): Promise<string> => {
                 await this.ensureLoaded(false);
                 bar.set({ status: 'working', phase: 'infer', progress: null });
                 try {
                     const pixelValues = await prepareFormulaTensor(this.runtime!, image);
-                    const output = await this.modelInstance.generate({ inputs: pixelValues });
+                    const output = await this.modelInstance.generate({
+                        inputs: pixelValues,
+                        max_new_tokens: maxNewTokens,
+                        do_sample: _options?.do_sample === true
+                    });
                     const decoded = this.tokenizer.batch_decode(output, {
                         skip_special_tokens: true
                     });
@@ -360,3 +369,7 @@ export function ensureCanvasPlusFormulaOcrEngine(): any {
     LIA.canvasPlusOcr = engine;
     return engine;
 }
+
+// Preserve the established export for downstream code while the engine is now
+// shared by @canvas and @BerechneOCR.
+export const ensureCanvasPlusFormulaOcrEngine = ensureFormulaOcrEngine;

@@ -41,20 +41,45 @@ export type ColumnMultiplicationPartialProductObservation = {
     value: string;
 };
 
-export type ColumnMultiplicationObservation = {
+export type ColumnMultiplicationCarryMark = string | null;
+
+type ColumnMultiplicationObservationBase = {
     operands: readonly [string, string] | readonly string[];
     result: string;
-    /** Rows in the order in which they were written, normally highest place first. */
-    partialProducts?: readonly ColumnMultiplicationPartialProductObservation[];
 };
 
-export type ColumnMultiplicationSubmission = {
+export type ColumnMultiplicationObservation =
+    | (ColumnMultiplicationObservationBase & {
+    /** Rows in the order in which they were written, normally highest place first. */
+    partialProducts?: readonly ColumnMultiplicationPartialProductObservation[];
+        carryMarks?: never;
+    })
+    | (ColumnMultiplicationObservationBase & {
+        /** Observed carry below each multiplicand digit, from left to right. */
+        carryMarks: readonly ColumnMultiplicationCarryMark[];
+        partialProducts?: never;
+    });
+
+type ColumnMultiplicationSubmissionBase = {
     kind: 'column-multiplication';
     version: typeof COLUMN_MULTIPLICATION_SUBMISSION_VERSION;
     operands: [string, string];
-    partialProducts: ColumnMultiplicationPartialProduct[];
     result: string;
 };
+
+export type ColumnMultiplicationPartialProductsSubmission =
+    ColumnMultiplicationSubmissionBase & {
+    partialProducts: ColumnMultiplicationPartialProduct[];
+    };
+
+export type ColumnMultiplicationCarryMarksSubmission =
+    ColumnMultiplicationSubmissionBase & {
+        carryMarks: ColumnMultiplicationCarryMark[];
+    };
+
+export type ColumnMultiplicationSubmission =
+    | ColumnMultiplicationPartialProductsSubmission
+    | ColumnMultiplicationCarryMarksSubmission;
 
 export type ColumnMultiplicationValidationReason =
     | 'valid'
@@ -66,6 +91,9 @@ export type ColumnMultiplicationValidationReason =
     | 'partial-product-mismatch'
     | 'shift-mismatch'
     | 'missing-partial-product'
+    | 'missing-carry-mark'
+    | 'unexpected-carry-mark'
+    | 'carry-mark-mismatch'
     | 'result-mismatch';
 
 export type ColumnMultiplicationValidation = {
@@ -74,6 +102,8 @@ export type ColumnMultiplicationValidation = {
     reason: ColumnMultiplicationValidationReason;
     /** Right-to-left multiplicand column involved in a partial-product verdict. */
     partialProductColumn?: number;
+    /** Left-to-right multiplicand column involved in a carry-mark verdict. */
+    carryColumn?: number;
     expected?: ColumnMultiplicationSubmission;
     submission?: ColumnMultiplicationSubmission;
 };
@@ -271,12 +301,12 @@ function normalizePartialProduct(
     };
 }
 
-function buildSubmission(
+function buildPartialProductsSubmission(
     operands: [string, string],
     result: string,
     sourceRows: readonly unknown[],
     canonicalRows: boolean
-): ColumnMultiplicationSubmission | null {
+): ColumnMultiplicationPartialProductsSubmission | null {
     if (sourceRows.length > operands[0].length) return null;
     const partialProducts: ColumnMultiplicationPartialProduct[] = [];
     const seenColumns: Record<number, true> = {};
@@ -297,6 +327,41 @@ function buildSubmission(
     };
 }
 
+function normalizeCarryMark(
+    value: unknown,
+    canonical: boolean
+): ColumnMultiplicationCarryMark | undefined {
+    if (value === null) return null;
+    if (typeof value !== 'string') return undefined;
+    const source = value.trim();
+    if (!/^\d$/u.test(source) || (canonical && source !== value)) return undefined;
+    return source;
+}
+
+function buildCarryMarksSubmission(
+    operands: [string, string],
+    result: string,
+    sourceMarks: readonly unknown[],
+    canonicalMarks: boolean
+): ColumnMultiplicationCarryMarksSubmission | null {
+    if (operands[1].length !== 1 || sourceMarks.length !== operands[0].length) {
+        return null;
+    }
+    const carryMarks: ColumnMultiplicationCarryMark[] = [];
+    for (const sourceMark of sourceMarks) {
+        const mark = normalizeCarryMark(sourceMark, canonicalMarks);
+        if (mark === undefined) return null;
+        carryMarks.push(mark);
+    }
+    return {
+        kind: 'column-multiplication',
+        version: COLUMN_MULTIPLICATION_SUBMISSION_VERSION,
+        operands,
+        carryMarks,
+        result
+    };
+}
+
 /** Builds a bounded structural observation without correcting written values. */
 export function createColumnMultiplicationSubmission(
     observation: ColumnMultiplicationObservation
@@ -312,20 +377,36 @@ export function createColumnMultiplicationSubmission(
     const result = normalizeDecimal(
         observation.result, MAX_COLUMN_MULTIPLICATION_PARTIAL_VALUE_DIGITS
     );
-    const sourceRows = observation.partialProducts === undefined
-        ? []
-        : observation.partialProducts;
-    if (multiplicand === null || multiplier === null || result === null ||
-        !Array.isArray(sourceRows)) return null;
-    return buildSubmission(
-        [multiplicand, multiplier], result, sourceRows, false
+    if (multiplicand === null || multiplier === null || result === null) return null;
+    const hasPartialProducts = Object.prototype.hasOwnProperty.call(
+        observation, 'partialProducts'
     );
+    const hasCarryMarks = Object.prototype.hasOwnProperty.call(
+        observation, 'carryMarks'
+    );
+    if (hasPartialProducts && hasCarryMarks) return null;
+    if (hasCarryMarks) {
+        const sourceMarks = (observation as { carryMarks?: unknown }).carryMarks;
+        return Array.isArray(sourceMarks)
+            ? buildCarryMarksSubmission(
+                [multiplicand, multiplier], result, sourceMarks, false
+            )
+            : null;
+    }
+    const sourceRows = hasPartialProducts
+        ? (observation as { partialProducts?: unknown }).partialProducts
+        : [];
+    return Array.isArray(sourceRows)
+        ? buildPartialProductsSubmission(
+            [multiplicand, multiplier], result, sourceRows, false
+        )
+        : null;
 }
 
 /** Derives the exact product and every required place-value contribution. */
 export function createExpectedColumnMultiplicationSubmission(
     value: string | ColumnMultiplicationPrompt
-): ColumnMultiplicationSubmission | null {
+): ColumnMultiplicationPartialProductsSubmission | null {
     const prompt = normalizePrompt(value);
     if (!prompt || (prompt.authoredResult !== null &&
         prompt.authoredResult !== prompt.expectedResult)) return null;
@@ -344,16 +425,45 @@ export function createExpectedColumnMultiplicationSubmission(
         operands: prompt.operands,
         partialProducts,
         result: prompt.expectedResult
-    });
+    }) as ColumnMultiplicationPartialProductsSubmission | null;
+}
+
+/** Derives the carry marks expected for the compact single-digit method. */
+export function createExpectedColumnMultiplicationCarrySubmission(
+    value: string | ColumnMultiplicationPrompt
+): ColumnMultiplicationCarryMarksSubmission | null {
+    const prompt = normalizePrompt(value);
+    if (!prompt || prompt.operands[1].length !== 1 ||
+        (prompt.authoredResult !== null &&
+            prompt.authoredResult !== prompt.expectedResult)) return null;
+    const [multiplicand, multiplier] = prompt.operands;
+    const multiplierDigit = multiplier.charCodeAt(0) - 48;
+    const carryMarks: ColumnMultiplicationCarryMark[] =
+        new Array<ColumnMultiplicationCarryMark>(multiplicand.length).fill(null);
+    let incomingCarry = 0;
+    for (let index = multiplicand.length - 1; index >= 0; index--) {
+        const digit = multiplicand.charCodeAt(index) - 48;
+        const outgoingCarry = Math.floor(
+            (digit * multiplierDigit + incomingCarry) / 10
+        );
+        if (index > 0) {
+            carryMarks[index - 1] = outgoingCarry > 0
+                ? String(outgoingCarry)
+                : null;
+        }
+        incomingCarry = outgoingCarry;
+    }
+    return createColumnMultiplicationSubmission({
+        operands: prompt.operands,
+        carryMarks,
+        result: prompt.expectedResult
+    }) as ColumnMultiplicationCarryMarksSubmission | null;
 }
 
 function normalizeSubmission(value: unknown): ColumnMultiplicationSubmission | null {
-    if (!isRecord(value) || !hasExactKeys(value, [
-        'kind', 'version', 'operands', 'partialProducts', 'result'
-    ]) || value.kind !== 'column-multiplication' ||
+    if (!isRecord(value) || value.kind !== 'column-multiplication' ||
         value.version !== COLUMN_MULTIPLICATION_SUBMISSION_VERSION ||
-        !Array.isArray(value.operands) || value.operands.length !== 2 ||
-        !Array.isArray(value.partialProducts)) return null;
+        !Array.isArray(value.operands) || value.operands.length !== 2) return null;
     const multiplicand = canonicalDecimal(
         value.operands[0], MAX_COLUMN_MULTIPLICATION_DIGITS
     );
@@ -364,9 +474,21 @@ function normalizeSubmission(value: unknown): ColumnMultiplicationSubmission | n
         value.result, MAX_COLUMN_MULTIPLICATION_PARTIAL_VALUE_DIGITS
     );
     if (multiplicand === null || multiplier === null || result === null) return null;
-    return buildSubmission(
-        [multiplicand, multiplier], result, value.partialProducts, true
-    );
+    if (hasExactKeys(value, [
+        'kind', 'version', 'operands', 'partialProducts', 'result'
+    ]) && Array.isArray(value.partialProducts)) {
+        return buildPartialProductsSubmission(
+            [multiplicand, multiplier], result, value.partialProducts, true
+        );
+    }
+    if (hasExactKeys(value, [
+        'kind', 'version', 'operands', 'carryMarks', 'result'
+    ]) && Array.isArray(value.carryMarks)) {
+        return buildCarryMarksSubmission(
+            [multiplicand, multiplier], result, value.carryMarks, true
+        );
+    }
+    return null;
 }
 
 /** Serializes only the canonical versioned object shape. */
@@ -408,20 +530,51 @@ function submissionFromInput(
         : normalizeSubmission(value);
 }
 
+function renderSchoolPartialProduct(
+    row: ColumnMultiplicationPartialProduct
+): string {
+    const shiftedStart = Math.max(0, row.value.length - row.shift);
+    const value = Array.from(row.value).map((digit, index) =>
+        index >= shiftedStart && digit === '0'
+            ? String.raw`\textcolor{red}{0}`
+            : digit
+    ).join('');
+    return `+${value}`;
+}
+
+function renderSchoolCarryExpression(
+    submission: ColumnMultiplicationCarryMarksSubmission
+): string {
+    const multiplicand = Array.from(submission.operands[0])
+        .map((digit, index) => {
+            const mark = submission.carryMarks[index];
+            return mark === null
+                ? digit
+                : `${digit}_{\\scriptstyle\\textcolor{red}{${mark}}}`;
+        })
+        .join('');
+    return `${multiplicand} \\cdot ${submission.operands[1]}`;
+}
+
 /**
- * Mirrors the uncoloured SchulLia notation: expression, one `+` contribution
- * per multiplicand digit, a horizontal rule, and the final product.
+ * Mirrors both pinned SchulLia methods without filling missing work: either
+ * observed place-value rows with red shift zeros, or observed red carry marks
+ * attached to the corresponding multiplicand digits.
  */
 export function composeColumnMultiplicationLatex(
     value: string | ColumnMultiplicationSubmission
 ): string {
     const submission = submissionFromInput(value);
     if (!submission) return '';
-    const rows = [
-        `${submission.operands[0]} \\cdot ${submission.operands[1]}`,
-        ...submission.partialProducts.map(row => `+${row.value}`)
-    ];
-    return `\\begin{array}{r} ${rows.join(' \\\\ ')} \\\\ \\hline ${submission.result} \\end{array}`;
+    const rows = 'partialProducts' in submission
+        ? [
+            `${submission.operands[0]} \\cdot ${submission.operands[1]}`,
+            ...submission.partialProducts.map(renderSchoolPartialProduct)
+        ]
+        : [renderSchoolCarryExpression(submission)];
+    const body = rows.map(row => row + String.raw` \\ `).join('');
+    return `\\begin{array}{r} ${body}\\hline ${submission.result}` +
+        String.raw` \\ ` + String.raw`\end{array}`;
 }
 
 function validation(
@@ -430,13 +583,15 @@ function validation(
     reason: ColumnMultiplicationValidationReason,
     expected?: ColumnMultiplicationSubmission,
     submission?: ColumnMultiplicationSubmission,
-    partialProductColumn?: number
+    partialProductColumn?: number,
+    carryColumn?: number
 ): ColumnMultiplicationValidation {
     return {
         accepted,
         outcome,
         reason,
         ...(partialProductColumn === undefined ? {} : { partialProductColumn }),
+        ...(carryColumn === undefined ? {} : { carryColumn }),
         ...(expected ? { expected } : {}),
         ...(submission ? { submission } : {})
     };
@@ -460,6 +615,41 @@ export function validateColumnMultiplicationSubmission(
     if (submission.operands[0] !== prompt.operands[0] ||
         submission.operands[1] !== prompt.operands[1]) {
         return validation(false, 'incorrect', 'operand-mismatch', expected, submission);
+    }
+
+    if ('carryMarks' in submission) {
+        const carryExpected = createExpectedColumnMultiplicationCarrySubmission(prompt);
+        if (!carryExpected) {
+            return validation(false, 'incorrect', 'invalid-format', expected, submission);
+        }
+        for (let index = 0; index < carryExpected.carryMarks.length; index++) {
+            const required = carryExpected.carryMarks[index];
+            const written = submission.carryMarks[index];
+            if (required !== null && written === null) {
+                return validation(
+                    false, 'incomplete', 'missing-carry-mark', carryExpected,
+                    submission, undefined, index
+                );
+            }
+            if (required === null && written !== null) {
+                return validation(
+                    false, 'incorrect', 'unexpected-carry-mark', carryExpected,
+                    submission, undefined, index
+                );
+            }
+            if (required !== written) {
+                return validation(
+                    false, 'incorrect', 'carry-mark-mismatch', carryExpected,
+                    submission, undefined, index
+                );
+            }
+        }
+        if (submission.result !== carryExpected.result) {
+            return validation(
+                false, 'incorrect', 'result-mismatch', carryExpected, submission
+            );
+        }
+        return validation(true, 'correct', 'valid', carryExpected, submission);
     }
 
     const byColumn: Record<number, ColumnMultiplicationPartialProduct> = {};

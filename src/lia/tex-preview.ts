@@ -9,12 +9,14 @@ import {
 } from '../math/written-arithmetic.ts';
 
 const SIMPLE_INTEGER_FRACTION = /^([+-]?\d+)\s*\/\s*([+-]?\d+)$/u;
+const MAX_PREVIEW_CALCULATION_LINES = 34;
 
 function calculationLinesFromJson(source: string): string[] | null {
     if (!source.startsWith('[')) return null;
     try {
         const parsed: unknown = JSON.parse(source);
-        if (!Array.isArray(parsed) || parsed.length < 1 || parsed.length > 32 ||
+        if (!Array.isArray(parsed) || parsed.length < 1 ||
+            parsed.length > MAX_PREVIEW_CALCULATION_LINES ||
             !parsed.every(line => typeof line === 'string')) return null;
         const lines = parsed.map(line => line.trim()).filter(Boolean);
         return lines.length === parsed.length ? lines : null;

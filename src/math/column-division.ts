@@ -53,6 +53,12 @@ export type ColumnDivisionSubmission = {
     steps: ColumnDivisionStep[];
 };
 
+export type ColumnDivisionObservedStepInference = {
+    quotientDigit: string;
+    subtractedProduct: string;
+    remainder: string;
+};
+
 export type ColumnDivisionValidationReason =
     | 'valid'
     | 'invalid-prompt'
@@ -214,6 +220,39 @@ function divideDecimalStrings(dividend: string, divisor: string): ExactDivision 
         quotient: quotient.join('').replace(/^0+(?=\d)/u, ''),
         remainder: finalRemainder,
         steps
+    };
+}
+
+/**
+ * Reconciles one locally observed long-division equation without consulting
+ * the task prompt. Both the partial dividend and its following remainder
+ * must have been read from the canvas.
+ */
+export function inferColumnDivisionObservedStep(
+    partialDividendValue: unknown,
+    remainderValue: unknown,
+    divisorValue: unknown
+): ColumnDivisionObservedStepInference | null {
+    const partialDividend = normalizeDecimal(
+        partialDividendValue,
+        MAX_COLUMN_DIVISION_DIGITS
+    );
+    const remainder = normalizeDecimal(remainderValue, MAX_COLUMN_DIVISION_DIGITS);
+    const divisor = normalizeDecimal(divisorValue, MAX_COLUMN_DIVISION_DIGITS);
+    if (partialDividend === null || remainder === null || divisor === null || divisor === '0') {
+        return null;
+    }
+    let divided: ReturnType<typeof quotientDigit>;
+    try {
+        divided = quotientDigit(partialDividend, divisor);
+    } catch (_) {
+        return null;
+    }
+    if (divided.remainder !== remainder || !DIGIT.test(divided.digit)) return null;
+    return {
+        quotientDigit: divided.digit,
+        subtractedProduct: divided.product,
+        remainder: divided.remainder
     };
 }
 
@@ -503,6 +542,8 @@ function positionedValue(value: string, start: number, width: number): string {
     return phantomDigits(start) + value + phantomDigits(width - start - value.length);
 }
 
+const DIVISION_STEP_COLORS = ['blue', 'green', 'orange', 'red'] as const;
+
 /** Renders the pinned SchulLia alternating subtraction/bring-down layout. */
 export function composeColumnDivisionLatex(
     value: string | ColumnDivisionSubmission
@@ -517,10 +558,12 @@ export function composeColumnDivisionLatex(
     const rows: string[] = [
         `${submission.dividend}:${submission.divisor}&=${submission.quotient}${remainder}`
     ];
-    for (const step of submission.steps) {
+    for (let index = 0; index < submission.steps.length; index++) {
+        const step = submission.steps[index];
+        const color = DIVISION_STEP_COLORS[index % DIVISION_STEP_COLORS.length];
         rows.push(
             phantomDigits(step.subtractedProductStart) +
-            `\\underline{-${step.subtractedProduct}}` +
+            `\\underline{-\\textcolor{${color}}{${step.subtractedProduct}}}` +
             phantomDigits(width - step.subtractedProductStart - step.subtractedProduct.length) +
             divisorPadding + '&'
         );

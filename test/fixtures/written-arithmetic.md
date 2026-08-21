@@ -12,9 +12,9 @@ Subtract in writing. Show every borrow in a separate row.
 
 @BerechneOCR(`9002-3487`)
 
-## Written multiplication by place value
+## Written multiplication
 
-Multiply in writing. Show one partial product for every digit of the multiplicand.
+Multiply in writing. Show every carry mark, or one partial product for every digit of the multiplicand.
 
 @BerechneOCR(`738\cdot6`)
 

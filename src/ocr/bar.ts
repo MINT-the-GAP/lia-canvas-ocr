@@ -62,7 +62,7 @@ export function ensureOcrBar(): any {
 
     if (retryBtn) {
         retryBtn.addEventListener('click', () => {
-            const engine = LIA.activeOcrLoadEngine || LIA.ocr;
+            const engine = LIA.activeOcrLoadEngine || LIA.canvasPlusOcr || LIA.ocr;
             if (engine && engine.ensureLoaded) engine.ensureLoaded(true);
         });
     }
@@ -356,7 +356,8 @@ export function ensureOcrBar(): any {
             }
 
             if (act === 'load') {
-                if (LIA.ocr && LIA.ocr.ensureLoaded) LIA.ocr.ensureLoaded(true);
+                const engine = LIA.canvasPlusOcr || LIA.ocr;
+                if (engine && engine.ensureLoaded) engine.ensureLoaded(true);
                 return;
             }
         });

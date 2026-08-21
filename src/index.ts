@@ -173,6 +173,18 @@ function writtenArithmeticQuizMessage(
       'missing-partial-product': liaT(
         'ocr.quiz.column.missingPartial',
         'A required partial product is missing.'
+      ),
+      'missing-carry-mark': liaT(
+        'ocr.quiz.column.missingCarry',
+        'A required carry is missing.'
+      ),
+      'unexpected-carry-mark': liaT(
+        'ocr.quiz.column.carryMismatch',
+        'Check the written carries.'
+      ),
+      'carry-mark-mismatch': liaT(
+        'ocr.quiz.column.carryMismatch',
+        'Check the written carries.'
       )
     },
     'column-division': {

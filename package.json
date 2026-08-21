@@ -1,6 +1,6 @@
 {
   "name": "lia-canvas-ocr",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "LiaScript canvas + LaTeX-OCR widget",
   "scripts": {
     "build": "parcel build src/index.ts --dist-dir dist --no-scope-hoist --no-source-maps",

@@ -1,7 +1,9 @@
 // Versioned, data-only Freeze projection of a rendered calculation review.
 
 export const CALCULATION_REVIEW_FREEZE_VERSION = 'cr1' as const;
-export const MAX_CALCULATION_REVIEW_FREEZE_LINES = 32;
+// Keep enough rows to freeze the largest supported written addition:
+// 32 operands, one carry row, and one result row.
+export const MAX_CALCULATION_REVIEW_FREEZE_LINES = 34;
 export const MAX_CALCULATION_REVIEW_FREEZE_CHARACTERS = 16_384;
 
 export type CalculationReviewFreezeStatus = 'running' | 'ready' | 'error';

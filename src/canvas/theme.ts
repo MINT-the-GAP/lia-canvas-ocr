@@ -839,6 +839,18 @@ canvas.lia-canvas-freeze-preview{
   display: inline-flex;
 }
 
+/* A completed Canvas submit starts a new, unchecked native attempt. LiaScript
+   intentionally keeps the previous trial feedback until the next Check; hide
+   only that stale presentation without touching its Elm-owned DOM/state. */
+.lia-quiz.lia-canvas-answer-pending-check .lia-quiz__feedback.text-error{
+  display: none !important;
+}
+
+.lia-quiz.lia-canvas-answer-pending-check .lia-tex-preview{
+  border-color: var(--canvas-accent) !important;
+  --lia-tex-preview-border: var(--canvas-accent) !important;
+}
+
 .lia-tex-preview-math{
   min-width: 0;
   overflow: visible;

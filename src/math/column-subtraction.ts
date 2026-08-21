@@ -451,32 +451,39 @@ function submissionFromInput(
     return typeof value === 'string' ? decodeColumnSubtractionSubmission(value) : normalizeSubmission(value);
 }
 
-function renderLayoutRow(row: ColumnSubtractionLayoutRow): string {
-    const cells = row.cells.map(cell => {
-        if (cell === null) return '';
-        return row.role === 'borrows' ? `{\\scriptstyle ${cell}}` : cell;
-    });
-    return [row.operator, ...cells].join(' & ').replace(/\s+$/u, '');
+function renderSchoolBorrowRow(row: ColumnSubtractionLayoutRow): string | null {
+    if (row.role !== 'borrows' || row.cells.every(cell => cell === null)) {
+        return null;
+    }
+    const cells = row.cells.map(cell => cell === null
+        ? String.raw`\hspace{0.5em}`
+        : `\\hspace{0.25em}\\mathclap{\\textcolor{red}{${cell}}}\\hspace{0.25em}`
+    ).join('');
+    // The pinned source repeats the sign on the borrow row. A zero-width
+    // overlap keeps that sign outside the fixed-width digit slots.
+    return String.raw`\mathllap{-}` + cells;
 }
 
-/** Composes a KaTeX-safe array following the source's separate borrow row. */
+/** Composes the compact right-aligned school layout used by the SchulLia tasks. */
 export function composeColumnSubtractionLatex(
     value: string | ColumnSubtractionSubmission
 ): string {
     const submission = submissionFromInput(value);
     if (!submission) return '';
-    const { layout } = submission;
-    const alignment = new Array(layout.columns + 1).fill('r').join('');
-    const rows: string[] = [];
-    for (let index = 0; index < layout.rows.length; index++) {
-        rows.push(renderLayoutRow(layout.rows[index]));
-        if (index + 1 < layout.rows.length) {
-            rows.push(layout.rules.some(rule => rule.afterRow === index)
-                ? String.raw` \\ \hline `
-                : String.raw` \\ `);
-        }
-    }
-    return `\\begin{array}{${alignment}} ${rows.join('')} \\end{array}`;
+    const borrowLayoutRow = submission.layout.rows.find(row => row.role === 'borrows');
+    const borrowRow = borrowLayoutRow ? renderSchoolBorrowRow(borrowLayoutRow) : null;
+    const rows = [
+        submission.operands[0],
+        `-${submission.operands[1]}`,
+        ...(borrowRow ? [borrowRow] : []),
+        submission.result
+    ];
+    const body = rows.map((row, index) => {
+        if (index === rows.length - 1) return row + String.raw` \\ `;
+        if (index === rows.length - 2) return row + String.raw` \\ \hline `;
+        return row + String.raw` \\ `;
+    }).join('');
+    return `\\begin{array}{r} ${body}\\end{array}`;
 }
 
 function validation(

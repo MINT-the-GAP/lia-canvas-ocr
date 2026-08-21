@@ -89,7 +89,7 @@ test('handles no borrow, equality, zero chains and the full supported width exac
     assert.deepEqual(noBorrow.layout.rules, [{ kind: 'horizontal', afterRow: 1 }]);
     assert.equal(
         composeColumnSubtractionLatex(noBorrow),
-        String.raw`\begin{array}{rrrr}  & 9 & 8 & 7 \\ - & 1 & 2 & 3 \\ \hline  & 8 & 6 & 4 \end{array}`,
+        String.raw`\begin{array}{r} 987 \\ -123 \\ \hline 864 \\ \end{array}`,
     );
     assert.equal(createExpectedColumnSubtractionSubmission('123-123')?.result, '0');
 
@@ -128,14 +128,22 @@ test('round-trips only the canonical versioned JSON shape', () => {
     })), null);
 });
 
-test('composes the source-style KaTeX array without color support', () => {
+test('composes the compact source-style KaTeX array with red borrow marks', () => {
     const submission = createExpectedColumnSubtractionSubmission('9002-3487=5515');
     assert.ok(submission);
     assert.equal(
         composeColumnSubtractionLatex(submission),
-        String.raw`\begin{array}{rrrrr}  & 9 & 0 & 0 & 2 \\ - & 3 & 4 & 8 & 7 \\ - & {\scriptstyle 1} & {\scriptstyle 1} & {\scriptstyle 1} & \\ \hline  & 5 & 5 & 1 & 5 \end{array}`,
+        String.raw`\begin{array}{r} 9002 \\ -3487 \\ \mathllap{-}\hspace{0.25em}\mathclap{\textcolor{red}{1}}\hspace{0.25em}\hspace{0.25em}\mathclap{\textcolor{red}{1}}\hspace{0.25em}\hspace{0.25em}\mathclap{\textcolor{red}{1}}\hspace{0.25em}\hspace{0.5em} \\ \hline 5515 \\ \end{array}`,
     );
-    assert.doesNotMatch(composeColumnSubtractionLatex(submission), /textcolor/u);
+    assert.equal(
+        (composeColumnSubtractionLatex(submission).match(/\\textcolor\{red\}\{1\}/gu) || []).length,
+        3,
+    );
+    assert.match(
+        composeColumnSubtractionLatex(submission),
+        /-3487\s*\\\\\s*\\mathllap\{-\}/u,
+        'the pinned school layout repeats the subtraction sign on the borrow row',
+    );
     assert.equal(
         composeColumnSubtractionLatex(serializeColumnSubtractionSubmission(submission)),
         composeColumnSubtractionLatex(submission),

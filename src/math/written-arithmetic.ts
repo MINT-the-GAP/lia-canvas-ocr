@@ -245,7 +245,9 @@ export function writtenArithmeticLayoutRowCount(
         case 'column-subtraction':
             return submission.layout.rows.length;
         case 'column-multiplication':
-            return submission.partialProducts.length + 2;
+            return 'carryMarks' in submission
+                ? 2
+                : submission.partialProducts.length + 2;
         case 'column-division':
             return submission.steps.length * 2 + 1;
     }

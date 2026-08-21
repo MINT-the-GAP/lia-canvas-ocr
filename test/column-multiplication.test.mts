@@ -7,6 +7,7 @@ import {
     MAX_COLUMN_MULTIPLICATION_SUBMISSION_LENGTH,
     composeColumnMultiplicationLatex,
     createColumnMultiplicationSubmission,
+    createExpectedColumnMultiplicationCarrySubmission,
     createExpectedColumnMultiplicationSubmission,
     decodeColumnMultiplicationSubmission,
     parseColumnMultiplicationPrompt,
@@ -139,19 +140,145 @@ test('round-trips only canonical versioned multiplication JSON', () => {
     })), null);
 });
 
-test('renders the SchulLia row order without coloured assistance', () => {
+test('round-trips the compact carry-mark shape without changing legacy v1', () => {
+    const legacy = createExpectedColumnMultiplicationSubmission('738*6=4428');
+    const carries = createExpectedColumnMultiplicationCarrySubmission('738*6=4428');
+    assert.ok(legacy);
+    assert.ok(carries);
+    assert.deepEqual(carries.carryMarks, ['2', '4', null]);
+    assert.deepEqual(
+        decodeColumnMultiplicationSubmission(
+            serializeColumnMultiplicationSubmission(carries),
+        ),
+        carries,
+    );
+    assert.deepEqual(Object.keys(legacy).sort(), [
+        'kind', 'operands', 'partialProducts', 'result', 'version',
+    ]);
+    assert.equal('carryMarks' in legacy, false);
+    assert.equal('partialProducts' in carries, false);
+});
+
+test('grades missing, extra and wrong compact carries separately', () => {
+    const observed = (carryMarks: Array<string | null>, result = '4428') => {
+        const submission = createColumnMultiplicationSubmission({
+            operands: ['738', '6'],
+            carryMarks,
+            result,
+        });
+        assert.ok(submission);
+        return validateColumnMultiplicationSubmission('738*6', submission);
+    };
+
+    assert.deepEqual(
+        { ...observed(['2', '4', null]), expected: undefined, submission: undefined },
+        {
+            accepted: true,
+            outcome: 'correct',
+            reason: 'valid',
+            expected: undefined,
+            submission: undefined,
+        },
+    );
+    let grade = observed([null, '4', null]);
+    assert.equal(grade.outcome, 'incomplete');
+    assert.equal(grade.reason, 'missing-carry-mark');
+    assert.equal(grade.carryColumn, 0);
+
+    grade = observed(['2', '4', '1']);
+    assert.equal(grade.outcome, 'incorrect');
+    assert.equal(grade.reason, 'unexpected-carry-mark');
+    assert.equal(grade.carryColumn, 2);
+
+    grade = observed(['2', '3', null]);
+    assert.equal(grade.outcome, 'incorrect');
+    assert.equal(grade.reason, 'carry-mark-mismatch');
+    assert.equal(grade.carryColumn, 1);
+
+    grade = observed(['2', '4', null], '4429');
+    assert.equal(grade.reason, 'result-mismatch');
+});
+
+test('accepts an observed no-carry method and rejects carry marks for multi-digit multipliers', () => {
+    const noCarry = createExpectedColumnMultiplicationCarrySubmission('101*1=101');
+    assert.ok(noCarry);
+    assert.deepEqual(noCarry.carryMarks, [null, null, null]);
+    assert.equal(
+        validateColumnMultiplicationSubmission('101*1', noCarry).accepted,
+        true,
+    );
+
+    assert.equal(createExpectedColumnMultiplicationCarrySubmission('12*34'), null);
+    assert.equal(createColumnMultiplicationSubmission({
+        operands: ['12', '34'],
+        carryMarks: [null, null],
+        result: '408',
+    }), null);
+    assert.equal(decodeColumnMultiplicationSubmission(JSON.stringify({
+        kind: 'column-multiplication',
+        version: 1,
+        operands: ['12', '34'],
+        carryMarks: [null, null],
+        result: '408',
+    })), null);
+});
+
+test('renders the pinned SchulLia row order with red observed place-value zeros', () => {
     const submission = createExpectedColumnMultiplicationSubmission('738*6=4428');
     assert.ok(submission);
     const latex = composeColumnMultiplicationLatex(submission);
     assert.equal(
         latex,
-        String.raw`\begin{array}{r} 738 \cdot 6 \\ +4200 \\ +180 \\ +48 \\ \hline 4428 \end{array}`,
+        String.raw`\begin{array}{r} 738 \cdot 6 \\ +42\textcolor{red}{0}\textcolor{red}{0} \\ +18\textcolor{red}{0} \\ +48 \\ \hline 4428 \\ \end{array}`,
     );
-    assert.equal(latex.includes('textcolor'), false);
+    assert.equal((latex.match(/\\textcolor\{red\}\{0\}/gu) || []).length, 3);
+    assert.match(latex, /738 \\cdot 6/u);
+    assert.doesNotMatch(latex, /738\s*-\s*6/u);
     assert.equal(
         composeColumnMultiplicationLatex(serializeColumnMultiplicationSubmission(submission)),
         latex,
     );
+});
+
+test('renders compact observed carry marks red at their multiplicand digits', () => {
+    const submission = createExpectedColumnMultiplicationCarrySubmission('738*6=4428');
+    assert.ok(submission);
+    assert.deepEqual(submission.carryMarks, ['2', '4', null]);
+    const latex = composeColumnMultiplicationLatex(submission);
+    assert.equal(
+        latex,
+        String.raw`\begin{array}{r} 7_{\scriptstyle\textcolor{red}{2}}3_{\scriptstyle\textcolor{red}{4}}8 \cdot 6 \\ \hline 4428 \\ \end{array}`,
+    );
+    assert.equal((latex.match(/\\textcolor\{red\}/gu) || []).length, 2);
+    assert.match(latex, /\\hline 4428/u);
+});
+
+test('does not synthesize expected multiplication digits while colouring observations', () => {
+    const partialProducts = createColumnMultiplicationSubmission({
+        operands: ['738', '6'],
+        partialProducts: [
+            { multiplicandColumn: 2, shift: 2, value: '4290' },
+            { multiplicandColumn: 1, shift: 1, value: '170' },
+        ],
+        result: '4429',
+    });
+    const carryMarks = createColumnMultiplicationSubmission({
+        operands: ['738', '6'],
+        carryMarks: ['2', '3', null],
+        result: '4429',
+    });
+    assert.ok(partialProducts);
+    assert.ok(carryMarks);
+    const partialLatex = composeColumnMultiplicationLatex(partialProducts);
+    assert.match(partialLatex, /\+429\\textcolor\{red\}\{0\}/u);
+    assert.match(partialLatex, /\+17\\textcolor\{red\}\{0\}/u);
+    assert.doesNotMatch(partialLatex, /\+42\\textcolor\{red\}\{0\}\\textcolor\{red\}\{0\}/u);
+    assert.doesNotMatch(partialLatex, /\+18\\textcolor\{red\}\{0\}/u);
+    const carryLatex = composeColumnMultiplicationLatex(carryMarks);
+    assert.match(carryLatex, /3_\{\\scriptstyle\\textcolor\{red\}\{3\}\}/u);
+    assert.doesNotMatch(carryLatex, /3_\{\\scriptstyle\\textcolor\{red\}\{4\}\}/u);
+    assert.match(carryLatex, /4429/u);
+    assert.doesNotMatch(carryLatex, /4428/u);
 });
 
 test('validates every partial product, its shift, row order and final result', () => {

@@ -185,6 +185,15 @@ function hookedSmallOne(stemX: number, y: number, height = 34): Stroke {
   ]];
 }
 
+function bottomFootSmallOne(stemX: number, y: number, height = 34): Stroke {
+  return [
+    [stemX - height * 0.24, y + height * 0.24],
+    [stemX, y],
+    [stemX, y + height],
+    [stemX + height * 0.20, y + height * 0.80],
+  ];
+}
+
 function writtenSubtraction(): Drawing {
   return {
     width: 450,
@@ -200,6 +209,28 @@ function writtenSubtraction(): Drawing {
       hookedSmallOne(247, 205),
       [[75, 248], [145, 247], [250, 249], [355, 248]],
       ...numberStrokes('5515', 145, 270),
+    ],
+  };
+}
+
+function screenshotTightSubtractionWithVisibleBorrowRow(): Drawing {
+  return {
+    width: 450,
+    height: 330,
+    strokes: [
+      ...numberStrokes('9002', 145, 20),
+      // Only five completely empty raster rows separate the operand glyphs.
+      // This is the screenshot-like spacing that generic line segmentation
+      // used to merge into one FormulaNet crop (for example `-34487`).
+      minusStroke(88, 113, 34),
+      ...numberStrokes('3487', 145, 84),
+      // These compact bottom-foot ones deliberately remain visible to OCR
+      // instead of becoming vector borrow hints.
+      bottomFootSmallOne(163, 151),
+      bottomFootSmallOne(205, 151),
+      bottomFootSmallOne(247, 151),
+      [[75, 194], [145, 193], [250, 195], [355, 194]],
+      ...numberStrokes('5515', 145, 211),
     ],
   };
 }
@@ -224,7 +255,74 @@ function writtenMultiplication(): Drawing {
   };
 }
 
-export function writtenDivision(): Drawing {
+function screenshotIncompleteMultiplication(): Drawing {
+  return {
+    width: 470,
+    height: 300,
+    strokes: [
+      ...numberStrokes('738', 128, 18),
+      ...dotStrokes(273, 47),
+      ...digitStrokes('6', 315, 18),
+      [[55, 140], [145, 139], [250, 141], [365, 140]],
+      ...rightAlignedNumberStrokes('4428', 315, 170),
+    ],
+  };
+}
+
+export function screenshotCarryMultiplicationStrokes(): Stroke[] {
+  return [
+    ...digitStrokes('7', 112, 18),
+    ...digitStrokes('3', 176, 18),
+    ...digitStrokes('8', 240, 18),
+    // Observed compact carry marks: 8*6 -> 4, then 3*6+4 -> 2.
+    ...digitStrokes('2', 151, 66, 13, 23),
+    ...digitStrokes('4', 215, 66, 13, 23),
+    ...dotStrokes(294, 47),
+    ...digitStrokes('6', 330, 18),
+    [[55, 139], [145, 138], [250, 140], [365, 139]],
+    ...rightAlignedNumberStrokes('4428', 330, 169),
+  ];
+}
+
+function screenshotCarryMultiplication(): Drawing {
+  return {
+    width: 470,
+    height: 300,
+    strokes: screenshotCarryMultiplicationStrokes(),
+  };
+}
+
+function screenshotMinusOperatorMultiplication(): Drawing {
+  return {
+    width: 470,
+    height: 300,
+    strokes: [
+      ...numberStrokes('738', 128, 18),
+      minusStroke(272, 49, 34),
+      ...digitStrokes('6', 315, 18),
+      [[55, 140], [145, 139], [250, 141], [365, 140]],
+      ...rightAlignedNumberStrokes('4428', 315, 170),
+    ],
+  };
+}
+
+function screenshotPartiallyCompleteMultiplication(): Drawing {
+  return {
+    width: 470,
+    height: 390,
+    strokes: [
+      ...numberStrokes('738', 128, 18),
+      ...dotStrokes(273, 47),
+      ...digitStrokes('6', 315, 18),
+      ...plusStrokes(70, 127),
+      ...rightAlignedNumberStrokes('4200', 315, 100),
+      [[55, 220], [145, 219], [250, 221], [365, 220]],
+      ...rightAlignedNumberStrokes('4428', 315, 247),
+    ],
+  };
+}
+
+export function writtenDivision(includeObservedQuotient = true): Drawing {
   const digitHeight = 46;
   const digitWidth = 24;
   const gap = 34;
@@ -240,8 +338,9 @@ export function writtenDivision(): Drawing {
       ...digits('8736', 80, 10),
       ...colonStrokes(224, 17),
       ...digits('8', 250, 10),
-      ...equalsStrokes(290, 24),
-      ...digits('1092', 334, 10),
+      ...(includeObservedQuotient
+        ? [...equalsStrokes(290, 24), ...digits('1092', 334, 10)]
+        : []),
 
       minusStroke(48, 96, 24),
       ...digits('8', 80, 74),
@@ -266,7 +365,18 @@ export function writtenDivision(): Drawing {
   };
 }
 
-async function drawDesign(
+function incompleteWrittenDivisionPrefix(): Drawing {
+  const complete = writtenDivision();
+  return {
+    width: complete.width,
+    height: 220,
+    // Header, first subtraction, its underline, and the observed 07
+    // bring-down row form one unambiguous authored prefix.
+    strokes: complete.strokes.slice(0, 18),
+  };
+}
+
+export async function drawDesign(
   page: Page,
   box: { x: number; y: number; width: number; height: number },
   drawing: Drawing,
@@ -304,7 +414,11 @@ async function answerBeforePair(page: Page, selector: string): Promise<string> {
   }, selector);
 }
 
-async function checkNativeQuiz(page: Page, selector: string): Promise<void> {
+async function checkNativeQuiz(
+  page: Page,
+  selector: string,
+  expectedResult: 'success' | 'failure' = 'success',
+): Promise<void> {
   await page.evaluate(pairSelector => {
     const pair = document.querySelector(pairSelector);
     if (!pair) throw new Error('Canvas pair not found.');
@@ -328,7 +442,7 @@ async function checkNativeQuiz(page: Page, selector: string): Promise<void> {
   }, selector);
   await page.locator('[data-written-arithmetic-check]').click();
   await page.waitForFunction(
-    pairSelector => {
+    ({ pairSelector, expectedResult }) => {
       const pair = document.querySelector(pairSelector);
       if (!pair) return false;
       let answer: Element | null = null;
@@ -340,12 +454,19 @@ async function checkNativeQuiz(page: Page, selector: string): Promise<void> {
         }
       }
       const quiz = answer?.closest('.lia-quiz');
+      if (expectedResult === 'success') {
+        return Boolean(
+          quiz?.classList.contains('solved') &&
+          quiz.querySelector('.lia-quiz__feedback.text-success'),
+        );
+      }
       return Boolean(
-        quiz?.classList.contains('solved') &&
-        quiz.querySelector('.lia-quiz__feedback.text-success'),
+        quiz?.classList.contains('open') &&
+        quiz.querySelector('.lia-quiz__feedback.text-error') &&
+        !quiz.querySelector('.lia-quiz__feedback.text-success'),
       );
     },
-    selector,
+    { pairSelector: selector, expectedResult },
     { timeout: 8_000 },
   );
 }
@@ -433,6 +554,7 @@ async function submitDrawing(
 ): Promise<{
   answer: string;
   kind: string;
+  previewMode: string;
   latex: string;
   lineCount: string;
   transitions: number;
@@ -484,6 +606,7 @@ async function submitDrawing(
     ) as HTMLElement | null;
     return {
       kind: (element as HTMLElement).dataset.calculationKind || '',
+      previewMode: outputNode?.dataset.previewMode || '',
       latex: outputNode?.dataset.latex || '',
       lineCount: outputNode?.dataset.lineCount || '',
       transitions: outputNode?.querySelectorAll('.lia-canvasplus-transition').length || 0,
@@ -509,8 +632,9 @@ async function assertCheckPreservesPreview(
   selector: string,
   answer: string,
   latex: string,
+  expectedResult: 'success' | 'failure' = 'success',
 ): Promise<void> {
-  await checkNativeQuiz(page, selector);
+  await checkNativeQuiz(page, selector, expectedResult);
   assert.equal(await answerBeforePair(page, selector), answer);
   const pair = page.locator(selector);
   const output = pair.locator('.lia-canvasplus-output');
@@ -652,8 +776,11 @@ export function registerWrittenArithmeticBrowserRegression(): void {
         assert.equal(subtraction.remainingResponses, 0);
         assertOnlySemanticCrops(subtraction.crops, 3);
         assert.match(subtraction.latex, /\\hline/u);
-        assert.equal((subtraction.latex.match(/\{\\scriptstyle 1\}/gu) || []).length, 3);
-        assert.doesNotMatch(subtraction.latex, /color/iu);
+        assert.match(subtraction.latex, /\\mathllap\{-\}/u);
+        assert.equal(
+          (subtraction.latex.match(/\\textcolor\{red\}\{1\}/gu) || []).length,
+          3,
+        );
         const subtractionAnswer = JSON.parse(subtraction.answer);
         assert.equal(subtractionAnswer.kind, 'column-subtraction');
         assert.equal(subtractionAnswer.version, 1);
@@ -674,8 +801,8 @@ export function registerWrittenArithmeticBrowserRegression(): void {
         await goToNextTask(page, selector, '#2', '738\\cdot6');
         await installOcrStub(
           page,
-          ['738\\cdot6', '+4200', '+180', '+48', '4428'],
-          'column-multiplication',
+          ['7,3,8,6', '+4200', '+180', '+48', '4428'],
+          'column-multiplication-comma-dot-complete',
         );
         pair = page.locator(selector);
         const multiplication = await submitDrawing(
@@ -697,8 +824,12 @@ export function registerWrittenArithmeticBrowserRegression(): void {
         assert.equal(multiplication.remainingResponses, 0);
         assertOnlySemanticCrops(multiplication.crops, 5);
         assert.match(multiplication.latex, /738\s+\\cdot\s+6/u);
+        const multiplicationSemanticLatex = multiplication.latex.replace(
+          /\\textcolor\{red\}\{(\d)\}/gu,
+          '$1',
+        );
         const multiplicationOrder = ['+4200', '+180', '+48', '\\hline', '4428']
-          .map(fragment => multiplication.latex.indexOf(fragment));
+          .map(fragment => multiplicationSemanticLatex.indexOf(fragment));
         assert.ok(
           multiplicationOrder.every((offset, index) =>
             offset >= 0 && (index === 0 || offset > multiplicationOrder[index - 1]),
@@ -706,7 +837,10 @@ export function registerWrittenArithmeticBrowserRegression(): void {
           'multiplication TeX does not preserve the pinned place-value row order: ' +
             multiplication.latex,
         );
-        assert.doesNotMatch(multiplication.latex, /color/iu);
+        assert.equal(
+          (multiplication.latex.match(/\\textcolor\{red\}\{0\}/gu) || []).length,
+          3,
+        );
         const multiplicationAnswer = JSON.parse(multiplication.answer);
         assert.equal(multiplicationAnswer.kind, 'column-multiplication');
         assert.equal(multiplicationAnswer.version, 1);
@@ -727,11 +861,21 @@ export function registerWrittenArithmeticBrowserRegression(): void {
         await goToNextTask(page, selector, '#3', '8736:8');
         await installOcrStub(
           page,
-          ['8736:8=1092', '-8', '07', '-0', '73', '-72', '16', '-16', '0'],
+          [
+            String.raw`\(8736 \div 8\)`,
+            '-g',
+            '0 7',
+            '− 0',
+            '7 3',
+            '− 7 2',
+            '1 6',
+            '− 1 6',
+            '0',
+          ],
           'column-division',
         );
         pair = page.locator(selector);
-        const division = await submitDrawing(page, selector, writtenDivision());
+        const division = await submitDrawing(page, selector, writtenDivision(false));
         assert.equal(division.kind, 'column-division');
         assert.equal(
           await pair.getAttribute('data-calculation-kind'),
@@ -755,11 +899,17 @@ export function registerWrittenArithmeticBrowserRegression(): void {
         );
         assert.match(division.latex, /07/u);
         assert.equal(
-          (division.latex.match(/\\underline\{-/gu) || []).length,
+          (division.latex.match(/\\underline\{-\\textcolor\{/gu) || []).length,
           4,
           'all four structural division underlines must be reconstructed in TeX',
         );
-        assert.doesNotMatch(division.latex, /color/iu);
+        assert.deepEqual(
+          Array.from(
+            division.latex.matchAll(/\\textcolor\{([^}]+)\}/gu),
+            match => match[1],
+          ),
+          ['blue', 'green', 'orange', 'red'],
+        );
         const divisionAnswer = JSON.parse(division.answer);
         assert.equal(divisionAnswer.kind, 'column-division');
         assert.equal(divisionAnswer.version, 1);
@@ -801,7 +951,768 @@ export function registerWrittenArithmeticBrowserRegression(): void {
             },
           ],
         );
+        assert.match(division.latex, /8736:8&=1092/u);
+        assert.doesNotMatch(division.latex, /\{g\}/u);
         await assertCheckPreservesPreview(page, selector, division.answer, division.latex);
+
+        const diagnostics = await snapshotDiagnostics(page);
+        assertSyntheticDelivery(harness, WRITTEN_ARITHMETIC_COURSE_URL);
+        assert.deepEqual(harness.modelRequests, []);
+        assertNoRuntimeErrors(harness, diagnostics);
+      } finally {
+        await harness.context.close();
+        await browser.close();
+      }
+    },
+  );
+
+  test(
+    'current chromium smoke: tight screenshot subtraction splits both operands and succeeds natively',
+    { timeout: 120_000 },
+    async t => {
+      const requested = new Set(
+        (process.env.LIA_BROWSER_PROJECTS ?? 'chromium,firefox,webkit')
+          .split(',')
+          .map(value => value.trim().toLowerCase())
+          .filter(Boolean),
+      );
+      if (!requested.has('chromium')) {
+        t.skip('excluded by LIA_BROWSER_PROJECTS');
+        return;
+      }
+
+      const browser = await chromium.launch({ headless: true });
+      const harness = await createHarness(browser, { withAlgebrite: false });
+      const selector =
+        '.lia-canvas-pair[data-canvas-mode=plus][data-canvas-output=answer]';
+      try {
+        await harness.page.setViewportSize({ width: 1920, height: 1100 });
+        await openCourse(
+          harness,
+          WRITTEN_ARITHMETIC_COURSE_URL,
+          selector + ' .lia-canvas-launch',
+        );
+        const page = harness.page;
+        await page.evaluate(() => {
+          (window as any).katex = {
+            render(tex: string, target: HTMLElement) {
+              target.textContent = 'rendered: ' + tex;
+              target.setAttribute('data-rendered-tex', tex);
+            },
+          };
+        });
+
+        await installOcrStub(
+          page,
+          ['9002', '-3487', '1 1 1', '5515'],
+          'column-subtraction-visible-borrow-row',
+        );
+        const pair = page.locator(selector);
+        const subtraction = await submitDrawing(
+          page,
+          selector,
+          screenshotTightSubtractionWithVisibleBorrowRow(),
+        );
+        assert.equal(subtraction.kind, 'column-subtraction');
+        assert.equal(
+          subtraction.previewMode,
+          'structured',
+          'tight subtraction snapshot: ' + JSON.stringify(subtraction),
+        );
+        assert.ok(subtraction.answer, 'structured subtraction must populate the native answer');
+        assert.equal(subtraction.renderedTex, subtraction.latex);
+        assert.equal(
+          subtraction.remainingResponses,
+          0,
+          'tight subtraction OCR crops: ' + JSON.stringify(subtraction),
+        );
+        assertOnlySemanticCrops(subtraction.crops, 4);
+        assert.match(subtraction.latex, /\\hline/u);
+        const subtractionAnswer = JSON.parse(subtraction.answer);
+        assert.deepEqual(subtractionAnswer.operands, ['9002', '3487']);
+        assert.equal(subtractionAnswer.result, '5515');
+        assert.deepEqual(subtractionAnswer.borrows, [null, '1', '1', '1']);
+        assert.deepEqual(
+          subtractionAnswer.layout.rows.map((row: any) => row.role),
+          ['first-operand', 'second-operand', 'borrows', 'result'],
+        );
+        assert.deepEqual(subtractionAnswer.layout.rules, [
+          { kind: 'horizontal', afterRow: 2 },
+        ]);
+        const subtractionGrade = await pair.evaluate((_, answer) =>
+          (window.__LIA_CANVAS_OCR__ as any)
+            .checkCalculationAnswer('9002-3487', answer),
+        subtraction.answer);
+        assert.equal(subtractionGrade?.accepted, true);
+        assert.equal(subtractionGrade?.outcome, 'correct');
+        await assertCheckPreservesPreview(
+          page,
+          selector,
+          subtraction.answer,
+          subtraction.latex,
+          'success',
+        );
+
+        const diagnostics = await snapshotDiagnostics(page);
+        assertSyntheticDelivery(harness, WRITTEN_ARITHMETIC_COURSE_URL);
+        assert.deepEqual(harness.modelRequests, []);
+        assertNoRuntimeErrors(harness, diagnostics);
+      } finally {
+        await harness.context.close();
+        await browser.close();
+      }
+    },
+  );
+
+  test(
+    'current chromium smoke: incomplete screenshot multiplication stays structured and fails natively',
+    { timeout: 120_000 },
+    async t => {
+      const requested = new Set(
+        (process.env.LIA_BROWSER_PROJECTS ?? 'chromium,firefox,webkit')
+          .split(',')
+          .map(value => value.trim().toLowerCase())
+          .filter(Boolean),
+      );
+      if (!requested.has('chromium')) {
+        t.skip('excluded by LIA_BROWSER_PROJECTS');
+        return;
+      }
+
+      const browser = await chromium.launch({ headless: true });
+      const harness = await createHarness(browser, { withAlgebrite: false });
+      const selector =
+        '.lia-canvas-pair[data-canvas-mode=plus][data-canvas-output=answer]';
+      try {
+        await harness.page.setViewportSize({ width: 1920, height: 1100 });
+        await openCourse(
+          harness,
+          WRITTEN_ARITHMETIC_COURSE_URL,
+          selector + ' .lia-canvas-launch',
+        );
+        const page = harness.page;
+        await page.evaluate(() => {
+          (window as any).katex = {
+            render(tex: string, target: HTMLElement) {
+              target.textContent = 'rendered: ' + tex;
+              target.setAttribute('data-rendered-tex', tex);
+            },
+          };
+        });
+        await goToNextTask(page, selector, '#2', '738\\cdot6');
+        await installOcrStub(
+          page,
+          ['7,3,8,6', '4428'],
+          'column-multiplication-comma-dot-screenshot',
+        );
+
+        const pair = page.locator(selector);
+        const multiplication = await submitDrawing(
+          page,
+          selector,
+          screenshotIncompleteMultiplication(),
+        );
+        assert.equal(multiplication.kind, 'column-multiplication');
+        assert.equal(multiplication.previewMode, 'structured');
+        assert.ok(
+          multiplication.answer,
+          'incomplete structured multiplication must populate the native answer',
+        );
+        assert.equal(multiplication.renderedTex, multiplication.latex);
+        assert.equal(multiplication.remainingResponses, 0);
+        assertOnlySemanticCrops(multiplication.crops, 2);
+        assert.match(multiplication.latex, /\\hline/u);
+        assert.match(multiplication.latex, /\\cdot/u);
+        assert.doesNotMatch(multiplication.latex, /,/u);
+        const multiplicationAnswer = JSON.parse(multiplication.answer);
+        assert.deepEqual(multiplicationAnswer.operands, ['738', '6']);
+        assert.deepEqual(multiplicationAnswer.carryMarks, [null, null, null]);
+        assert.equal(multiplicationAnswer.result, '4428');
+        const multiplicationGrade = await pair.evaluate((_, answer) =>
+          (window.__LIA_CANVAS_OCR__ as any)
+            .checkCalculationAnswer('738\\cdot6', answer),
+        multiplication.answer);
+        assert.equal(multiplicationGrade?.accepted, false);
+        assert.equal(multiplicationGrade?.outcome, 'incomplete');
+        assert.equal(multiplicationGrade?.reason, 'missing-carry-mark');
+        assert.equal(multiplicationGrade?.carryColumn, 0);
+        await assertCheckPreservesPreview(
+          page,
+          selector,
+          multiplication.answer,
+          multiplication.latex,
+          'failure',
+        );
+
+        const diagnostics = await snapshotDiagnostics(page);
+        assertSyntheticDelivery(harness, WRITTEN_ARITHMETIC_COURSE_URL);
+        assert.deepEqual(harness.modelRequests, []);
+        assertNoRuntimeErrors(harness, diagnostics);
+      } finally {
+        await harness.context.close();
+        await browser.close();
+      }
+    },
+  );
+
+  test(
+    'current chromium smoke: screenshot multiplication carry marks render red and pass native check',
+    { timeout: 120_000 },
+    async t => {
+      const requested = new Set(
+        (process.env.LIA_BROWSER_PROJECTS ?? 'chromium,firefox,webkit')
+          .split(',')
+          .map(value => value.trim().toLowerCase())
+          .filter(Boolean),
+      );
+      if (!requested.has('chromium')) {
+        t.skip('excluded by LIA_BROWSER_PROJECTS');
+        return;
+      }
+
+      const browser = await chromium.launch({ headless: true });
+      const harness = await createHarness(browser, { withAlgebrite: false });
+      const selector =
+        '.lia-canvas-pair[data-canvas-mode=plus][data-canvas-output=answer]';
+      try {
+        await harness.page.setViewportSize({ width: 1920, height: 1100 });
+        await openCourse(
+          harness,
+          WRITTEN_ARITHMETIC_COURSE_URL,
+          selector + ' .lia-canvas-launch',
+        );
+        const page = harness.page;
+        await page.evaluate(() => {
+          (window as any).katex = {
+            render(tex: string, target: HTMLElement) {
+              target.textContent = 'rendered: ' + tex;
+              target.setAttribute('data-rendered-tex', tex);
+            },
+          };
+        });
+        await goToNextTask(page, selector, '#2', '738\\cdot6');
+        await installOcrStub(
+          page,
+          [String.raw`7_{2}3_{4}8-6`, '4428'],
+          'column-multiplication-index-carries-minus-alias',
+        );
+
+        const pair = page.locator(selector);
+        const multiplication = await submitDrawing(
+          page,
+          selector,
+          screenshotCarryMultiplication(),
+        );
+        assert.equal(multiplication.kind, 'column-multiplication');
+        assert.equal(multiplication.previewMode, 'structured');
+        assert.ok(multiplication.answer);
+        assert.equal(multiplication.renderedTex, multiplication.latex);
+        assert.equal(multiplication.remainingResponses, 0);
+        assertOnlySemanticCrops(multiplication.crops, 2);
+        assert.match(multiplication.latex, /\\hline/u);
+        assert.match(multiplication.latex, /\\cdot/u);
+        assert.doesNotMatch(multiplication.latex, /738\s*-\s*6/u);
+        assert.equal(
+          (multiplication.latex.match(/\\textcolor\{red\}/gu) || []).length,
+          2,
+        );
+        assert.match(
+          multiplication.latex,
+          /7_\{\\scriptstyle\\textcolor\{red\}\{2\}\}3_\{\\scriptstyle\\textcolor\{red\}\{4\}\}8/u,
+        );
+
+        const multiplicationAnswer = JSON.parse(multiplication.answer);
+        assert.deepEqual(multiplicationAnswer, {
+          kind: 'column-multiplication',
+          version: 1,
+          operands: ['738', '6'],
+          carryMarks: ['2', '4', null],
+          result: '4428',
+        });
+        const multiplicationGrade = await pair.evaluate((_, answer) =>
+          (window.__LIA_CANVAS_OCR__ as any)
+            .checkCalculationAnswer('738\\cdot6', answer),
+        multiplication.answer);
+        assert.equal(multiplicationGrade?.accepted, true);
+        assert.equal(multiplicationGrade?.outcome, 'correct');
+        await assertCheckPreservesPreview(
+          page,
+          selector,
+          multiplication.answer,
+          multiplication.latex,
+          'success',
+        );
+
+        const diagnostics = await snapshotDiagnostics(page);
+        assertSyntheticDelivery(harness, WRITTEN_ARITHMETIC_COURSE_URL);
+        assert.deepEqual(harness.modelRequests, []);
+        assertNoRuntimeErrors(harness, diagnostics);
+      } finally {
+        await harness.context.close();
+        await browser.close();
+      }
+    },
+  );
+
+  test(
+    'current chromium smoke: multiplication carry raster gate accepts observed comma carries and rejects hallucinated marks or a real minus',
+    { timeout: 240_000 },
+    async t => {
+      const requested = new Set(
+        (process.env.LIA_BROWSER_PROJECTS ?? 'chromium,firefox,webkit')
+          .split(',')
+          .map(value => value.trim().toLowerCase())
+          .filter(Boolean),
+      );
+      if (!requested.has('chromium')) {
+        t.skip('excluded by LIA_BROWSER_PROJECTS');
+        return;
+      }
+
+      const scenarios = [
+        {
+          label: 'comma-carries',
+          responses: ['7,3,8,6', '4428', '2', '4'],
+          drawing: screenshotCarryMultiplication(),
+          previewMode: 'structured',
+          cropCount: 4,
+        },
+        {
+          label: 'hallucinated-subscripts',
+          responses: [String.raw`7_{2}3_{4}8\cdot6`, '4428'],
+          drawing: screenshotIncompleteMultiplication(),
+          previewMode: 'draft',
+          cropCount: 2,
+        },
+        {
+          label: 'real-minus-geometry',
+          responses: [String.raw`738\cdot6`, '-', '4428'],
+          drawing: screenshotMinusOperatorMultiplication(),
+          previewMode: 'draft',
+          cropCount: 3,
+        },
+      ] as const;
+
+      for (const scenario of scenarios) {
+        const browser = await chromium.launch({ headless: true });
+        const harness = await createHarness(browser, { withAlgebrite: false });
+        const selector =
+          '.lia-canvas-pair[data-canvas-mode=plus][data-canvas-output=answer]';
+        try {
+          await harness.page.setViewportSize({ width: 1920, height: 1100 });
+          await openCourse(
+            harness,
+            WRITTEN_ARITHMETIC_COURSE_URL,
+            selector + ' .lia-canvas-launch',
+          );
+          const page = harness.page;
+          await page.evaluate(() => {
+            (window as any).katex = {
+              render(tex: string, target: HTMLElement) {
+                target.textContent = 'rendered: ' + tex;
+                target.setAttribute('data-rendered-tex', tex);
+              },
+            };
+          });
+          await goToNextTask(page, selector, '#2', '738\\cdot6');
+          await installOcrStub(
+            page,
+            [...scenario.responses],
+            'column-multiplication-raster-' + scenario.label,
+          );
+
+          const multiplication = await submitDrawing(
+            page,
+            selector,
+            scenario.drawing,
+          );
+          assert.equal(
+            multiplication.previewMode,
+            scenario.previewMode,
+            scenario.label + ': ' + JSON.stringify(multiplication),
+          );
+          assert.equal(multiplication.remainingResponses, 0, scenario.label);
+          if (scenario.label === 'comma-carries') {
+            assert.equal(multiplication.crops.length, scenario.cropCount);
+            assertOnlySemanticCrops(multiplication.crops.slice(0, 2), 2);
+            assert.ok(
+              multiplication.crops.slice(2).every(crop =>
+                crop.inkWidth > 0 && crop.inkHeight > 0,
+              ),
+              'isolated carry digits must remain non-empty semantic OCR crops',
+            );
+          } else if (scenario.label === 'real-minus-geometry') {
+            assert.equal(multiplication.crops.length, scenario.cropCount);
+            assertOnlySemanticCrops([
+              multiplication.crops[0],
+              multiplication.crops[2],
+            ], 2);
+            assert.ok(
+              multiplication.crops[1].inkHeight <
+                Math.min(
+                  multiplication.crops[0].inkHeight,
+                  multiplication.crops[2].inkHeight,
+                ) * 0.38,
+              'the genuine minus/rule geometry must remain a thin draft row',
+            );
+          } else {
+            assertOnlySemanticCrops(multiplication.crops, scenario.cropCount);
+          }
+
+          const pair = page.locator(selector);
+          if (scenario.previewMode === 'structured') {
+            const answer = JSON.parse(multiplication.answer);
+            assert.deepEqual(answer, {
+              kind: 'column-multiplication',
+              version: 1,
+              operands: ['738', '6'],
+              carryMarks: ['2', '4', null],
+              result: '4428',
+            });
+            assert.match(multiplication.latex, /\\cdot/u);
+            assert.match(multiplication.latex, /\\hline/u);
+            assert.equal(
+              (multiplication.latex.match(/\\textcolor\{red\}/gu) || []).length,
+              2,
+            );
+            const grade = await pair.evaluate((_, value) =>
+              (window.__LIA_CANVAS_OCR__ as any)
+                .checkCalculationAnswer('738\\cdot6', value),
+            multiplication.answer);
+            assert.equal(grade?.accepted, true);
+            assert.equal(grade?.outcome, 'correct');
+            await assertCheckPreservesPreview(
+              page,
+              selector,
+              multiplication.answer,
+              multiplication.latex,
+              'success',
+            );
+          } else {
+            assert.deepEqual(
+              JSON.parse(multiplication.answer),
+              [...scenario.responses],
+            );
+            const grade = await pair.evaluate((_, value) =>
+              (window.__LIA_CANVAS_OCR__ as any)
+                .checkCalculationAnswer('738\\cdot6', value),
+            multiplication.answer);
+            assert.equal(grade?.accepted, false);
+            assert.equal(grade?.reason, 'invalid-format');
+            await assertCheckPreservesPreview(
+              page,
+              selector,
+              multiplication.answer,
+              multiplication.latex,
+              'failure',
+            );
+          }
+
+          const diagnostics = await snapshotDiagnostics(page);
+          assertSyntheticDelivery(harness, WRITTEN_ARITHMETIC_COURSE_URL);
+          assert.deepEqual(harness.modelRequests, []);
+          assertNoRuntimeErrors(harness, diagnostics);
+        } finally {
+          await harness.context.close();
+          await browser.close();
+        }
+      }
+    },
+  );
+
+  test(
+    'current chromium smoke: observed multiplication partial prefix stays structured and incomplete',
+    { timeout: 120_000 },
+    async t => {
+      const requested = new Set(
+        (process.env.LIA_BROWSER_PROJECTS ?? 'chromium,firefox,webkit')
+          .split(',')
+          .map(value => value.trim().toLowerCase())
+          .filter(Boolean),
+      );
+      if (!requested.has('chromium')) {
+        t.skip('excluded by LIA_BROWSER_PROJECTS');
+        return;
+      }
+
+      const browser = await chromium.launch({ headless: true });
+      const harness = await createHarness(browser, { withAlgebrite: false });
+      const selector =
+        '.lia-canvas-pair[data-canvas-mode=plus][data-canvas-output=answer]';
+      try {
+        await harness.page.setViewportSize({ width: 1920, height: 1100 });
+        await openCourse(
+          harness,
+          WRITTEN_ARITHMETIC_COURSE_URL,
+          selector + ' .lia-canvas-launch',
+        );
+        const page = harness.page;
+        await page.evaluate(() => {
+          (window as any).katex = {
+            render(tex: string, target: HTMLElement) {
+              target.textContent = 'rendered: ' + tex;
+              target.setAttribute('data-rendered-tex', tex);
+            },
+          };
+        });
+        await goToNextTask(page, selector, '#2', '738\\cdot6');
+        await installOcrStub(
+          page,
+          ['7,3,8,6', '+4200', '4428'],
+          'column-multiplication-comma-dot-partial-prefix',
+        );
+
+        const pair = page.locator(selector);
+        const multiplication = await submitDrawing(
+          page,
+          selector,
+          screenshotPartiallyCompleteMultiplication(),
+        );
+        assert.equal(multiplication.kind, 'column-multiplication');
+        assert.equal(multiplication.previewMode, 'structured');
+        assert.ok(
+          multiplication.answer,
+          'a partially authored multiplication must populate the native answer',
+        );
+        assert.equal(multiplication.renderedTex, multiplication.latex);
+        assert.equal(multiplication.remainingResponses, 0);
+        assertOnlySemanticCrops(multiplication.crops, 3);
+        assert.match(multiplication.latex, /738\s+\\cdot\s+6/u);
+        const semanticLatex = multiplication.latex.replace(
+          /\\textcolor\{red\}\{(\d)\}/gu,
+          '$1',
+        );
+        assert.match(semanticLatex, /\+4200/u);
+        assert.match(multiplication.latex, /\\hline/u);
+        assert.doesNotMatch(multiplication.latex, /\+180|\+48/u);
+
+        const multiplicationAnswer = JSON.parse(multiplication.answer);
+        assert.deepEqual(multiplicationAnswer.operands, ['738', '6']);
+        assert.deepEqual(multiplicationAnswer.partialProducts, [
+          { multiplicandColumn: 2, shift: 2, value: '4200' },
+        ]);
+        assert.equal(multiplicationAnswer.result, '4428');
+        const multiplicationGrade = await pair.evaluate((_, answer) =>
+          (window.__LIA_CANVAS_OCR__ as any)
+            .checkCalculationAnswer('738\\cdot6', answer),
+        multiplication.answer);
+        assert.equal(multiplicationGrade?.accepted, false);
+        assert.equal(multiplicationGrade?.outcome, 'incomplete');
+        assert.equal(multiplicationGrade?.reason, 'missing-partial-product');
+        assert.equal(multiplicationGrade?.partialProductColumn, 1);
+        await assertCheckPreservesPreview(
+          page,
+          selector,
+          multiplication.answer,
+          multiplication.latex,
+          'failure',
+        );
+
+        const diagnostics = await snapshotDiagnostics(page);
+        assertSyntheticDelivery(harness, WRITTEN_ARITHMETIC_COURSE_URL);
+        assert.deepEqual(harness.modelRequests, []);
+        assertNoRuntimeErrors(harness, diagnostics);
+      } finally {
+        await harness.context.close();
+        await browser.close();
+      }
+    },
+  );
+
+  test(
+    'current chromium smoke: observed division mistakes and prefixes stay structured for native grading',
+    { timeout: 180_000 },
+    async t => {
+      const requested = new Set(
+        (process.env.LIA_BROWSER_PROJECTS ?? 'chromium,firefox,webkit')
+          .split(',')
+          .map(value => value.trim().toLowerCase())
+          .filter(Boolean),
+      );
+      if (!requested.has('chromium')) {
+        t.skip('excluded by LIA_BROWSER_PROJECTS');
+        return;
+      }
+
+      const browser = await chromium.launch({ headless: true });
+      const selector =
+        '.lia-canvas-pair[data-canvas-mode=plus][data-canvas-output=answer]';
+      const cases = [
+        {
+          label: 'wrong-observed-step',
+          drawing: writtenDivision(),
+          responses: [
+            '8736:8=1092', '-8', '07', '-0', '73', '-71', '16', '-16', '0',
+          ],
+          reason: 'step-mismatch',
+          outcome: 'incorrect',
+          expectedSteps: 4,
+          expectedLineCount: '9',
+        },
+        {
+          label: 'observed-header-mismatch',
+          drawing: writtenDivision(),
+          responses: [
+            '9736:8=1092', '-8', '07', '-0', '73', '-72', '16', '-16', '0',
+          ],
+          reason: 'operand-mismatch',
+          outcome: 'incorrect',
+          expectedSteps: 4,
+          expectedLineCount: '9',
+        },
+        {
+          label: 'unambiguous-observed-prefix',
+          drawing: incompleteWrittenDivisionPrefix(),
+          responses: ['8736:8=1092', '-8', '07'],
+          reason: 'missing-step',
+          outcome: 'incomplete',
+          expectedSteps: 1,
+          expectedLineCount: '3',
+        },
+      ] as const;
+
+      try {
+        for (const scenario of cases) {
+          const harness = await createHarness(browser, { withAlgebrite: false });
+          try {
+            await openCourse(
+              harness,
+              WRITTEN_ARITHMETIC_COURSE_URL,
+              selector + ' .lia-canvas-launch',
+            );
+            const page = harness.page;
+            await page.evaluate(() => {
+              (window as any).katex = {
+                render(tex: string, target: HTMLElement) {
+                  target.textContent = 'rendered: ' + tex;
+                  target.setAttribute('data-rendered-tex', tex);
+                },
+              };
+            });
+            await goToNextTask(page, selector, '#2', '738\\cdot6');
+            await goToNextTask(page, selector, '#3', '8736:8');
+            await installOcrStub(page, [...scenario.responses], scenario.label);
+
+            const division = await submitDrawing(
+              page,
+              selector,
+              scenario.drawing,
+            );
+            assert.equal(division.kind, 'column-division');
+            assert.equal(division.previewMode, 'structured');
+            assert.equal(division.lineCount, scenario.expectedLineCount);
+            assert.equal(division.remainingResponses, 0);
+            const answer = JSON.parse(division.answer);
+            assert.equal(answer.kind, 'column-division');
+            assert.equal(answer.steps.length, scenario.expectedSteps);
+
+            if (scenario.label === 'wrong-observed-step') {
+              assert.equal(answer.steps[2].subtractedProduct, '71');
+              assert.match(
+                division.latex,
+                /\\underline\{-\\textcolor\{orange\}\{71\}\}/u,
+              );
+            } else if (scenario.label === 'observed-header-mismatch') {
+              assert.equal(answer.dividend, '9736');
+              assert.equal(answer.dividend === '8736', false);
+            } else {
+              assert.equal(answer.steps[0].partialDividend, '8');
+              assert.equal(answer.steps[0].remainder, '0');
+              assert.equal(answer.steps[0].broughtDownDigit, '7');
+            }
+
+            const grade = await page.locator(selector).evaluate((_, value) =>
+              (window.__LIA_CANVAS_OCR__ as any)
+                .checkCalculationAnswer('8736:8', value),
+            division.answer);
+            assert.equal(grade?.accepted, false);
+            assert.equal(grade?.outcome, scenario.outcome);
+            assert.equal(grade?.reason, scenario.reason);
+            await assertCheckPreservesPreview(
+              page,
+              selector,
+              division.answer,
+              division.latex,
+              'failure',
+            );
+
+            const diagnostics = await snapshotDiagnostics(page);
+            assertSyntheticDelivery(harness, WRITTEN_ARITHMETIC_COURSE_URL);
+            assert.deepEqual(harness.modelRequests, []);
+            assertNoRuntimeErrors(harness, diagnostics);
+          } finally {
+            await harness.context.close();
+          }
+        }
+      } finally {
+        await browser.close();
+      }
+    },
+  );
+
+  test(
+    'current chromium smoke: an uncertain division row remains an editable native draft',
+    { timeout: 120_000 },
+    async t => {
+      const requested = new Set(
+        (process.env.LIA_BROWSER_PROJECTS ?? 'chromium,firefox,webkit')
+          .split(',')
+          .map(value => value.trim().toLowerCase())
+          .filter(Boolean),
+      );
+      if (!requested.has('chromium')) {
+        t.skip('excluded by LIA_BROWSER_PROJECTS');
+        return;
+      }
+
+      const browser = await chromium.launch({ headless: true });
+      const harness = await createHarness(browser, { withAlgebrite: false });
+      const selector =
+        '.lia-canvas-pair[data-canvas-mode=plus][data-canvas-output=answer]';
+      try {
+        await openCourse(
+          harness,
+          WRITTEN_ARITHMETIC_COURSE_URL,
+          selector + ' .lia-canvas-launch',
+        );
+        const page = harness.page;
+        await page.evaluate(() => {
+          (window as any).katex = {
+            render(tex: string, target: HTMLElement) {
+              target.textContent = 'rendered: ' + tex;
+              target.setAttribute('data-rendered-tex', tex);
+            },
+          };
+        });
+        await goToNextTask(page, selector, '#2', '738\\cdot6');
+        await goToNextTask(page, selector, '#3', '8736:8');
+        await installOcrStub(
+          page,
+          ['8736:8', '-g', '17', '-0', '73', '-72', '16', '-16', '0'],
+          'column-division-uncertain-role',
+        );
+
+        const division = await submitDrawing(page, selector, writtenDivision(false));
+        assert.equal(division.kind, 'column-division');
+        assert.equal(division.previewMode, 'draft');
+        assert.equal(division.lineCount, '9');
+        assert.equal(division.remainingResponses, 0);
+        assert.deepEqual(JSON.parse(division.answer), [
+          '8736:8', '-g', '17', '-0', '73', '-72', '16', '-16', '0',
+        ]);
+        const grade = await page.locator(selector).evaluate((_, value) =>
+          (window.__LIA_CANVAS_OCR__ as any)
+            .checkCalculationAnswer('8736:8', value),
+        division.answer);
+        assert.equal(grade?.accepted, false);
+        assert.equal(grade?.reason, 'invalid-format');
+        await assertCheckPreservesPreview(
+          page,
+          selector,
+          division.answer,
+          division.latex,
+          'failure',
+        );
 
         const diagnostics = await snapshotDiagnostics(page);
         assertSyntheticDelivery(harness, WRITTEN_ARITHMETIC_COURSE_URL);

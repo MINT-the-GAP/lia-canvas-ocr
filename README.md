@@ -1,7 +1,7 @@
 <!--
 author:   MINT-the-GAP, Martin Lommatzsch, Jihad Hyadi
 
-version:  0.1.0
+version:  0.2.0
 
 language: en
 
@@ -147,8 +147,9 @@ correct result may be included after `=`.
 The four written modes follow the German-school layouts in
 [Wochenaufgabe Lia5_02, Aufgabe 1](https://liascript.github.io/nightly/?https://raw.githubusercontent.com/MINT-the-GAP/Wochenaufgabe/refs/heads/main/5/Mathematik/Lia5_02.md#2):
 addition records hooked carry ones, subtraction records the
-borrow ones, multiplication uses one place-value contribution row for every
-digit of the multiplicand, and long division records each partial dividend and
+borrow ones, multiplication accepts either the compact carry marks for a
+single-digit multiplier or one place-value contribution row for every digit of
+the multiplicand, and long division records each partial dividend and
 underlined subtraction. Calculation rules, division underlines, and the small
 carry or borrow marks are recognized structurally and are not sent to the row
 OCR as digits. No colored guidance is required. The preview renders the whole
@@ -194,7 +195,7 @@ Solve $9002-3487$ using written column subtraction. Include every borrow, one lo
 
 $c)\;\;$ Written multiplication
 
-Solve $738\cdot6$ in writing. Add one place-value contribution row for each digit of the multiplicand, then draw the calculation rule and write the result.
+Solve $738\cdot6$ in writing. Show every carry mark, or add one place-value contribution row for each digit of the multiplicand; then draw the calculation rule and write the result.
 
 @BerechneOCR(`738\cdot6`)
 
@@ -288,10 +289,11 @@ assumption, multiple-variable steps without an explicit operation, and
 unsupported/nonlinear TeX are marked **not safely checkable**, never silently
 marked wrong. The CAS calculation remains in the browser and is not sent to a
 server.
-True background inference will be enabled only after it runs outside the drawing
-thread. Until then `data-ocr-mode='submit'` is the safe default.
-`@canvas` continues to use the classic single-selection flow, applies recognized
-text directly, and does not run background OCR.
+Automatic inference while drawing remains disabled; `data-ocr-mode='submit'` is
+the safe default. `@canvas` keeps its classic single-selection flow and applies
+the recognized text directly. Its explicit submit now uses the same
+worker-backed FormulaNet recognizer as `@BerechneOCR`, without changing the
+mark-and-transfer interaction.
 The line cache is session-only and is not included in Freeze state.
 
 ## Canvas Tools
@@ -315,36 +317,41 @@ integration. A hard browser reload currently resets the drawing.
 ## OCR Engine
 
           --{{0}}--
-Classic `@canvas` continues to use
-[Xenova/texify2](https://huggingface.co/Xenova/texify2) with the pinned
-`@xenova/transformers@2.17.2` runtime. `@BerechneOCR` instead uses
+Both classic `@canvas` selections and `@BerechneOCR` use
 [alephpi/FormulaNet](https://huggingface.co/alephpi/FormulaNet) at pinned
 revision `63e04c86fc96c2324811114351eeea8118bf6b28`. FormulaNet is a
 20-million-parameter formula-image-to-LaTeX model with a browser-tested merged
-ONNX decoder. Calculation OCR keeps its own line segmentation and sends only one
-calculation line at a time through FormulaNet's 384 x 384 preprocessing.
+ONNX decoder. A classic selection is sent as one expression. Calculation OCR
+keeps its own line segmentation and sends only one calculation line at a time
+through FormulaNet's 384 x 384 preprocessing.
 
-The calculation model loads lazily on the first **Submit to render**. It uses a
-WASM worker and downloads about 80 MiB of fp32 ONNX graphs. Runtime and weights
-come from pinned URLs and are cached by the browser. The handwriting image
-itself stays in the browser and is not uploaded for recognition. The first
-download can therefore take noticeably longer; later uses reuse the browser
-cache. FormulaNet is licensed AGPL-3.0, so the calculation OCR remains
+The shared model loads lazily on the first OCR submit in either canvas flow. It
+uses a WASM worker and downloads about 80 MiB of fp32 ONNX graphs. Runtime and
+weights come from pinned URLs and are cached by the browser. The handwriting
+image itself stays in the browser and is not uploaded for recognition. The
+first download can therefore take noticeably longer; later uses and both canvas
+flows reuse the same in-memory model and browser cache. FormulaNet is licensed
+AGPL-3.0, so this OCR remains
 experimental until the licensing and target-handwriting evaluation are accepted
 for a release.
 
+`@canvas` uses one canonical recognition pass for the marked expression.
 `@BerechneOCR` uses one canonical recognition pass per ordinary calculation
-line and retries only an empty or syntactically incomplete result. A
+line. A
 structurally detected transformation marker causes the main equation and its
 side operation to be recognized separately. `@canvas` writes one recognized
 expression to an existing answer field; `@BerechneOCR` serializes the complete
 recognized calculation into its generated native quiz. FormulaNet's published ONNX handwriting split reports a
 0.0976 edit distance; that is promising but not a guarantee for student
-handwriting. The inline **Edit recognition** step therefore remains part of
-this experimental workflow; the CAS never repairs or invents OCR text.
+handwriting. The inline **Edit recognition** step in `@BerechneOCR` therefore
+remains part of this experimental workflow; the CAS never repairs or invents
+OCR text.
 
-This npm-bundled template intentionally loads `script: ./dist/index.js`; the
-generated `dist/index.js` contains the Canvas runtime, while Algebrite comes
+This npm-bundled template intentionally loads `script: ./dist/index.js`. Keep
+the LiaScript `script` URL free of query parameters so local previews and
+template hosts route the JavaScript asset reliably. Pin a release or commit in
+the importing template URL when a consuming course needs a stable runtime.
+The generated `dist/index.js` contains the Canvas runtime, while Algebrite comes
 from the separate direct template import. Both imports must be listed directly
 in a consuming course because nested template imports are not resolved reliably.
 The bundle must stay in sync with `src/`. `Alt+L` starts the LiaScript development server but does not rebuild the

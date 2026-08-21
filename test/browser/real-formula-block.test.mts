@@ -9,6 +9,7 @@ import {
   CALCULATION_QUIZ_COURSE_URL,
   LIASCRIPT_STABLE_URL,
   REAL_COLUMN_ADDITION_COURSE_URL,
+  WRITTEN_ARITHMETIC_COURSE_URL,
   createHarness,
   openCourse,
 } from './support.mts';
@@ -16,8 +17,12 @@ import {
   answerBeforePair,
   checkNativeQuiz,
   drawDesign,
-  readmeAdditionStrokes,
+  screenshotAdditionStrokes,
 } from './column-addition-regression.mts';
+import {
+  drawDesign as drawWrittenDesign,
+  writtenDivision,
+} from './written-arithmetic-regression.mts';
 
 type Point = readonly [number, number];
 type Glyph = readonly (readonly Point[])[];
@@ -274,7 +279,7 @@ test(
       await canvas.scrollIntoViewIfNeeded();
       const box = await canvas.boundingBox();
       assert.ok(box);
-      await drawDesign(harness.page, box, readmeAdditionStrokes());
+      await drawDesign(harness.page, box, screenshotAdditionStrokes());
       await harness.page.evaluate(() => new Promise<void>(resolve => {
         requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
       }));
@@ -317,6 +322,8 @@ test(
             lastError: registry.canvasPlusOcr?.lastError || '',
             lastOutput: registry.canvasPlusOcr?.lastOutput || '',
             lastText: registry.canvasPlusOcr?.lastText || '',
+            operatorlessRetry: registry.canvasPlusOcr?.lastOperatorlessRetry || null,
+            carryMapping: registry.canvasPlusOcr?.lastColumnCarryMapping || null,
           },
         };
       }, answer);
@@ -334,9 +341,11 @@ test(
       assert.equal(result.lineCount, '4');
       assert.match(result.latex, /\\hline/u);
       assert.equal(
-        (result.latex.match(/\{\\scriptstyle 1\}/gu) || []).length,
+        (result.latex.match(/\\textcolor\{red\}\{1\}/gu) || []).length,
         3,
       );
+      assert.match(result.latex, /\\begin\{array\}\{r\}/u);
+      assert.doesNotMatch(result.latex, /scriptstyle/u);
 
       const submission = JSON.parse(answer);
       assert.equal(submission.kind, 'column-addition');
@@ -374,6 +383,129 @@ test(
       assert.deepEqual(harness.requestFailures, []);
       assert.deepEqual(unexpectedConsoleErrors, []);
       assert.deepEqual(meaningfulPageErrors, []);
+    } finally {
+      await harness.context.close();
+    }
+  },
+);
+
+test(
+  'real FormulaNet recognizes the documented written long division',
+  { timeout: 20 * 60_000 },
+  async t => {
+    if (process.env.LIA_REAL_DIVISION !== '1') {
+      t.skip('set LIA_REAL_DIVISION=1 to send the division fixture to FormulaNet');
+      return;
+    }
+    const context = await chromium.launchPersistentContext(
+      join(tmpdir(), 'lia-canvas-real-math-profile'),
+      {
+        args: ['--enable-unsafe-webgpu'],
+        colorScheme: 'light',
+        headless: true,
+        serviceWorkers: 'block',
+        viewport: { width: 1920, height: 1100 },
+      },
+    );
+    const harness = await createHarness(null, {
+      context,
+      withAlgebrite: false,
+    });
+    const selector =
+      '.lia-canvas-pair[data-canvas-mode=plus][data-canvas-output=answer]';
+    try {
+      await clearPersistedCourseState(
+        harness.page,
+        WRITTEN_ARITHMETIC_COURSE_URL,
+      );
+      await openCourse(
+        harness,
+        WRITTEN_ARITHMETIC_COURSE_URL,
+        selector + ' .lia-canvas-launch',
+      );
+      for (const hash of ['#2', '#3']) {
+        await harness.page.keyboard.press('ArrowRight');
+        await harness.page.waitForFunction(
+          expectedHash => location.hash === expectedHash,
+          hash,
+          { timeout: 10_000 },
+        );
+      }
+      const pair = harness.page.locator(selector);
+      assert.equal(await pair.count(), 1);
+      assert.equal(await pair.getAttribute('data-calculation-prompt'), '8736:8');
+      await pair.locator('.lia-canvas-launch:visible').click();
+      assert.equal(await pair.getAttribute('data-calculation-kind'), 'column-division');
+
+      await harness.page.evaluate(() => {
+        const registry = window.__LIA_CANVAS_OCR__ as any;
+        const engine = registry.canvasPlusOcr;
+        const original = engine.recognize.bind(engine);
+        (window as any).__liaRealDivisionRaw = [];
+        engine.recognize = async (input: HTMLCanvasElement) => {
+          const value = await original(input);
+          (window as any).__liaRealDivisionRaw.push(String(value || ''));
+          return value;
+        };
+      });
+
+      const canvas = pair.locator('canvas.lia-draw:visible');
+      await canvas.waitFor({ state: 'visible', timeout: 10_000 });
+      await canvas.scrollIntoViewIfNeeded();
+      const box = await canvas.boundingBox();
+      assert.ok(box);
+      await drawWrittenDesign(harness.page, box, writtenDivision());
+      await pair.locator('.lia-canvasplus-submit:visible').click();
+      await harness.page.waitForFunction(
+        pairSelector => {
+          const pair = document.querySelector(pairSelector) as HTMLElement | null;
+          const output = pair?.querySelector(
+            '.lia-canvasplus-output',
+          ) as HTMLElement | null;
+          return Boolean(
+            pair?.dataset.ocrError ||
+            output?.dataset.state === 'error' ||
+            output?.dataset.state === 'ready'
+          );
+        },
+        selector,
+        { timeout: 15 * 60_000 },
+      );
+
+      const answer = await answerBeforePair(harness.page, selector);
+      const result = await pair.evaluate((element, submittedAnswer) => {
+        const output = element.querySelector(
+          '.lia-canvasplus-output',
+        ) as HTMLElement | null;
+        const registry = window.__LIA_CANVAS_OCR__ as any;
+        return {
+          state: output?.dataset.state || '',
+          latex: output?.dataset.latex || '',
+          lineCount: output?.dataset.lineCount || '',
+          ocrError: (element as HTMLElement).dataset.ocrError || '',
+          rawLines: (window as any).__liaRealDivisionRaw || [],
+          grade: registry.checkCalculationAnswer('8736:8', submittedAnswer),
+          engine: {
+            model: registry.canvasPlusOcr?.model || '',
+            revision: registry.canvasPlusOcr?.modelRevision || '',
+            lastError: registry.canvasPlusOcr?.lastError || '',
+            lastOutput: registry.canvasPlusOcr?.lastOutput || '',
+            lastText: registry.canvasPlusOcr?.lastText || '',
+          },
+        };
+      }, answer);
+
+      console.log(JSON.stringify({
+        result,
+        answer,
+        modelRequests: harness.modelRequests,
+        consoleErrors: harness.consoleErrors,
+        pageErrors: harness.pageErrors,
+      }, null, 2));
+
+      assert.equal(result.engine.model, 'alephpi/FormulaNet');
+      assert.equal(result.engine.revision, '63e04c86fc96c2324811114351eeea8118bf6b28');
+      assert.equal(result.rawLines.length, 9);
     } finally {
       await harness.context.close();
     }

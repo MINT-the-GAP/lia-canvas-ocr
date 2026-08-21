@@ -61,17 +61,17 @@ test('formats written addition with two carries and its calculation rule', () =>
     const preview = formatTexForPreview(
         serializeColumnAdditionSubmission(structured)
     );
-    assert.match(preview, /\\begin\{array\}/u);
+    assert.match(preview, /\\begin\{array\}\{r\}/u);
     assert.match(preview, /\\hline/u);
-    assert.equal((preview.match(/\{\\scriptstyle 1\}/gu) || []).length, 2);
-    assert.doesNotMatch(preview, /111/u);
+    assert.equal((preview.match(/\\textcolor\{red\}\{1\}/gu) || []).length, 2);
+    assert.doesNotMatch(preview, /scriptstyle/u);
 });
 
 test('formats subtraction, multiplication and long division through the shared preview', () => {
     const cases = [
-        ['9002-3487', /-\s*&/u],
+        ['9002-3487', /\\mathllap\{-\}/u],
         ['738*6', /738 \\cdot 6/u],
-        ['8736:8', /\\underline\{-8\}/u]
+        ['8736:8', /\\underline\{-\\textcolor\{blue\}\{8\}\}/u]
     ] as const;
     for (const [prompt, marker] of cases) {
         const submission = createExpectedWrittenArithmeticSubmission(prompt);
@@ -82,6 +82,16 @@ test('formats subtraction, multiplication and long division through the shared p
         assert.match(preview, /\\begin\{/u);
         assert.match(preview, marker);
     }
+    const subtraction = createExpectedWrittenArithmeticSubmission('9002-3487');
+    assert.ok(subtraction);
+    const subtractionPreview = formatTexForPreview(
+        serializeWrittenArithmeticSubmission(subtraction)
+    );
+    assert.match(subtractionPreview, /\\hline/u);
+    assert.equal(
+        (subtractionPreview.match(/\\textcolor\{red\}\{1\}/gu) || []).length,
+        3
+    );
     const division = createExpectedWrittenArithmeticSubmission('8736:8');
     assert.ok(division);
     assert.match(

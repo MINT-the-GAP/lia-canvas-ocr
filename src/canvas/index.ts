@@ -28,11 +28,13 @@ import {
 } from './calculation-freeze';
 import {
     extractCalculationEquation,
+    MAX_CALCULATION_ANSWER_LENGTH,
     serializeCalculationSubmission,
     validateCalculationSubmission
 } from '../math/equivalence';
 import {
-    createColumnAdditionSubmission
+    createColumnAdditionSubmission,
+    MAX_COLUMN_ADDITION_OPERANDS
 } from '../math/column-arithmetic';
 import {
     createColumnSubtractionSubmission
@@ -43,6 +45,7 @@ import {
 } from '../math/column-multiplication';
 import {
     createColumnDivisionSubmission,
+    inferColumnDivisionObservedStep,
     parseColumnDivisionPrompt,
     type ColumnDivisionStep
 } from '../math/column-division';
@@ -59,10 +62,20 @@ import {
 } from '../math/written-arithmetic';
 import { generateExpectedCalculation } from '../math/expected-calculation';
 import {
+    acceptOcrColumnAdditionSecondOperandAlias,
+    inferOcrColumnAdditionOperandCount,
+    isOcrColumnDivisionEightAlias,
+    isOcrColumnAnnotationRowSmaller,
+    mapOcrCarryDigitRowToColumns,
     mapOcrCarryOnesToColumns,
+    mergeOcrCarryColumnObservations,
+    normalizeOcrColumnAdditionSecondOperandAlias,
     normalizeOcrColumnDigits,
     normalizeOcrColumnDigitsExact,
-    selectOcrColumnAdditionSegments,
+    normalizeOcrColumnMultiplicationCarryExpression,
+    normalizeOcrColumnMultiplicationCommaSequence,
+    normalizeOcrColumnMultiplicationDotAlias,
+    reconcileOcrCarryDigitRowWithRaster,
     selectOcrColumnStackSegments
 } from '../ocr/column-layout';
 import {
@@ -86,7 +99,7 @@ import {
     type OcrStructuralToken
 } from '../ocr/layout';
 import { enqueueOcrJob, promoteOcrJob, type OcrJobPriority } from '../ocr/job-queue';
-import { ensureCanvasPlusFormulaOcrEngine } from '../ocr/formulanet-engine';
+import { ensureFormulaOcrEngine } from '../ocr/formulanet-engine';
 import {
     classifyOcrVerticalSymbolPath,
     findOcrCalculationRuleHints,
@@ -114,7 +127,9 @@ const OCR_BINARIZE_THR = 200;   // luminance threshold (0–255) for binarizatio
 
 const PLUS_OCR_MAX_RASTER_PIXELS = 3000000;
 const PLUS_OCR_MAX_RASTER_SIDE = 3200;
-const PLUS_OCR_MAX_LINES = 32;
+// A maximum-size addition can contain every supported operand, one observed
+// carry row, and the result row.
+const PLUS_OCR_MAX_LINES = MAX_COLUMN_ADDITION_OPERANDS + 2;
 
 const CANVAS_COLOR_FALLBACKS: Record<string, string> = {
     auto: 'Automatic',
@@ -222,6 +237,7 @@ const NATIVE_RESOLVE_PRE_APPLY_SETTLE_MS = 80;
 // 1.2 seconds after Resolve. Keep the finite guard alive through that pass.
 const NATIVE_RESOLVE_POST_APPLY_SETTLE_MS = 2800;
 const NATIVE_RESOLVE_JOB_TIMEOUT_MS = 3200;
+const NATIVE_PENDING_CHECK_CLASS = 'lia-canvas-answer-pending-check';
 
 type NativeResolveJob = {
     pair: HTMLElement;
@@ -283,6 +299,32 @@ function findAnswerPairForQuiz(quiz: HTMLElement): HTMLElement | null {
         if (findNativeQuizAfterPair(pair) === quiz) return pair;
     }
     return null;
+}
+
+function markNativeQuizAnswerPending(pair: HTMLElement): void {
+    const quiz = findNativeQuizAfterPair(pair);
+    if (!quiz || quiz.classList.contains('solved') ||
+        quiz.classList.contains('resolved')) return;
+
+    pair.dataset.nativeCheckPending = '1';
+    const markLiveQuiz = () => {
+        if (pair.dataset.nativeCheckPending !== '1') return;
+        const liveQuiz = findNativeQuizAfterPair(pair);
+        if (!liveQuiz || liveQuiz.classList.contains('solved') ||
+            liveQuiz.classList.contains('resolved')) return;
+        liveQuiz.classList.add(NATIVE_PENDING_CHECK_CLASS);
+    };
+    markLiveQuiz();
+    // LiaScript may replace its feedback subtree after the input event. A
+    // second animation-frame pass marks the live quiz without modifying any
+    // Elm-owned node or state.
+    window.requestAnimationFrame(markLiveQuiz);
+}
+
+function clearNativeQuizAnswerPending(quiz: HTMLElement): void {
+    quiz.classList.remove(NATIVE_PENDING_CHECK_CLASS);
+    const pair = findAnswerPairForQuiz(quiz);
+    if (pair) delete pair.dataset.nativeCheckPending;
 }
 
 function checkCalculationAnswerByUID(pairKey: string): boolean {
@@ -489,11 +531,18 @@ function scheduleNativeResolveHandoff(pair: HTMLElement): void {
 
 function onNativeResolveClick(event: MouseEvent): void {
     const target = event.target instanceof Element ? event.target : null;
+    const checkButton = target?.closest('button.lia-quiz__check') as
+        HTMLButtonElement | null;
+    if (checkButton && !checkButton.disabled) {
+        const checkQuiz = checkButton.closest('.lia-quiz') as HTMLElement | null;
+        if (checkQuiz) clearNativeQuizAnswerPending(checkQuiz);
+    }
     const button = target?.closest('button.lia-quiz__resolve') as
         HTMLButtonElement | null;
     if (!button || button.disabled) return;
     const quiz = button.closest('.lia-quiz') as HTMLElement | null;
     if (!quiz) return;
+    clearNativeQuizAnswerPending(quiz);
     const pair = findAnswerPairForQuiz(quiz);
     if (pair) scheduleNativeResolveHandoff(pair);
 }
@@ -798,9 +847,9 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
                 translate: liaT,
                 mode: writtenArithmeticKind || 'equation-path',
                 composeLatex: isWrittenArithmetic
-                    ? () => __plusWrittenSubmission
+                    ? lines => __plusWrittenSubmission
                         ? composeWrittenArithmeticLatex(__plusWrittenSubmission)
-                        : ''
+                        : composeMultilineLatex(lines)
                     : undefined,
                 onAnalysis: analysis => {
                     if (!canvasPair || analysis.revision !== __plusRenderedRevision) return;
@@ -894,6 +943,11 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
                 );
             } else if (state === 'stale') {
                 plusStatus.textContent = trOcr('plus.stale', 'Handwriting changed — render again.');
+            } else if (state === 'draft') {
+                plusStatus.textContent = trOcr(
+                    'plus.draft',
+                    'Structure uncertain — review the rendered draft, then correct the handwriting and submit again.'
+                );
             } else if (state === 'rendered') {
                 plusStatus.textContent = '';
             } else if (state === 'running') {
@@ -1516,6 +1570,293 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         return null;
     }
 
+    type OcrRasterDigitComponent = {
+        x0: number;
+        x1: number;
+        y0: number;
+        y1: number;
+        pixels: number;
+    };
+
+    function __ocrMeasureColumnDigitComponents(
+        segment: OcrLineSegment
+    ): OcrRasterDigitComponent[] | null {
+        try {
+            const canvas = segment.canvas;
+            const width = canvas.width | 0;
+            const height = canvas.height | 0;
+            const context = canvas.getContext('2d', { willReadFrequently: true });
+            if (!context || !width || !height) return null;
+            const data = context.getImageData(0, 0, width, height).data;
+            const ink = new Uint8Array(width * height);
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const offset = (y * width + x) * 4;
+                    const alpha = data[offset + 3] / 255;
+                    if (alpha <= 0.04) continue;
+                    const luminance = data[offset] * 0.299 +
+                        data[offset + 1] * 0.587 + data[offset + 2] * 0.114;
+                    if (255 - alpha * (255 - luminance) < 245) {
+                        ink[y * width + x] = 1;
+                    }
+                }
+            }
+
+            // Adjacent handwritten digits often overlap in their horizontal
+            // projection after responsive canvas scaling, even though their
+            // actual ink remains disconnected. Measure those components in 2D
+            // instead of treating every uninterrupted x-run as one digit.
+            const components: OcrRasterDigitComponent[] = [];
+            const stack: number[] = [];
+            for (let start = 0; start < ink.length; start++) {
+                if (!ink[start]) continue;
+                ink[start] = 0;
+                stack.push(start);
+                let x0 = width;
+                let x1 = -1;
+                let y0 = height;
+                let y1 = -1;
+                let pixels = 0;
+                while (stack.length) {
+                    const current = stack.pop()!;
+                    const cy = Math.floor(current / width);
+                    const cx = current - cy * width;
+                    if (cx < x0) x0 = cx;
+                    if (cx > x1) x1 = cx;
+                    if (cy < y0) y0 = cy;
+                    if (cy > y1) y1 = cy;
+                    pixels++;
+                    const nearY0 = Math.max(0, cy - 1);
+                    const nearY1 = Math.min(height - 1, cy + 1);
+                    const nearX0 = Math.max(0, cx - 1);
+                    const nearX1 = Math.min(width - 1, cx + 1);
+                    for (let ny = nearY0; ny <= nearY1; ny++) {
+                        for (let nx = nearX0; nx <= nearX1; nx++) {
+                            const next = ny * width + nx;
+                            if (!ink[next]) continue;
+                            ink[next] = 0;
+                            stack.push(next);
+                        }
+                    }
+                }
+                components.push({ x0, x1, y0, y1, pixels });
+            }
+
+            if (!components.length || components.some(component =>
+                component.pixels < 4 || component.x1 <= component.x0 ||
+                component.y1 <= component.y0
+            )) return null;
+            components.sort((a, b) =>
+                (a.x0 + a.x1) - (b.x0 + b.x1)
+            );
+            return components;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function __ocrColumnComponentCenters(
+        segment: OcrLineSegment,
+        components: readonly OcrRasterDigitComponent[]
+    ): number[] {
+        return components.map(component =>
+            segment.bbox.x + (component.x0 + component.x1) / 2
+        );
+    }
+
+    function __ocrRasterComponentsLookLikeCarryOnes(
+        components: readonly OcrRasterDigitComponent[]
+    ): boolean {
+        if (components.length < 2) return false;
+        const heights = components.map(component =>
+            component.y1 - component.y0 + 1
+        ).sort((left, right) => left - right);
+        const typicalHeight = heights[Math.floor((heights.length - 1) / 2)] || 0;
+        const bottoms = components.map(component => component.y1)
+            .sort((left, right) => left - right);
+        const typicalBottom = bottoms[Math.floor((bottoms.length - 1) / 2)] || 0;
+        if (typicalHeight < 4) return false;
+        return components.every(component => {
+            const componentHeight = component.y1 - component.y0 + 1;
+            const componentWidth = component.x1 - component.x0 + 1;
+            return componentHeight >= typicalHeight * 0.72 &&
+                componentHeight <= typicalHeight * 1.35 &&
+                componentWidth <= componentHeight * 0.78 &&
+                Math.abs(component.y1 - typicalBottom) <= typicalHeight * 0.35;
+        });
+    }
+
+    function __ocrMeasureColumnDigitCenters(
+        segment: OcrLineSegment,
+        digitCount: number
+    ): number[] | null {
+        if (!Number.isInteger(digitCount) || digitCount < 1) return null;
+        const components = __ocrMeasureColumnDigitComponents(segment);
+        return components && components.length === digitCount
+            ? __ocrColumnComponentCenters(segment, components)
+            : null;
+    }
+
+    type OcrRasterMultiplicationCarryComponent = {
+        column: number;
+        component: OcrRasterDigitComponent;
+    };
+
+    type OcrRasterMultiplicationLayout = {
+        carryComponents: OcrRasterMultiplicationCarryComponent[];
+    };
+
+    function __ocrAnalyzeRasterMultiplicationLayout(
+        segment: OcrLineSegment,
+        leftDigitCount: number,
+        rightDigitCount: number
+    ): OcrRasterMultiplicationLayout | null {
+        if (!Number.isInteger(leftDigitCount) || leftDigitCount < 1 ||
+            !Number.isInteger(rightDigitCount) || rightDigitCount < 1) {
+            return null;
+        }
+        const components = __ocrMeasureColumnDigitComponents(segment);
+        const digitCount = leftDigitCount + rightDigitCount;
+        if (!components || components.length < digitCount + 1) return null;
+
+        const heightOf = (component: OcrRasterDigitComponent) =>
+            component.y1 - component.y0 + 1;
+        const mainDigits = [...components]
+            .sort((left, right) => heightOf(right) - heightOf(left))
+            .slice(0, digitCount)
+            .sort((left, right) =>
+                (left.x0 + left.x1) - (right.x0 + right.x1)
+            );
+        const mainSet = new Set(mainDigits);
+        const compact = components.filter(component => !mainSet.has(component));
+        const digitHeights = mainDigits.map(heightOf).sort((a, b) => a - b);
+        const typicalHeight = digitHeights[
+            Math.floor((digitHeights.length - 1) / 2)
+        ] || 0;
+        if (typicalHeight < 6 || mainDigits.some(component => {
+            const height = heightOf(component);
+            return height < typicalHeight * 0.55 || height > typicalHeight * 1.55;
+        }) || compact.some(component => heightOf(component) > typicalHeight * 0.68)) {
+            return null;
+        }
+
+        const left = mainDigits[leftDigitCount - 1];
+        const right = mainDigits[leftDigitCount];
+        if (!left || !right || left.x1 >= right.x0) return null;
+        const digitCentersY = mainDigits.map(component =>
+            (component.y0 + component.y1) / 2
+        ).sort((a, b) => a - b);
+        const typicalCenterY = digitCentersY[
+            Math.floor((digitCentersY.length - 1) / 2)
+        ];
+        const dotCandidates = compact.filter(component => {
+            const width = component.x1 - component.x0 + 1;
+            const height = heightOf(component);
+            const aspect = width / Math.max(1, height);
+            const centerY = (component.y0 + component.y1) / 2;
+            return component.x0 > left.x1 && component.x1 < right.x0 &&
+                width >= 2 && height >= 2 &&
+                width <= typicalHeight * 0.32 &&
+                height <= typicalHeight * 0.32 &&
+                aspect >= 0.4 && aspect <= 2.5 &&
+                Math.abs(centerY - typicalCenterY) <= typicalHeight * 0.42;
+        });
+        if (dotCandidates.length !== 1) return null;
+
+        const dot = dotCandidates[0];
+        const carryCandidates = compact.filter(component => component !== dot);
+        const mainCenters = mainDigits.map(component =>
+            (component.x0 + component.x1) / 2
+        );
+        const dotCenter = (dot.x0 + dot.x1) / 2;
+        const carryComponents: OcrRasterMultiplicationCarryComponent[] = [];
+        const occupiedColumns = new Set<number>();
+        for (const component of carryCandidates) {
+            const width = component.x1 - component.x0 + 1;
+            const height = heightOf(component);
+            const centerX = (component.x0 + component.x1) / 2;
+            const centerY = (component.y0 + component.y1) / 2;
+            if (height < typicalHeight * 0.24 ||
+                height > typicalHeight * 0.68 ||
+                width > typicalHeight * 0.82 ||
+                centerY < typicalCenterY + typicalHeight * 0.16) {
+                return null;
+            }
+
+            let column = -1;
+            for (let index = 0; index < leftDigitCount; index++) {
+                const slotLeft = mainCenters[index];
+                const slotRight = index + 1 < leftDigitCount
+                    ? mainCenters[index + 1]
+                    : dotCenter;
+                if (centerX > slotLeft && centerX < slotRight) {
+                    column = index;
+                    break;
+                }
+            }
+            if (column < 0 || occupiedColumns.has(column)) return null;
+            occupiedColumns.add(column);
+            carryComponents.push({ column, component });
+        }
+        carryComponents.sort((a, b) => a.column - b.column);
+        return { carryComponents };
+    }
+
+    function __ocrRasterCarryLayoutMatchesMarks(
+        layout: OcrRasterMultiplicationLayout,
+        carryMarks: readonly (string | null)[],
+        leftDigitCount: number
+    ): boolean {
+        if (carryMarks.length !== leftDigitCount ||
+            carryMarks.some(mark => mark !== null && !/^\d$/u.test(mark))) {
+            return false;
+        }
+        const expectedColumns = carryMarks
+            .map((mark, index) => mark === null ? -1 : index)
+            .filter(index => index >= 0);
+        return expectedColumns.length === layout.carryComponents.length &&
+            expectedColumns.every((column, index) =>
+                layout.carryComponents[index]?.column === column
+            );
+    }
+
+    function __ocrCropRasterComponent(
+        segment: OcrLineSegment,
+        component: OcrRasterDigitComponent
+    ): HTMLCanvasElement | null {
+        const source = segment.canvas;
+        const componentWidth = component.x1 - component.x0 + 1;
+        const componentHeight = component.y1 - component.y0 + 1;
+        if (componentWidth < 2 || componentHeight < 3) return null;
+        const padding = Math.max(2, Math.floor(Math.max(
+            componentWidth,
+            componentHeight
+        ) * 0.12));
+        const x0 = Math.max(0, component.x0 - padding);
+        const y0 = Math.max(0, component.y0 - padding);
+        const x1 = Math.min(source.width - 1, component.x1 + padding);
+        const y1 = Math.min(source.height - 1, component.y1 + padding);
+        const output = document.createElement('canvas');
+        output.width = x1 - x0 + 1;
+        output.height = y1 - y0 + 1;
+        const context = output.getContext('2d', { willReadFrequently: true });
+        if (!context) return null;
+        context.fillStyle = '#fff';
+        context.fillRect(0, 0, output.width, output.height);
+        context.drawImage(
+            source,
+            x0,
+            y0,
+            output.width,
+            output.height,
+            0,
+            0,
+            output.width,
+            output.height
+        );
+        return output;
+    }
+
     function __ocrTidyMathText(s: string): string {
         const t = __ocrSquashWS(s), ops = '+-=*/()[]{}';
         let out = '';
@@ -1619,6 +1960,274 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             output.height
         );
         return output;
+    }
+
+    /**
+     * Removes a geometrically confirmed leading + or - from an integer row.
+     *
+     * FormulaNet can turn a compact `+3596` into a fraction even though the
+     * digits themselves are clear. The retry is intentionally conservative:
+     * it needs matching OCR prefix evidence, a real early whitespace gap and
+     * a raster shape that behaves like the expected operator. A leading digit
+     * is never removed merely because the authored task expects an operator.
+     */
+    function __ocrCropColumnOperandWithoutLeadingOperator(
+        source: HTMLCanvasElement,
+        expectedOperator: '+' | '-',
+        recognized: string
+    ): HTMLCanvasElement | null {
+        const raw = String(recognized || '').normalize('NFKC').trim();
+        const normalizedRaw = raw.startsWith(String.fromCharCode(8722))
+            ? '-' + raw.slice(1)
+            : raw;
+        if (!normalizedRaw.startsWith(expectedOperator)) return null;
+
+        try {
+            const width = source.width | 0;
+            const height = source.height | 0;
+            if (width < 12 || height < 8) return null;
+            const context = source.getContext('2d', { willReadFrequently: true });
+            if (!context) return null;
+            const image = context.getImageData(0, 0, width, height);
+            const data = image.data;
+            const columns = new Uint32Array(width);
+            let minX = width;
+            let minY = height;
+            let maxX = -1;
+            let maxY = -1;
+            const hasInk = (x: number, y: number): boolean => {
+                const offset = (y * width + x) * 4;
+                const alpha = data[offset + 3] / 255;
+                if (alpha <= 0.04) return false;
+                const luminance = data[offset] * 0.299 +
+                    data[offset + 1] * 0.587 + data[offset + 2] * 0.114;
+                return 255 - alpha * (255 - luminance) < 245;
+            };
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    if (!hasInk(x, y)) continue;
+                    columns[x]++;
+                    minX = Math.min(minX, x);
+                    minY = Math.min(minY, y);
+                    maxX = Math.max(maxX, x);
+                    maxY = Math.max(maxY, y);
+                }
+            }
+            if (maxX < minX || maxY < minY) return null;
+
+            const inkWidth = maxX - minX + 1;
+            const searchEnd = Math.min(
+                maxX - 1,
+                minX + Math.floor(inkWidth * 0.42)
+            );
+            let bestStart = -1;
+            let bestEnd = -1;
+            let runStart = -1;
+            for (let x = minX; x <= searchEnd + 1; x++) {
+                if (x <= searchEnd && columns[x] === 0) {
+                    if (runStart < 0) runStart = x;
+                    continue;
+                }
+                if (runStart >= 0) {
+                    const runLength = x - runStart;
+                    const bestLength = bestStart < 0 ? 0 : bestEnd - bestStart + 1;
+                    if (runStart > minX + 2 && runLength >= 3 &&
+                        runLength > bestLength) {
+                        bestStart = runStart;
+                        bestEnd = x - 1;
+                    }
+                    runStart = -1;
+                }
+            }
+            if (bestStart < 0 || bestEnd < bestStart) return null;
+
+            let digitStart = bestEnd + 1;
+            while (digitStart <= maxX && columns[digitStart] === 0) digitStart++;
+            if (digitStart > maxX) return null;
+            const operatorEnd = bestStart - 1;
+            const operatorWidth = operatorEnd - minX + 1;
+            const digitWidth = maxX - digitStart + 1;
+            if (operatorWidth < 5 || digitWidth < operatorWidth * 1.15) return null;
+
+            let operatorMinY = height;
+            let operatorMaxY = -1;
+            let digitMinY = height;
+            let digitMaxY = -1;
+            let maximumOperatorRowInk = 0;
+            let maximumOperatorRowY = -1;
+            for (let y = minY; y <= maxY; y++) {
+                let rowInk = 0;
+                for (let x = minX; x <= operatorEnd; x++) {
+                    if (!hasInk(x, y)) continue;
+                    rowInk++;
+                    operatorMinY = Math.min(operatorMinY, y);
+                    operatorMaxY = Math.max(operatorMaxY, y);
+                }
+                if (rowInk > maximumOperatorRowInk) {
+                    maximumOperatorRowInk = rowInk;
+                    maximumOperatorRowY = y;
+                }
+                for (let x = digitStart; x <= maxX; x++) {
+                    if (!hasInk(x, y)) continue;
+                    digitMinY = Math.min(digitMinY, y);
+                    digitMaxY = Math.max(digitMaxY, y);
+                }
+            }
+            if (operatorMaxY < operatorMinY || digitMaxY < digitMinY) return null;
+            const operatorHeight = operatorMaxY - operatorMinY + 1;
+            const digitHeight = digitMaxY - digitMinY + 1;
+            let maximumOperatorColumnInk = 0;
+            let maximumOperatorColumnX = -1;
+            for (let x = minX; x <= operatorEnd; x++) {
+                let columnInk = 0;
+                for (let y = operatorMinY; y <= operatorMaxY; y++) {
+                    if (hasInk(x, y)) columnInk++;
+                }
+                if (columnInk > maximumOperatorColumnInk) {
+                    maximumOperatorColumnInk = columnInk;
+                    maximumOperatorColumnX = x;
+                }
+            }
+
+            if (expectedOperator === '+') {
+                const aspect = operatorWidth / Math.max(1, operatorHeight);
+                const rowPosition = (maximumOperatorRowY - operatorMinY) /
+                    Math.max(1, operatorHeight - 1);
+                const columnPosition = (maximumOperatorColumnX - minX) /
+                    Math.max(1, operatorWidth - 1);
+                if (aspect < 0.58 || aspect > 1.75 ||
+                    operatorHeight > digitHeight * 1.08 ||
+                    maximumOperatorRowInk < operatorWidth * 0.55 ||
+                    maximumOperatorColumnInk < operatorHeight * 0.55 ||
+                    rowPosition < 0.14 || rowPosition > 0.86 ||
+                    columnPosition < 0.14 || columnPosition > 0.86) {
+                    return null;
+                }
+                let crossingInk = false;
+                for (let y = maximumOperatorRowY - 1;
+                    y <= maximumOperatorRowY + 1 && !crossingInk; y++) {
+                    if (y < 0 || y >= height) continue;
+                    for (let x = maximumOperatorColumnX - 1;
+                        x <= maximumOperatorColumnX + 1; x++) {
+                        if (x >= 0 && x < width && hasInk(x, y)) {
+                            crossingInk = true;
+                            break;
+                        }
+                    }
+                }
+                if (!crossingInk) return null;
+            } else {
+                if (operatorWidth < operatorHeight * 1.8 ||
+                    operatorHeight > digitHeight * 0.62 ||
+                    maximumOperatorRowInk < operatorWidth * 0.62) {
+                    return null;
+                }
+            }
+
+            const output = document.createElement('canvas');
+            output.width = digitWidth;
+            output.height = digitHeight;
+            const outputContext = output.getContext('2d', { willReadFrequently: true });
+            if (!outputContext) return null;
+            outputContext.fillStyle = '#fff';
+            outputContext.fillRect(0, 0, output.width, output.height);
+            outputContext.drawImage(
+                source,
+                digitStart,
+                digitMinY,
+                digitWidth,
+                digitHeight,
+                0,
+                0,
+                digitWidth,
+                digitHeight
+            );
+            (output as any).__liaOcrOperatorlessCrop = {
+                sourceWidth: width,
+                sourceHeight: height,
+                gapStart: bestStart,
+                gapEnd: bestEnd,
+                digitStart,
+                operatorWidth,
+                operatorHeight
+            };
+            return output;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    async function __ocrRecognizeOperatorlessColumnOperand(
+        engine: any,
+        crop: HTMLCanvasElement,
+        silent: boolean
+    ): Promise<string> {
+        const options: Record<string, any> = {
+            max_new_tokens: 8,
+            do_sample: false,
+            temperature: 0
+        };
+        if (silent) options.__silent = true;
+        let input = crop;
+        try { input = __ocrPrepareCalculationInput(engine, crop, false); } catch (_) { }
+        const ink = __ocrInkBBoxQuick(input);
+        engine.lastOperatorlessRetry = {
+            ...(crop as any).__liaOcrOperatorlessCrop,
+            width: input.width,
+            height: input.height,
+            inkWidth: ink?.w || 0,
+            inkHeight: ink?.h || 0,
+            text: ''
+        };
+        const raw = await engine.recognize(input, options);
+        const cleaned = __ocrCleanCalculationResult(engine, raw);
+        engine.lastOperatorlessRetry.text = cleaned.slice(0, 160);
+        return cleaned;
+    }
+
+    function __ocrPlainSpacedDigits(value: unknown): string | null {
+        let source = String(value ?? '').normalize('NFKC').trim();
+        while (source.startsWith('$')) source = source.slice(1);
+        while (source.endsWith('$')) source = source.slice(0, -1);
+        let digits = '';
+        for (const character of source) {
+            const code = character.charCodeAt(0);
+            if (code >= 48 && code <= 57) {
+                digits += character;
+            } else if (character.trim() !== '') {
+                return null;
+            }
+        }
+        return digits || null;
+    }
+
+    function __ocrColumnRowsAreConsistent(
+        first: string,
+        second: string,
+        result: string,
+        operator: '+' | '-'
+    ): boolean {
+        const observed = parseWrittenArithmeticPrompt(
+            first + operator + second + '=' + result
+        );
+        if (!observed ||
+            observed.kind !== (operator === '+'
+                ? 'column-addition'
+                : 'column-subtraction')) {
+            return false;
+        }
+        return observed.authoredResult === observed.expectedResult;
+    }
+
+    function __ocrSingleDigitDifference(first: string, second: string): boolean {
+        if (first.length !== second.length) return false;
+        let differences = 0;
+        for (let index = 0; index < first.length; index++) {
+            if (first[index] === second[index]) continue;
+            differences++;
+            if (differences > 1) return false;
+        }
+        return differences === 1;
     }
 
     function __ocrGetStructuralTokens(
@@ -1963,8 +2572,8 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         }
         const rectItem = getRectItem();
         if (!rectItem) { __ocrLog('No marker-rectangle found.'); return; }
-        const engine = LIA.ocr;
-        if (!engine || !engine.recognize) { __ocrLog('OCR engine not available (LIA.ocr).'); return; }
+        const engine = LIA.canvasPlusOcr || ensureFormulaOcrEngine();
+        if (!engine || !engine.recognize) { __ocrLog('Formula OCR engine not available.'); return; }
         const oldText = rectActionBtn.textContent || '';
         __ocrBusy = true;
         rectActionBtn.disabled = true;
@@ -1973,11 +2582,14 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         try {
             const crop = __ocrCropFromRect(rectItem);
             if (!crop) { __ocrLog('Crop failed (rect too small or out of bounds).'); return; }
-            // Keep classic @canvas independent from experimental background
-            // work. This is intentionally the direct path it used before
-            // Multi-line calculation OCR introduced its private scheduling queue.
-            if (engine.ensureLoaded) await engine.ensureLoaded(false);
-            const latex = await __ocrRecognizeSingleCrop(engine, crop, false);
+            // Keep the classic selection/submit contract, but use the same
+            // worker-backed FormulaNet pass as calculation OCR. The generic
+            // classic voting path would run three inferences and lose the
+            // speed benefit of the shared model.
+            const latex = await enqueueOcrJob('foreground', async () => {
+                if (engine.ensureLoaded) await engine.ensureLoaded(false);
+                return __ocrRecognizeCalculationCrop(engine, crop, false);
+            });
 
             __ocrLog('OCR result: ' + latex);
             if (!wrap!.isConnected) return;
@@ -2023,6 +2635,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     const PLUS_LINE_CACHE_LIMIT = 128;
     const __plusLineCache = new Map<string, string>();
     const __plusLineInflight = new Map<string, CanvasPlusInflightLine>();
+    const __plusOperatorlessRetryFailures = new Set<string>();
     let __plusInkRevision = 0;
     let __plusGeneration = 0;
     let __plusBackgroundTimer = 0;
@@ -2035,6 +2648,10 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         lineFeedbackEnabled
             ? sanitizeCalculationReviewFreezeState(saved?.calculationReviewFreeze)
             : null;
+
+    function __plusCancelNativeResolveHandoff(): void {
+        if (canvasPair) cancelNativeResolveJob(canvasPair);
+    }
 
     function __plusStoreFreezeReview(
         value: unknown,
@@ -2072,8 +2689,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     }
 
     function __plusGetOcrEngine(): any {
-        if (!isCanvasPlus) return LIA.ocr;
-        return LIA.canvasPlusOcr || ensureCanvasPlusFormulaOcrEngine();
+        return LIA.canvasPlusOcr || ensureFormulaOcrEngine();
     }
 
     function __plusModelKey(engine: any): string {
@@ -2162,10 +2778,17 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         const pixelScale = Number((crop as any).__liaOcrPixelScale) ||
             (window.devicePixelRatio || 1) * VIEW.scale;
         __plusAssertRecognitionCurrent(engine, modelKey, isCurrent);
+        const columnOperandCount = isColumnAddition &&
+            writtenArithmeticPrompt?.kind === 'column-addition'
+            ? writtenArithmeticPrompt.operands.length
+            : isColumnSubtraction ? 2 : 0;
         const allSegments = segmentOcrCanvas(crop, pixelScale, {
             maskCalculationRules: usesFinalCalculationRule,
             maskCarryOnes: usesCarryOrBorrowOnes,
-            maskDivisionRules: isColumnDivision
+            maskDivisionRules: isColumnDivision,
+            minimumColumnRowsAboveRule: isColumnAddition || isColumnSubtraction
+                ? Math.max(2, columnOperandCount)
+                : undefined
         });
         const columnRules: OcrCalculationRuleHint[] = usesFinalCalculationRule &&
             Array.isArray((crop as any).__liaOcrCalculationRules)
@@ -2179,44 +2802,38 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             Array.isArray((crop as any).__liaOcrDivisionRules)
             ? (crop as any).__liaOcrDivisionRules
             : [];
-        const twoOperandSelection = (isColumnAddition || isColumnSubtraction)
-            ? selectOcrColumnAdditionSegments(allSegments, columnRules)
+        const columnStackSelection = (isColumnAddition || isColumnSubtraction)
+            ? selectOcrColumnStackSegments(
+                allSegments,
+                columnRules,
+                Math.max(2, columnOperandCount)
+            )
             : null;
-        const expectedMultiplication = isColumnMultiplication && writtenArithmeticPrompt
-            ? createExpectedWrittenArithmeticSubmission(writtenArithmeticPrompt)
-            : null;
-        const multiplicationRowCount = expectedMultiplication?.kind === 'column-multiplication'
-            ? expectedMultiplication.partialProducts.length + 1
-            : 0;
         const multiplicationSelection = isColumnMultiplication
             ? selectOcrColumnStackSegments(
                 allSegments,
                 columnRules,
-                Math.max(2, multiplicationRowCount)
+                1
             )
             : null;
-        if ((isColumnAddition || isColumnSubtraction) && !twoOperandSelection) {
-            throw new Error(
-                'Written arithmetic needs two operand rows, a calculation rule, and one result row.'
-            );
+        let writtenDraftReason = '';
+        if ((isColumnAddition || isColumnSubtraction) && !columnStackSelection) {
+            writtenDraftReason =
+                'Written arithmetic needs operand rows, a calculation rule, and one result row.';
         }
         if (isColumnMultiplication && !multiplicationSelection) {
-            throw new Error(
-                'Written multiplication needs its expression, every place-value row, a rule, and a result.'
-            );
+            writtenDraftReason =
+                'Written multiplication needs an expression, a calculation rule, and a result.';
         }
         if (isColumnDivision && !divisionRules.length) {
-            throw new Error('Written division needs at least one confirmed subtraction underline.');
+            writtenDraftReason =
+                'Written division needs at least one confirmed subtraction underline.';
         }
         const multiplicationRows = multiplicationSelection
-            ? multiplicationSelection.rowsAbove.slice(-multiplicationRowCount)
+            ? multiplicationSelection.rowsAbove
             : [];
-        const segments = twoOperandSelection
-            ? [
-                twoOperandSelection.operands[0],
-                twoOperandSelection.operands[1],
-                twoOperandSelection.result
-            ]
+        const segments = columnStackSelection
+            ? [...columnStackSelection.rowsAbove, columnStackSelection.result]
             : multiplicationSelection
                 ? [...multiplicationRows, multiplicationSelection.result]
             : allSegments;
@@ -2300,53 +2917,327 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             source: descriptor.source
         })));
         __plusAssertRecognitionCurrent(engine, modelKey, isCurrent);
-        if (twoOperandSelection) {
-            const first = normalizeOcrColumnDigits(recognized[0]?.latex);
-            const second = normalizeOcrColumnDigitsExact(
-                recognized[1]?.latex,
-                isColumnSubtraction ? '-' : '+'
-            );
-            const result = normalizeOcrColumnDigits(recognized[2]?.latex);
-            if (!first || !second || !result) {
-                throw new Error('Written arithmetic OCR did not return three plain integer rows.');
+        const createWrittenDraft = (reason: string): CanvasPlusDocumentRecognition => {
+            const normalizedLines = recognized
+                .map(line => ({
+                    ...line,
+                    latex: String(line.latex || '').trim()
+                }))
+                .filter(line => Boolean(line.latex));
+            const lineLatex = normalizedLines.map(line => line.latex);
+            if (!lineLatex.length) {
+                throw new Error('Calculation OCR returned no text.');
             }
-            const columns = Math.max(first.length, second.length, result.length);
-            const selectedRulePaths = new Set(twoOperandSelection.rule.pathIndexes);
+            const editableText = lineLatex.join('\n');
+            if (editableText.length > MAX_CALCULATION_ANSWER_LENGTH ||
+                !serializeCalculationSubmission(lineLatex)) {
+                throw new Error('Calculation OCR returned an oversized text draft.');
+            }
+            if (!writtenArithmeticKind) throw new Error(reason);
+            __ocrLog('Written arithmetic draft: ' + reason);
+            return {
+                kind: writtenArithmeticKind,
+                lines: normalizedLines,
+                editableText,
+                latex: composeMultilineLatex(lineLatex),
+                lineCount: lineLatex.length,
+                modelKey,
+                cacheHits: descriptors.filter(item => item.source === 'cache').length,
+                awaitedCount: descriptors.filter(item => item.source === 'inflight').length,
+                recognizedCount: missing.size
+            };
+        };
+        if (writtenDraftReason) return createWrittenDraft(writtenDraftReason);
+        if (columnStackSelection) {
+            const resultLineIndex = recognized.length - 1;
+            // The prompt defines the minimum number of operands, not a hard
+            // ceiling. Only explicitly signed, full-size trailing rows extend
+            // that prefix; a small bare row such as a carry `2` does not.
+            const operandCount = isColumnAddition
+                ? inferOcrColumnAdditionOperandCount(
+                    columnStackSelection.rowsAbove,
+                    recognized.map(line => line.latex),
+                    columnOperandCount,
+                    32
+                )
+                : 2;
+            if (resultLineIndex < operandCount) {
+                return createWrittenDraft(
+                    'Written arithmetic OCR did not preserve every operand and the result.'
+                );
+            }
+            const operandLines = recognized.slice(0, operandCount);
+            const annotationLines = recognized.slice(operandCount, resultLineIndex);
+            const resultLine = recognized[resultLineIndex];
+            const operandSegments = columnStackSelection.rowsAbove.slice(0, operandCount);
+            const annotationSegments = columnStackSelection.rowsAbove.slice(operandCount);
+            const expectedOperator = isColumnSubtraction ? '-' : '+';
+            const operandValues: Array<string | null> = operandLines.map((line, index) =>
+                index === 0
+                    ? normalizeOcrColumnDigits(line?.latex)
+                    : normalizeOcrColumnDigitsExact(line?.latex, expectedOperator)
+            );
+            const result = normalizeOcrColumnDigits(resultLine?.latex);
+
+            // FormulaNet occasionally reads the leading plus on the second
+            // row as `\pm`. Keep the established, consistency-gated repair for
+            // the binary case; variadic additions otherwise remain strictly
+            // observation-driven.
+            if (operandCount === 2 && isColumnAddition && !operandValues[1]) {
+                const first = operandValues[0];
+                const aliasSecond = normalizeOcrColumnAdditionSecondOperandAlias(
+                    operandLines[1]?.latex
+                );
+                const hasIndependentPlainAnchors = Boolean(
+                    first && result &&
+                    __ocrPlainSpacedDigits(operandLines[0]?.latex) === first &&
+                    __ocrPlainSpacedDigits(resultLine?.latex) === result
+                );
+                operandValues[1] = acceptOcrColumnAdditionSecondOperandAlias(
+                    aliasSecond,
+                    hasIndependentPlainAnchors,
+                    Boolean(
+                        first && aliasSecond && result &&
+                        __ocrColumnRowsAreConsistent(first, aliasSecond, result, '+')
+                    )
+                );
+            }
+
+            if (operandCount === 2) {
+                const first = operandValues[0];
+                let second = operandValues[1];
+                const hasIndependentPlainAnchors = Boolean(
+                    first && result &&
+                    __ocrPlainSpacedDigits(operandLines[0]?.latex) === first &&
+                    __ocrPlainSpacedDigits(resultLine?.latex) === result
+                );
+                const initialRowsAreConsistent = Boolean(
+                    first && second && result &&
+                    __ocrColumnRowsAreConsistent(
+                        first,
+                        second,
+                        result,
+                        expectedOperator
+                    )
+                );
+                const shouldRetrySecond = Boolean(
+                    first && result && (
+                        !second ||
+                        (!initialRowsAreConsistent && hasIndependentPlainAnchors)
+                    )
+                );
+                if (shouldRetrySecond && first && result) {
+                    const retryKey = descriptors[1].key + '|operatorless-v2';
+                    if (!__plusOperatorlessRetryFailures.has(retryKey)) {
+                        const retryCrop = __ocrCropColumnOperandWithoutLeadingOperator(
+                            descriptors[1].segment.canvas,
+                            expectedOperator,
+                            operandLines[1]?.latex || ''
+                        );
+                        if (retryCrop) {
+                            const retryLatex = await enqueueOcrJob(priority, async () => {
+                                __plusAssertRecognitionCurrent(engine, modelKey, isCurrent);
+                                const value = await __ocrRecognizeOperatorlessColumnOperand(
+                                    engine,
+                                    retryCrop,
+                                    silent
+                                );
+                                __plusAssertRecognitionCurrent(engine, modelKey, isCurrent);
+                                return value;
+                            });
+                            const retryDigits = normalizeOcrColumnDigitsExact(retryLatex, null);
+                            const maximumDigits = Math.max(first.length, result.length);
+                            const replacesUnreadRow = !second;
+                            const replacesSingleInconsistentDigit = Boolean(
+                                second && retryDigits &&
+                                __ocrPlainSpacedDigits(retryLatex) === retryDigits &&
+                                __ocrSingleDigitDifference(second, retryDigits) &&
+                                __ocrColumnRowsAreConsistent(
+                                    first,
+                                    retryDigits,
+                                    result,
+                                    expectedOperator
+                                )
+                            );
+                            if (retryDigits && retryDigits.length <= maximumDigits &&
+                                (replacesUnreadRow || replacesSingleInconsistentDigit)) {
+                                second = retryDigits;
+                                operandValues[1] = retryDigits;
+                                operandLines[1].latex = retryLatex;
+                                __plusRememberLine(descriptors[1].key, retryLatex);
+                            } else {
+                                __plusOperatorlessRetryFailures.add(retryKey);
+                            }
+                        } else {
+                            __plusOperatorlessRetryFailures.add(retryKey);
+                        }
+                    }
+                }
+            }
+
+            if (operandValues.some(value => !value) || !result) {
+                const unread: string[] = [];
+                operandLines.forEach((line, index) => {
+                    if (operandValues[index]) return;
+                    const raw = String(line?.latex || '').trim();
+                    unread.push('operand ' + (index + 1) + ': ' + JSON.stringify(
+                        raw.length > 80 ? raw.slice(0, 77) + '...' : raw || '(empty)'
+                    ));
+                });
+                if (!result) {
+                    const raw = String(resultLine?.latex || '').trim();
+                    unread.push('result: ' + JSON.stringify(
+                        raw.length > 80 ? raw.slice(0, 77) + '...' : raw || '(empty)'
+                    ));
+                }
+                return createWrittenDraft(
+                    'Written arithmetic OCR did not return every operand and result as plain integers. ' +
+                    'Unread ' + unread.join('; ') + '.'
+                );
+            }
+            const operands = operandValues as string[];
+            const columns = Math.max(result.length, ...operands.map(value => value.length));
+            const selectedRulePaths = new Set(columnStackSelection.rule.pathIndexes);
             const matchingCarries = columnCarries.filter(hint =>
                 hint.rulePathIndexes.some(pathIndex => selectedRulePaths.has(pathIndex))
             );
-            const carries = mapOcrCarryOnesToColumns(
+            const operandDigitCenters = operandSegments.map((segment, index) =>
+                __ocrMeasureColumnDigitCenters(segment, operands[index].length)
+            );
+            const resultDigitCenters = __ocrMeasureColumnDigitCenters(
+                columnStackSelection.result,
+                result.length
+            );
+            const anchorRows = [
+                ...operandSegments.map((segment, index) => ({
+                    segment,
+                    digitCount: operands[index].length,
+                    digitCenters: operandDigitCenters[index]
+                })).filter((row, index) => index === 0 || row.digitCenters),
+                {
+                    segment: columnStackSelection.result,
+                    digitCount: result.length,
+                    digitCenters: resultDigitCenters
+                }
+            ];
+            let carries = mapOcrCarryOnesToColumns(
                 matchingCarries,
-                [
-                    { segment: twoOperandSelection.operands[0], digitCount: first.length },
-                    { segment: twoOperandSelection.result, digitCount: result.length }
-                ],
+                anchorRows,
                 columns
             );
+            let observedCarryRow: {
+                rawText: string;
+                text: string;
+                digitCenters: number[];
+                source: 'exact' | 'repeated-one-overread';
+            } | null = null;
+
+            if (annotationLines.length) {
+                if (!(isColumnAddition || isColumnSubtraction) ||
+                    annotationLines.length !== 1 || annotationSegments.length !== 1) {
+                    return createWrittenDraft(
+                        'Written arithmetic contains additional annotation rows that could not be assigned safely.'
+                    );
+                }
+                const rawCarryText = normalizeOcrColumnDigitsExact(
+                    annotationLines[0]?.latex,
+                    null
+                );
+                const carryComponents = rawCarryText
+                    ? __ocrMeasureColumnDigitComponents(annotationSegments[0])
+                    : null;
+                const exactCarryCount = !!rawCarryText && !!carryComponents &&
+                    rawCarryText.length === carryComponents.length;
+                const repeatedOneOverread = !!rawCarryText && !!carryComponents &&
+                    rawCarryText.length === carryComponents.length + 1 &&
+                    /^1+$/u.test(rawCarryText) &&
+                    __ocrRasterComponentsLookLikeCarryOnes(carryComponents);
+                const carryText = rawCarryText && carryComponents &&
+                    (exactCarryCount || repeatedOneOverread)
+                    ? reconcileOcrCarryDigitRowWithRaster(
+                        rawCarryText,
+                        carryComponents.length
+                    )
+                    : null;
+                const carryCenters = carryText && carryComponents
+                    ? __ocrColumnComponentCenters(
+                        annotationSegments[0],
+                        carryComponents
+                    )
+                    : null;
+                const rowIsSmallerThanOperands = isOcrColumnAnnotationRowSmaller(
+                    annotationSegments[0],
+                    [...operandSegments, columnStackSelection.result]
+                );
+                const mapped = carryText && carryCenters && rowIsSmallerThanOperands
+                    ? mapOcrCarryDigitRowToColumns(
+                        carryText,
+                        carryCenters,
+                        anchorRows,
+                        columns
+                    )
+                    : null;
+                if (!carryText || !carryCenters || !rowIsSmallerThanOperands ||
+                    !mapped) {
+                    return createWrittenDraft(
+                        'A visible row between the operands and rule could not be mapped safely as carry or borrow marks.'
+                    );
+                }
+                carries = carries
+                    ? mergeOcrCarryColumnObservations(carries, mapped)
+                    : null;
+                if (!carries) {
+                    return createWrittenDraft(
+                        'Vector and raster carry or borrow observations overlap or could not be merged safely.'
+                    );
+                }
+                observedCarryRow = {
+                    rawText: rawCarryText!,
+                    text: carryText,
+                    digitCenters: carryCenters,
+                    source: repeatedOneOverread
+                        ? 'repeated-one-overread'
+                        : 'exact'
+                };
+            }
+
+            engine.lastColumnCarryMapping = {
+                firstDigitCenters: operandDigitCenters[0] || null,
+                operandDigitCenters,
+                resultDigitCenters,
+                hints: matchingCarries.map(hint => ({
+                    x0: hint.x0,
+                    x1: hint.x1,
+                    stemX: hint.stemX ?? null
+                })),
+                observedCarryRow,
+                carries
+            };
             const writtenSubmission = carries
                 ? isColumnSubtraction
                     ? createColumnSubtractionSubmission({
-                        operands: [first, second],
+                        operands: [operands[0], operands[1]],
                         result,
                         borrows: carries
                     })
                     : createColumnAdditionSubmission({
-                    operands: [first, second],
-                    result,
-                    carries
-                })
+                        operands,
+                        result,
+                        carries
+                    })
                 : null;
             if (!writtenSubmission) {
-                throw new Error(
+                return createWrittenDraft(
                     'Written carry or borrow marks could not be assigned to digit columns.'
                 );
             }
-            const lineLatex = [
-                first,
-                (isColumnSubtraction ? '-' : '+') + second,
-                result
-            ];
-            const normalizedLines = recognized.map((line, index) => ({
+            const lineLatex = isColumnSubtraction
+                ? [operands[0], '-' + operands[1], result]
+                : [...operands.map((operand, index) =>
+                    index === 0 ? operand : '+' + operand
+                ), result];
+            const sourceLines = [...operandLines, resultLine];
+            const normalizedLines = sourceLines.map((line, index) => ({
                 ...line,
                 latex: lineLatex[index] || ''
             }));
@@ -2365,17 +3256,159 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         }
 
         if (multiplicationSelection) {
-            const expression = parseColumnMultiplicationPrompt(recognized[0]?.latex);
+            let expression = parseColumnMultiplicationPrompt(recognized[0]?.latex);
+            let observedCarryMarks: ReadonlyArray<string | null> | null = null;
+            let rasterMultiplicationLayout: OcrRasterMultiplicationLayout | null = null;
+            if (expression) {
+                rasterMultiplicationLayout = __ocrAnalyzeRasterMultiplicationLayout(
+                    multiplicationRows[0],
+                    expression.operands[0].length,
+                    expression.operands[1].length
+                );
+                if (!rasterMultiplicationLayout) expression = null;
+            }
+            if (!expression) {
+                const carryExpression =
+                    normalizeOcrColumnMultiplicationCarryExpression(
+                        recognized[0]?.latex
+                    );
+                const carryLayout = carryExpression
+                    ? __ocrAnalyzeRasterMultiplicationLayout(
+                        multiplicationRows[0],
+                        carryExpression.operands[0].length,
+                        carryExpression.operands[1].length
+                    )
+                    : null;
+                if (carryExpression && carryLayout &&
+                    __ocrRasterCarryLayoutMatchesMarks(
+                        carryLayout,
+                        carryExpression.carryMarks,
+                        carryExpression.operands[0].length
+                    )) {
+                    expression = parseColumnMultiplicationPrompt(
+                        carryExpression.operands[0] + '*' +
+                        carryExpression.operands[1]
+                    );
+                    if (expression) {
+                        observedCarryMarks = carryExpression.carryMarks;
+                        rasterMultiplicationLayout = carryLayout;
+                    }
+                }
+            }
+            if (!expression) {
+                const dotAlias = normalizeOcrColumnMultiplicationDotAlias(
+                    recognized[0]?.latex
+                );
+                const aliasLayout = dotAlias
+                    ? __ocrAnalyzeRasterMultiplicationLayout(
+                    multiplicationRows[0],
+                    dotAlias[0].length,
+                    dotAlias[1].length
+                    )
+                    : null;
+                if (dotAlias && aliasLayout) {
+                    expression = parseColumnMultiplicationPrompt(
+                        dotAlias[0] + '*' + dotAlias[1]
+                    );
+                    if (expression) rasterMultiplicationLayout = aliasLayout;
+                }
+            }
+            if (!expression) {
+                const commaDigits = normalizeOcrColumnMultiplicationCommaSequence(
+                    recognized[0]?.latex
+                );
+                if (commaDigits) {
+                    const confirmedSplits: Array<{
+                        split: number;
+                        layout: OcrRasterMultiplicationLayout;
+                    }> = [];
+                    for (let split = 1; split < commaDigits.length; split++) {
+                        const layout = __ocrAnalyzeRasterMultiplicationLayout(
+                            multiplicationRows[0],
+                            split,
+                            commaDigits.length - split
+                        );
+                        if (layout) confirmedSplits.push({ split, layout });
+                    }
+                    // A comma list contains no textual operator evidence. Only
+                    // one independently located compact raster dot may supply
+                    // the missing boundary; ambiguous geometry stays a draft.
+                    if (confirmedSplits.length === 1) {
+                        const { split, layout } = confirmedSplits[0];
+                        expression = parseColumnMultiplicationPrompt(
+                            commaDigits.slice(0, split).join('') + '*' +
+                            commaDigits.slice(split).join('')
+                        );
+                        if (expression) rasterMultiplicationLayout = layout;
+                    }
+                }
+            }
+            if (expression && observedCarryMarks === null &&
+                rasterMultiplicationLayout?.carryComponents.length) {
+                const carryDigits = await Promise.all(
+                    rasterMultiplicationLayout.carryComponents.map(async observation => {
+                        const carryCrop = __ocrCropRasterComponent(
+                            multiplicationRows[0],
+                            observation.component
+                        );
+                        if (!carryCrop) return null;
+                        const raw = await enqueueOcrJob(priority, async () => {
+                            __plusAssertRecognitionCurrent(engine, modelKey, isCurrent);
+                            const value = await __ocrRecognizeSingleCrop(
+                                engine,
+                                carryCrop,
+                                silent
+                            );
+                            __plusAssertRecognitionCurrent(engine, modelKey, isCurrent);
+                            return value;
+                        });
+                        const digit = normalizeOcrColumnDigitsExact(raw, null);
+                        return digit?.length === 1 ? digit : null;
+                    })
+                );
+                if (carryDigits.some(digit => digit === null)) {
+                    return createWrittenDraft(
+                        'A compact multiplication carry glyph could not be read as one observed digit.'
+                    );
+                }
+                const marks: Array<string | null> =
+                    new Array(expression.operands[0].length).fill(null);
+                rasterMultiplicationLayout.carryComponents.forEach(
+                    (observation, index) => {
+                        marks[observation.column] = carryDigits[index];
+                    }
+                );
+                observedCarryMarks = marks;
+            }
             const partialRows = recognized.slice(1, -1).map(line =>
                 normalizeOcrColumnDigitsExact(line.latex, '+')
             );
+            if (expression && observedCarryMarks === null &&
+                expression.operands[1].length === 1 &&
+                partialRows.length === 0) {
+                // With one multiplier digit and no contribution rows, the
+                // authored structure is the compact carry-mark method. Nulls
+                // record the observed absence of marks; validation decides
+                // whether any required carries are missing.
+                observedCarryMarks =
+                    new Array(expression.operands[0].length).fill(null);
+            }
             const result = normalizeOcrColumnDigits(recognized[recognized.length - 1]?.latex);
+            const hasSupportedPartialRowPrefix = Boolean(
+                expression &&
+                partialRows.length <= expression.operands[0].length
+            );
             if (!expression || !result || partialRows.some(row => row === null) ||
-                partialRows.length !== expression.operands[0].length) {
-                throw new Error(
-                    'Written multiplication OCR did not return the expression, every place-value row, and result.'
+                !hasSupportedPartialRowPrefix ||
+                (observedCarryMarks !== null && partialRows.length > 0)) {
+                return createWrittenDraft(
+                    'Written multiplication OCR could not assign every observed place-value row safely.'
                 );
             }
+            // Rows are authored from the highest multiplicand column down.
+            // Preserve every observed prefix, including an unfinished one;
+            // the native validator can then report the first missing row.
+            // No absent contribution is synthesized from prompt or result.
             const partialProducts = partialRows.map((value, index) => {
                 const multiplicandColumn = expression.operands[0].length - index - 1;
                 return {
@@ -2384,16 +3417,28 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
                     value: value || ''
                 };
             });
-            const writtenSubmission = createColumnMultiplicationSubmission({
-                operands: expression.operands,
-                partialProducts,
-                result
-            });
+            const writtenSubmission = observedCarryMarks === null
+                ? createColumnMultiplicationSubmission({
+                    operands: expression.operands,
+                    partialProducts,
+                    result
+                })
+                : createColumnMultiplicationSubmission({
+                    operands: expression.operands,
+                    carryMarks: observedCarryMarks,
+                    result
+                });
             if (!writtenSubmission) {
-                throw new Error('Written multiplication rows are structurally invalid.');
+                return createWrittenDraft('Written multiplication rows are structurally invalid.');
             }
+            const expressionLatex = observedCarryMarks === null
+                ? expression.operands[0] + ' \\cdot ' + expression.operands[1]
+                : Array.from(expression.operands[0]).map((digit, index) => {
+                    const mark = observedCarryMarks?.[index] ?? null;
+                    return mark === null ? digit : `${digit}_{${mark}}`;
+                }).join('') + ' \\cdot ' + expression.operands[1];
             const lineLatex = [
-                expression.operands[0] + ' \\cdot ' + expression.operands[1],
+                expressionLatex,
                 ...partialRows.map(value => '+' + value),
                 result
             ];
@@ -2417,19 +3462,22 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
 
         if (isColumnDivision) {
             const expression = parseColumnDivisionPrompt(recognized[0]?.latex);
-            if (!expression?.authoredQuotient) {
-                throw new Error('Written division OCR did not return a quotient in its first row.');
+            if (!expression) {
+                return createWrittenDraft('Written division OCR did not return a valid first row.');
             }
-            const quotient = expression.authoredQuotient;
+            const authoredQuotient = expression.authoredQuotient;
             const stepCount = Math.floor((recognized.length - 1) / 2);
+            const quotientLength = authoredQuotient?.length || stepCount;
             if (recognized.length !== stepCount * 2 + 1 ||
-                quotient.length !== stepCount ||
+                stepCount < 1 ||
+                stepCount > quotientLength ||
+                quotientLength > expression.dividend.length ||
                 divisionRules.length !== stepCount) {
-                throw new Error(
-                    'Written division needs one product and one bring-down row per quotient digit.' +
+                return createWrittenDraft(
+                    'Written division cannot safely assign every observed product and bring-down row.' +
                     ' [rows=' + recognized.length +
                     ', rules=' + divisionRules.length +
-                    ', quotientDigits=' + quotient.length + ']'
+                    ', quotientDigits=' + quotientLength + ']'
                 );
             }
             for (let index = 0; index < stepCount; index++) {
@@ -2445,43 +3493,74 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
                 const ruleCenter = (rule.y0 + rule.y1) / 2;
                 if (!Number.isFinite(productCenter) || !Number.isFinite(nextCenter) ||
                     !(productCenter < ruleCenter && ruleCenter < nextCenter)) {
-                    throw new Error(
+                    return createWrittenDraft(
                         'Each written division product must be underlined before the next partial dividend.'
                     );
                 }
             }
-            const initialEnd = expression.dividend.length - quotient.length;
+            const initialEnd = expression.dividend.length - quotientLength;
             if (initialEnd < 0) {
-                throw new Error('Written division quotient is wider than its dividend.');
+                return createWrittenDraft('Written division quotient is wider than its dividend.');
             }
             const steps: ColumnDivisionStep[] = [];
-            const lineLatex = [
-                expression.dividend + ':' + expression.divisor + '=' + quotient
-            ];
+            const lineLatex: string[] = [];
+            const inferredQuotientDigits: string[] = [];
             let previousNext = '';
             for (let index = 0; index < stepCount; index++) {
-                const product = normalizeOcrColumnDigitsExact(
-                    recognized[1 + index * 2]?.latex,
-                    '-'
-                );
+                const productLatex = recognized[1 + index * 2]?.latex;
+                const observedProduct = normalizeOcrColumnDigitsExact(productLatex, '-');
                 const nextValue = normalizeOcrColumnDigitsExact(
                     recognized[2 + index * 2]?.latex
                 );
-                if (product === null || nextValue === null) {
-                    throw new Error('Written division contains a non-integer step row.');
+                if (nextValue === null) {
+                    return createWrittenDraft(
+                        'Written division contains a non-integer step row.'
+                    );
                 }
                 const partialDividendEnd = initialEnd + index;
                 const partialDividend = index === 0
                     ? expression.dividend.slice(0, partialDividendEnd + 1)
                     : previousNext;
-                const hasNextDigit = index + 1 < stepCount;
+                // The observed header, not the task prompt, determines how
+                // many quotient positions remain. A structurally complete
+                // prefix therefore keeps its last observed row as a genuine
+                // bring-down value and reaches native grading as missing-step.
+                const hasNextDigit = index + 1 < quotientLength;
                 const broughtDownDigit = hasNextDigit
                     ? nextValue.slice(-1)
                     : null;
+                const expectedBroughtDownDigit = hasNextDigit
+                    ? expression.dividend[partialDividendEnd + 1]
+                    : null;
+                if (authoredQuotient === null &&
+                    broughtDownDigit !== expectedBroughtDownDigit) {
+                    return createWrittenDraft(
+                        'Written division cannot align an observed bring-down digit with its dividend.'
+                    );
+                }
                 const remainderDisplay = hasNextDigit
                     ? nextValue.slice(0, -1) || '0'
                     : nextValue;
                 const remainder = remainderDisplay.replace(/^0+(?=\d)/u, '');
+                const localStep = inferColumnDivisionObservedStep(
+                    partialDividend,
+                    remainder,
+                    expression.divisor
+                );
+                let product = observedProduct;
+                if (product === null && isOcrColumnDivisionEightAlias(productLatex) &&
+                    localStep?.subtractedProduct === '8') {
+                    product = '8';
+                }
+                if (product === null || (authoredQuotient === null && localStep === null)) {
+                    return createWrittenDraft(
+                        'Written division contains an ambiguous subtraction product.'
+                    );
+                }
+                const quotientDigit = authoredQuotient === null
+                    ? localStep!.quotientDigit
+                    : authoredQuotient[index];
+                inferredQuotientDigits.push(quotientDigit);
                 const nextEnd = partialDividendEnd + (hasNextDigit ? 1 : 0);
                 steps.push({
                     partialDividend,
@@ -2490,7 +3569,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
                         partialDividendEnd - partialDividend.length + 1
                     ),
                     partialDividendEnd,
-                    quotientDigit: quotient[index],
+                    quotientDigit,
                     subtractedProduct: product.replace(/^0+(?=\d)/u, ''),
                     subtractedProductStart: Math.max(
                         0,
@@ -2509,15 +3588,28 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
                 lineLatex.push('-' + product, nextValue);
                 previousNext = nextValue;
             }
+            const quotient = authoredQuotient ||
+                inferredQuotientDigits.join('').replace(/^0+(?=\d)/u, '');
+            lineLatex.unshift(
+                expression.dividend + ':' + expression.divisor + '=' + quotient
+            );
+            const observedFinalRemainder = stepCount === quotientLength
+                ? steps[steps.length - 1]?.remainder ?? null
+                : null;
+            const submissionRemainder = expression.authoredRemainder !== null
+                ? expression.authoredRemainder
+                : observedFinalRemainder && observedFinalRemainder !== '0'
+                    ? observedFinalRemainder
+                    : null;
             const writtenSubmission = createColumnDivisionSubmission({
                 dividend: expression.dividend,
                 divisor: expression.divisor,
                 quotient,
-                remainder: expression.authoredRemainder,
+                remainder: submissionRemainder,
                 steps
             });
             if (!writtenSubmission) {
-                throw new Error('Written division steps are structurally invalid.');
+                return createWrittenDraft('Written division steps are structurally invalid.');
             }
             const normalizedLines = recognized.map((line, index) => ({
                 ...line,
@@ -2698,7 +3790,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             plusStatus.setAttribute('role', state.startsWith('error') ? 'alert' : 'status');
         }
         if (plusResult) {
-            if (state === 'rendered') {
+            if (state === 'rendered' || state === 'draft') {
                 plusResult.dataset.state = 'ready';
                 plusResult.dataset.stale = '0';
             }
@@ -2834,8 +3926,9 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         preparedInBackground: boolean,
         writtenSubmission: WrittenArithmeticSubmission | null = null
     ): void {
+        const isWrittenDraft = isWrittenArithmetic && !writtenSubmission;
         if (isWrittenArithmetic) {
-            if (!writtenSubmission || writtenSubmission.kind !== writtenArithmeticKind) {
+            if (writtenSubmission && writtenSubmission.kind !== writtenArithmeticKind) {
                 throw new Error('Written arithmetic has no matching structured submission.');
             }
             __plusWrittenSubmission = writtenSubmission;
@@ -2868,9 +3961,23 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             plusResult.dataset.latex = snapshot.latex;
             plusResult.dataset.lineCount = String(renderedLineCount);
             plusResult.dataset.resultSource = source;
+            plusResult.dataset.previewMode = isWrittenArithmetic
+                ? isWrittenDraft ? 'draft' : 'structured'
+                : 'equation';
             plusResult.removeAttribute('aria-busy');
         }
-        if (plusEditBtn) plusEditBtn.disabled = isWrittenArithmetic;
+        if (isWrittenDraft && plusResultSummary) {
+            plusResultSummary.dataset.state = 'warning';
+            plusResultSummary.textContent = trOcr(
+                'plus.draftSummary',
+                'Editable OCR draft'
+            );
+        }
+        if (plusEditBtn) {
+            const lockEdit = isWrittenArithmetic && !isWrittenDraft;
+            plusEditBtn.hidden = lockEdit;
+            plusEditBtn.disabled = lockEdit;
+        }
         if (lineFeedbackEnabled) {
             __plusStoreFreezeReview({
                 v: 'cr1',
@@ -2880,9 +3987,16 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             }, 'calculation-render');
         }
         __plusCloseEditor(source === 'correction');
-        __plusSetStandaloneState('rendered');
-        const submissionValue = isWrittenArithmetic && __plusWrittenSubmission
-            ? serializeWrittenArithmeticSubmission(__plusWrittenSubmission)
+        __plusSetStandaloneState(isWrittenDraft ? 'draft' : 'rendered');
+        const submissionValue = isWrittenArithmetic
+            ? __plusWrittenSubmission
+                ? serializeWrittenArithmeticSubmission(__plusWrittenSubmission)
+                // Preserve every renderable draft in the native answer field.
+                // Written validators require a versioned object and therefore
+                // grade this bounded line-array shape as invalid-format; it
+                // can be logged and checked without being mistaken for a
+                // valid structured written submission.
+                : serializeCalculationSubmission(snapshot.lines)
             : serializeCalculationSubmission(snapshot.lines);
         const firstEquation = extractCalculationEquation(snapshot.lines[0] || '');
         const promptEquation = String(
@@ -2897,9 +4011,14 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         const value = submissionValue;
         // An empty serialized value signals an oversized submission. Keep
         // the last native quiz value instead of silently clearing it.
+        // A completed explicit render is the sole owner of native-field
+        // replacement. Ink edits and canvas clearing only make this preview
+        // stale; they deliberately retain the last submitted value.
+        __plusCancelNativeResolveHandoff();
         const applied = value && canvasPair
             ? applyNativeQuizSubmissionForPair(canvasPair, value)
             : false;
+        if (applied && canvasPair) markNativeQuizAnswerPending(canvasPair);
         canvasPair?.dispatchEvent(new CustomEvent('lia:canvasplus-answer', {
             bubbles: true,
             detail: {
@@ -2978,8 +4097,8 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     function __plusClearStandaloneResult(): void {
         if (canvasPair) {
             delete canvasPair.dataset.ocrError;
-            applyNativeQuizSubmissionForPair(canvasPair, '');
         }
+        __plusCancelNativeResolveHandoff();
         __plusRenderedRevision = -1;
         __plusRenderedModelKey = '';
         __plusCorrection = null;
@@ -2989,7 +4108,10 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         }
         __plusRasterInkState = 'empty';
         if (plusSubmitBtn) plusSubmitBtn.disabled = true;
-        if (plusEditBtn) plusEditBtn.disabled = true;
+        if (plusEditBtn) {
+            plusEditBtn.disabled = true;
+            if (isWrittenArithmetic) plusEditBtn.hidden = true;
+        }
         __plusCloseEditor(false);
         if (plusResult) {
             plusResult.hidden = true;
@@ -2997,6 +4119,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             plusResult.dataset.state = 'idle';
             plusResult.removeAttribute('data-latex');
             plusResult.removeAttribute('data-line-count');
+            plusResult.removeAttribute('data-preview-mode');
             plusResult.removeAttribute('aria-busy');
         }
         if (plusResultDisclosure) plusResultDisclosure.open = false;
@@ -3269,16 +4392,40 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             // not its pixel count, is the stable signal.
             return hookRows.size >= 1 && hookColumns.size >= 1;
         };
-        const columnRuleWorldHints = usesFinalCalculationRule
-            ? findOcrCalculationRuleHints(hintSymbolPaths).filter(hint =>
-                !selectionBounds || (
-                    hint.x0 >= selectionBounds.x0 &&
-                    hint.y0 >= selectionBounds.y0 &&
-                    hint.x1 <= selectionBounds.x1 &&
-                    hint.y1 <= selectionBounds.y1
-                )
+        const calculationRulesInsideSelection = (
+            hints: readonly OcrCalculationRuleHint[]
+        ): OcrCalculationRuleHint[] => hints.filter(hint =>
+            !selectionBounds || (
+                hint.x0 >= selectionBounds.x0 &&
+                hint.y0 >= selectionBounds.y0 &&
+                hint.x1 <= selectionBounds.x1 &&
+                hint.y1 <= selectionBounds.y1
             )
-            : [];
+        );
+        let columnRuleWorldHints: OcrCalculationRuleHint[] = [];
+        if (usesFinalCalculationRule) {
+            columnRuleWorldHints = calculationRulesInsideSelection(
+                findOcrCalculationRuleHints(
+                    hintSymbolPaths,
+                    isColumnMultiplication
+                        ? { allowSingleMultiplicationRow: true }
+                        : {}
+                )
+            );
+            if (isColumnSubtraction && columnRuleWorldHints.length === 0) {
+                const relaxedRules = calculationRulesInsideSelection(
+                    findOcrCalculationRuleHints(hintSymbolPaths, {
+                        maximumSecondAboveDistance: 4.5
+                    })
+                );
+                // The relaxed spacing is prompt-gated and must remain
+                // geometrically unambiguous. OCR text that merely resembles
+                // a minus sign is never promoted to a calculation rule.
+                if (relaxedRules.length === 1) {
+                    columnRuleWorldHints = relaxedRules;
+                }
+            }
+        }
         const columnCarryWorldHints = usesCarryOrBorrowOnes
             ? findOcrCarryOneHints(hintSymbolPaths, columnRuleWorldHints)
             : [];
@@ -3305,7 +4452,18 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             }
         }
         const columnCarryHints = columnCarryWorldHints
-            .map(mapColumnBoxToCrop)
+            .map(hint => ({
+                ...mapColumnBoxToCrop(hint),
+                ...(Number.isFinite(hint.stemX) ? {
+                    stemX: Math.max(
+                        0,
+                        Math.min(
+                            outputWidth - 1,
+                            (Number(hint.stemX) - worldX0) * rasterScale - inkX0
+                        )
+                    )
+                } : {})
+            }))
             .filter(hint =>
                 hint.x1 > hint.x0 && hint.y1 > hint.y0 &&
                 hint.rulePathIndexes.some(pathIndex =>
@@ -3692,6 +4850,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
 
     function __plusInvalidateInk(reason: string): void {
         if (!isCanvasPlus) return;
+        __plusCancelNativeResolveHandoff();
         if (__plusBackgroundTimer) {
             clearTimeout(__plusBackgroundTimer);
             __plusBackgroundTimer = 0;
@@ -4381,6 +5540,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         __plusGeneration++;
         __plusLineCache.clear();
         __plusLineInflight.clear();
+        __plusOperatorlessRetryFailures.clear();
         __plusCloseEditor(false);
         plusReview?.destroy();
         if (__plusFreezeObserver) __plusFreezeObserver.disconnect();

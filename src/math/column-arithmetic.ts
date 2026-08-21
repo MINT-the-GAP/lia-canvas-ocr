@@ -7,17 +7,19 @@
 
 export const COLUMN_ADDITION_SUBMISSION_VERSION = 1 as const;
 export const MAX_COLUMN_ADDITION_DIGITS = 256;
+export const MAX_COLUMN_ADDITION_OPERANDS = 32;
 export const MAX_COLUMN_ADDITION_PROMPT_LENGTH = 1_024;
 export const MAX_COLUMN_ADDITION_SUBMISSION_LENGTH = 16_384;
 
 export type ColumnAdditionCarry = string | null;
+export type ColumnAdditionOperands = [string, string, ...string[]];
 
 export type ColumnAdditionPrompt = {
     kind: 'column-addition';
-    operands: [string, string];
+    operands: ColumnAdditionOperands;
     /** Result written by the author, or null when the prompt omits `=...`. */
     authoredResult: string | null;
-    /** Exact result derived from the two operands. */
+    /** Exact result derived from all operands. */
     expectedResult: string;
 };
 
@@ -36,6 +38,7 @@ export type ColumnAdditionLayoutRole =
     | 'carries'
     | 'first-operand'
     | 'second-operand'
+    | 'additional-operand'
     | 'result';
 
 export type ColumnAdditionLayoutRow = {
@@ -48,25 +51,20 @@ export type ColumnAdditionLayoutRow = {
 export type ColumnAdditionLayoutRule = {
     kind: 'horizontal';
     /** Zero-based row index after which the rule is rendered. */
-    afterRow: 2;
+    afterRow: number;
 };
 
 export type ColumnAdditionLayout = {
     /** Number of digit columns; the leading operator column is additional. */
     columns: number;
-    rows: [
-        ColumnAdditionLayoutRow,
-        ColumnAdditionLayoutRow,
-        ColumnAdditionLayoutRow,
-        ColumnAdditionLayoutRow
-    ];
+    rows: ColumnAdditionLayoutRow[];
     rules: [ColumnAdditionLayoutRule];
 };
 
 export type ColumnAdditionSubmission = {
     kind: 'column-addition';
     version: typeof COLUMN_ADDITION_SUBMISSION_VERSION;
-    operands: [string, string];
+    operands: ColumnAdditionOperands;
     result: string;
     /** Incoming carries by target column, right-to-left; index 0 is ones. */
     carries: ColumnAdditionCarry[];
@@ -101,8 +99,11 @@ type DecimalAddition = {
 type UnknownRecord = Record<string, unknown>;
 
 const DECIMAL = /^\d+$/u;
-const CARRY_DIGIT = /^\d$/u;
-const PROMPT_SHAPE = /^(\d+)\+(\d+)(?:=(\d+))?$/u;
+const PROMPT_SHAPE = /^(\d+(?:\+\d+)+)(?:=(\d+))?$/u;
+const MAX_COLUMN_ADDITION_RESULT_DIGITS =
+    MAX_COLUMN_ADDITION_DIGITS + String(MAX_COLUMN_ADDITION_OPERANDS).length;
+const MAX_COLUMN_ADDITION_CARRY_DIGITS =
+    String(MAX_COLUMN_ADDITION_OPERANDS - 1).length;
 
 function isRecord(value: unknown): value is UnknownRecord {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -133,21 +134,34 @@ function decimalDigit(source: string, rightToLeftIndex: number): number {
     return index < 0 ? 0 : source.charCodeAt(index) - 48;
 }
 
-function addDecimalStrings(first: string, second: string): DecimalAddition {
-    const width = Math.max(first.length, second.length);
+function normalizeOperands(value: unknown, canonical: boolean): ColumnAdditionOperands | null {
+    if (!Array.isArray(value) || value.length < 2 ||
+        value.length > MAX_COLUMN_ADDITION_OPERANDS) return null;
+    const operands: string[] = [];
+    for (const operand of value) {
+        const normalized = canonical
+            ? canonicalDecimal(operand, MAX_COLUMN_ADDITION_DIGITS)
+            : normalizeDecimal(operand, MAX_COLUMN_ADDITION_DIGITS);
+        if (normalized === null) return null;
+        operands.push(normalized);
+    }
+    return operands as ColumnAdditionOperands;
+}
+
+function addDecimalStrings(operands: readonly string[]): DecimalAddition {
+    const width = Math.max(...operands.map(operand => operand.length));
     const digits: string[] = [];
     const carries: ColumnAdditionCarry[] = [];
     let incoming = 0;
 
-    for (let column = 0; column < width; column++) {
-        carries.push(incoming ? '1' : null);
-        const total = decimalDigit(first, column) + decimalDigit(second, column) + incoming;
-        digits.push(String.fromCharCode(48 + total % 10));
-        incoming = total >= 10 ? 1 : 0;
-    }
-    if (incoming) {
-        carries.push('1');
-        digits.push('1');
+    for (let column = 0; column < width || incoming > 0; column++) {
+        carries.push(incoming ? String(incoming) : null);
+        let total = incoming;
+        if (column < width) {
+            for (const operand of operands) total += decimalDigit(operand, column);
+        }
+        digits.push(String(total % 10));
+        incoming = Math.floor(total / 10);
     }
 
     return {
@@ -202,24 +216,22 @@ function normalizePromptSource(value: unknown): string | null {
     return source;
 }
 
-/** Parses only a single, authored, two-operand nonnegative integer addition. */
+/** Parses only a single authored addition of two or more nonnegative integers. */
 export function parseColumnAdditionPrompt(value: unknown): ColumnAdditionPrompt | null {
     const source = normalizePromptSource(value);
     if (!source) return null;
     const match = PROMPT_SHAPE.exec(source);
     if (!match) return null;
-    const first = normalizeDecimal(match[1], MAX_COLUMN_ADDITION_DIGITS);
-    const second = normalizeDecimal(match[2], MAX_COLUMN_ADDITION_DIGITS);
-    const authoredResult = match[3] === undefined
+    const operands = normalizeOperands(match[1].split('+'), false);
+    const authoredResult = match[2] === undefined
         ? null
-        : normalizeDecimal(match[3], MAX_COLUMN_ADDITION_DIGITS + 1);
-    if (first === null || second === null ||
-        (match[3] !== undefined && authoredResult === null)) return null;
+        : normalizeDecimal(match[2], MAX_COLUMN_ADDITION_RESULT_DIGITS);
+    if (operands === null || (match[2] !== undefined && authoredResult === null)) return null;
     return {
         kind: 'column-addition',
-        operands: [first, second],
+        operands,
         authoredResult,
-        expectedResult: addDecimalStrings(first, second).result
+        expectedResult: addDecimalStrings(operands).result
     };
 }
 
@@ -227,22 +239,22 @@ function normalizePrompt(value: string | ColumnAdditionPrompt): ColumnAdditionPr
     if (typeof value === 'string') return parseColumnAdditionPrompt(value);
     if (!isRecord(value) || !hasExactKeys(value, [
         'kind', 'operands', 'authoredResult', 'expectedResult'
-    ]) || value.kind !== 'column-addition' || !Array.isArray(value.operands) ||
-        value.operands.length !== 2) return null;
-    const first = canonicalDecimal(value.operands[0], MAX_COLUMN_ADDITION_DIGITS);
-    const second = canonicalDecimal(value.operands[1], MAX_COLUMN_ADDITION_DIGITS);
+    ]) || value.kind !== 'column-addition') return null;
+    const operands = normalizeOperands(value.operands, true);
     const authoredResult = value.authoredResult === null
         ? null
-        : canonicalDecimal(value.authoredResult, MAX_COLUMN_ADDITION_DIGITS + 1);
-    const expectedResult = canonicalDecimal(value.expectedResult, MAX_COLUMN_ADDITION_DIGITS + 1);
-    if (first === null || second === null ||
+        : canonicalDecimal(value.authoredResult, MAX_COLUMN_ADDITION_RESULT_DIGITS);
+    const expectedResult = canonicalDecimal(
+        value.expectedResult, MAX_COLUMN_ADDITION_RESULT_DIGITS
+    );
+    if (operands === null ||
         (value.authoredResult !== null && authoredResult === null) ||
         expectedResult === null) return null;
-    const exact = addDecimalStrings(first, second).result;
+    const exact = addDecimalStrings(operands).result;
     if (expectedResult !== exact) return null;
     return {
         kind: 'column-addition',
-        operands: [first, second],
+        operands,
         authoredResult,
         expectedResult
     };
@@ -260,20 +272,26 @@ function carryDisplayCells(carries: readonly ColumnAdditionCarry[]): ColumnAddit
 }
 
 function createLayout(
-    operands: [string, string],
+    operands: ColumnAdditionOperands,
     result: string,
     carries: ColumnAdditionCarry[]
 ): ColumnAdditionLayout {
-    const columns = Math.max(operands[0].length, operands[1].length, result.length);
+    const columns = Math.max(result.length, ...operands.map(operand => operand.length));
+    const rows: ColumnAdditionLayoutRow[] = operands.map((operand, index) => ({
+        role: index === 0
+            ? 'first-operand'
+            : index === 1 ? 'second-operand' : 'additional-operand',
+        operator: index === 0 ? '' : '+',
+        cells: rightAlignedCells(operand, columns)
+    }));
+    rows.push(
+        { role: 'carries', operator: '', cells: carryDisplayCells(carries) },
+        { role: 'result', operator: '', cells: rightAlignedCells(result, columns) }
+    );
     return {
         columns,
-        rows: [
-            { role: 'first-operand', operator: '', cells: rightAlignedCells(operands[0], columns) },
-            { role: 'second-operand', operator: '+', cells: rightAlignedCells(operands[1], columns) },
-            { role: 'carries', operator: '', cells: carryDisplayCells(carries) },
-            { role: 'result', operator: '', cells: rightAlignedCells(result, columns) }
-        ],
-        rules: [{ kind: 'horizontal', afterRow: 2 }]
+        rows,
+        rules: [{ kind: 'horizontal', afterRow: operands.length }]
     };
 }
 
@@ -284,26 +302,25 @@ function createLayout(
 export function createColumnAdditionSubmission(
     observation: ColumnAdditionObservation
 ): ColumnAdditionSubmission | null {
-    if (!isRecord(observation) || !Array.isArray(observation.operands) ||
-        observation.operands.length !== 2) return null;
-    const first = normalizeDecimal(observation.operands[0], MAX_COLUMN_ADDITION_DIGITS);
-    const second = normalizeDecimal(observation.operands[1], MAX_COLUMN_ADDITION_DIGITS);
-    const result = normalizeDecimal(observation.result, MAX_COLUMN_ADDITION_DIGITS + 1);
-    if (first === null || second === null || result === null) return null;
+    if (!isRecord(observation)) return null;
+    const operands = normalizeOperands(observation.operands, false);
+    const result = normalizeDecimal(observation.result, MAX_COLUMN_ADDITION_RESULT_DIGITS);
+    if (operands === null || result === null) return null;
 
-    const columns = Math.max(first.length, second.length, result.length);
+    const columns = Math.max(result.length, ...operands.map(operand => operand.length));
     const observedCarries = observation.carries === undefined ? [] : observation.carries;
     if (!Array.isArray(observedCarries) || observedCarries.length > columns) return null;
     const carries: ColumnAdditionCarry[] = [];
     for (const carry of observedCarries) {
         if (carry === null) carries.push(null);
-        else if (typeof carry === 'string' && CARRY_DIGIT.test(carry.trim())) {
-            carries.push(carry.trim());
-        } else return null;
+        else {
+            const normalized = normalizeDecimal(carry, MAX_COLUMN_ADDITION_CARRY_DIGITS);
+            if (normalized === null) return null;
+            carries.push(normalized);
+        }
     }
     while (carries.length < columns) carries.push(null);
 
-    const operands: [string, string] = [first, second];
     return {
         kind: 'column-addition',
         version: COLUMN_ADDITION_SUBMISSION_VERSION,
@@ -321,7 +338,7 @@ export function createExpectedColumnAdditionSubmission(
     const prompt = normalizePrompt(value);
     if (!prompt || (prompt.authoredResult !== null &&
         prompt.authoredResult !== prompt.expectedResult)) return null;
-    const exact = addDecimalStrings(prompt.operands[0], prompt.operands[1]);
+    const exact = addDecimalStrings(prompt.operands);
     return createColumnAdditionSubmission({
         operands: prompt.operands,
         result: exact.result,
@@ -349,8 +366,9 @@ function layoutMatches(value: unknown, expected: ColumnAdditionLayout): boolean 
             )) return false;
     }
     const rule = value.rules[0];
+    const expectedRule = expected.rules[0];
     return isRecord(rule) && hasExactKeys(rule, ['kind', 'afterRow']) &&
-        rule.kind === 'horizontal' && rule.afterRow === 2;
+        rule.kind === expectedRule.kind && rule.afterRow === expectedRule.afterRow;
 }
 
 function normalizeSubmission(value: unknown): ColumnAdditionSubmission | null {
@@ -358,20 +376,20 @@ function normalizeSubmission(value: unknown): ColumnAdditionSubmission | null {
         'kind', 'version', 'operands', 'result', 'carries', 'layout'
     ]) || value.kind !== 'column-addition' ||
         value.version !== COLUMN_ADDITION_SUBMISSION_VERSION ||
-        !Array.isArray(value.operands) || value.operands.length !== 2 ||
         !Array.isArray(value.carries)) return null;
 
-    const first = canonicalDecimal(value.operands[0], MAX_COLUMN_ADDITION_DIGITS);
-    const second = canonicalDecimal(value.operands[1], MAX_COLUMN_ADDITION_DIGITS);
-    const result = canonicalDecimal(value.result, MAX_COLUMN_ADDITION_DIGITS + 1);
-    if (first === null || second === null || result === null) return null;
-    const columns = Math.max(first.length, second.length, result.length);
+    const operands = normalizeOperands(value.operands, true);
+    const result = canonicalDecimal(value.result, MAX_COLUMN_ADDITION_RESULT_DIGITS);
+    if (operands === null || result === null) return null;
+    const columns = Math.max(result.length, ...operands.map(operand => operand.length));
     if (value.carries.length !== columns || !value.carries.every(carry =>
-        carry === null || typeof carry === 'string' && CARRY_DIGIT.test(carry)
+        carry === null || canonicalDecimal(
+            carry, MAX_COLUMN_ADDITION_CARRY_DIGITS
+        ) !== null
     )) return null;
 
     const submission = createColumnAdditionSubmission({
-        operands: [first, second],
+        operands,
         result,
         carries: value.carries as ColumnAdditionCarry[]
     });
@@ -406,32 +424,35 @@ function submissionFromInput(value: string | ColumnAdditionSubmission): ColumnAd
     return typeof value === 'string' ? decodeColumnAdditionSubmission(value) : normalizeSubmission(value);
 }
 
-function renderLayoutRow(row: ColumnAdditionLayoutRow): string {
-    const cells = row.cells.map(cell => {
-        if (cell === null) return '';
-        return row.role === 'carries' ? `{\\scriptstyle ${cell}}` : cell;
-    });
-    return [row.operator, ...cells].join(' & ').replace(/\s+$/u, '');
+function renderSchoolCarryRow(row: ColumnAdditionLayoutRow): string | null {
+    if (row.role !== 'carries' || row.cells.every(cell => cell === null)) {
+        return null;
+    }
+    return row.cells.map(cell => cell === null
+        ? String.raw`\hspace{0.5em}`
+        : `\\hspace{0.25em}\\mathclap{\\textcolor{red}{${cell}}}\\hspace{0.25em}`
+    ).join('');
 }
 
-/** Composes a KaTeX-safe array; all rendered cells were restricted to digits. */
+/** Composes the compact right-aligned school layout used by the SchulLia tasks. */
 export function composeColumnAdditionLatex(
     value: string | ColumnAdditionSubmission
 ): string {
     const submission = submissionFromInput(value);
     if (!submission) return '';
-    const { layout } = submission;
-    const alignment = new Array(layout.columns + 1).fill('r').join('');
-    const rows: string[] = [];
-    for (let index = 0; index < layout.rows.length; index++) {
-        rows.push(renderLayoutRow(layout.rows[index]));
-        if (index + 1 < layout.rows.length) {
-            rows.push(layout.rules.some(rule => rule.afterRow === index)
-                ? String.raw` \\ \hline `
-                : String.raw` \\ `);
-        }
-    }
-    return `\\begin{array}{${alignment}} ${rows.join('')} \\end{array}`;
+    const carryLayoutRow = submission.layout.rows.find(row => row.role === 'carries');
+    const carryRow = carryLayoutRow ? renderSchoolCarryRow(carryLayoutRow) : null;
+    const rows = [
+        ...submission.operands.map((operand, index) => index === 0 ? operand : `+${operand}`),
+        ...(carryRow ? [carryRow] : []),
+        submission.result
+    ];
+    const body = rows.map((row, index) => {
+        if (index === rows.length - 1) return row + String.raw` \\ `;
+        if (index === rows.length - 2) return row + String.raw` \\ \hline `;
+        return row + String.raw` \\ `;
+    }).join('');
+    return `\\begin{array}{r} ${body}\\end{array}`;
 }
 
 function validation(
@@ -471,8 +492,8 @@ export function validateColumnAdditionSubmission(
     const submission = submissionFromInput(answer);
     if (!submission) return validation(false, 'incorrect', 'invalid-format', expected);
 
-    if (submission.operands[0] !== prompt.operands[0] ||
-        submission.operands[1] !== prompt.operands[1]) {
+    if (submission.operands.length !== prompt.operands.length ||
+        submission.operands.some((operand, index) => operand !== prompt.operands[index])) {
         return validation(false, 'incorrect', 'operand-mismatch', expected, submission);
     }
     if (submission.result !== expected.result) {

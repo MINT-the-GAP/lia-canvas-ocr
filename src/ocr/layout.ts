@@ -7,7 +7,7 @@ import {
     type OcrSymbolBox
 } from './symbol-geometry.ts';
 
-export const OCR_LAYOUT_ALGORITHM_VERSION = 'lines-v15-written-arithmetic';
+export const OCR_LAYOUT_ALGORITHM_VERSION = 'lines-v20-deep-hook-carries';
 
 export type OcrVerticalStrokeHint = {
     x0: number;
@@ -67,6 +67,8 @@ export type OcrCanvasSegmentationOptions = {
     maskCarryOnes?: boolean;
     /** Remove vector-confirmed long-division underlines before row splitting. */
     maskDivisionRules?: boolean;
+    /** Minimum full-size rows expected above a confirmed column rule. */
+    minimumColumnRowsAboveRule?: number;
 };
 
 /**
@@ -361,6 +363,224 @@ export function splitOcrLineBandsAtRules(
             }
         }
         output = next;
+    }
+    return output.sort((left, right) => left.y0 - right.y0);
+}
+
+/**
+ * Reopens a conservatively merged line band only for a confirmed written
+ * column stack. A split needs a real, short empty projection gap and two
+ * comparably tall ink-bearing pieces, so dots and superscripts stay attached.
+ */
+export function splitOcrColumnLineBands(
+    rowInk: ArrayLike<number>,
+    bands: readonly OcrLineBand[],
+    rawRules: unknown,
+    minimumRowsAboveRule: number,
+    pixelScale = 1
+): OcrLineBand[] {
+    const minimumRows = Math.max(0, Math.floor(Number(minimumRowsAboveRule) || 0));
+    if (minimumRows < 2 || !bands.length) return Array.from(bands);
+    const rules = (Array.isArray(rawRules) ? rawRules : [])
+        .map(rule => {
+            if (!rule || typeof rule !== 'object') return null;
+            const box = rule as Partial<OcrSymbolBox>;
+            if (![box.y0, box.y1].every(Number.isFinite)) return null;
+            return {
+                y0: Math.floor(Math.min(Number(box.y0), Number(box.y1))),
+                y1: Math.ceil(Math.max(Number(box.y0), Number(box.y1)))
+            };
+        })
+        .filter((rule): rule is { y0: number; y1: number } => Boolean(rule))
+        .sort((left, right) => left.y0 - right.y0);
+    if (!rules.length) return Array.from(bands);
+
+    const scale = normalizePixelScale(pixelScale);
+    const minimumPieceHeight = Math.max(5, Math.round(8 * scale));
+    const maximumGap = Math.max(2, Math.round(6 * scale));
+    let output = Array.from(bands).sort((left, right) => left.y0 - right.y0);
+
+    for (const rule of rules) {
+        const ruleY = (rule.y0 + rule.y1) / 2;
+        const rowsAbove = (): OcrLineBand[] => output.filter(band =>
+            (band.y0 + band.y1) / 2 < ruleY
+        );
+        const fullSizeCount = (rows: readonly OcrLineBand[]): number => {
+            if (!rows.length) return 0;
+            const maximumHeight = Math.max(...rows.map(row => row.y1 - row.y0 + 1));
+            return rows.filter(row =>
+                row.y1 - row.y0 + 1 >= maximumHeight * 0.68
+            ).length;
+        };
+
+        while (fullSizeCount(rowsAbove()) < minimumRows) {
+            type Candidate = {
+                index: number;
+                pieces: OcrLineBand[];
+                balance: number;
+                gap: number;
+            };
+            let best: Candidate | null = null;
+            for (let index = 0; index < output.length; index++) {
+                const band = output[index];
+                if ((band.y0 + band.y1) / 2 >= ruleY) continue;
+                const boundaries: Array<{
+                    upperY1: number;
+                    lowerY0: number;
+                    balance: number;
+                    gap: number;
+                }> = [];
+                let gapStart = -1;
+                for (let y = band.y0; y <= band.y1 + 1; y++) {
+                    const empty = y <= band.y1 &&
+                        !(Math.max(0, Number(rowInk[y]) || 0));
+                    if (empty && gapStart < 0) gapStart = y;
+                    if (empty || gapStart < 0) continue;
+                    const gapEnd = y - 1;
+                    const gapSize = gapEnd - gapStart + 1;
+                    const upperY1 = gapStart - 1;
+                    const lowerY0 = gapEnd + 1;
+                    gapStart = -1;
+                    let adjacentUpperY0 = upperY1;
+                    while (adjacentUpperY0 > band.y0 &&
+                        (Math.max(0, Number(rowInk[adjacentUpperY0 - 1]) || 0))) {
+                        adjacentUpperY0--;
+                    }
+                    let adjacentLowerY1 = lowerY0;
+                    while (adjacentLowerY1 < band.y1 &&
+                        (Math.max(0, Number(rowInk[adjacentLowerY1 + 1]) || 0))) {
+                        adjacentLowerY1++;
+                    }
+                    const adjacentUpperHeight = upperY1 - adjacentUpperY0 + 1;
+                    const adjacentLowerHeight = adjacentLowerY1 - lowerY0 + 1;
+                    if (gapSize > maximumGap ||
+                        adjacentUpperHeight < minimumPieceHeight ||
+                        adjacentLowerHeight < minimumPieceHeight) continue;
+                    let upperInk = 0;
+                    let lowerInk = 0;
+                    for (let row = band.y0; row <= upperY1; row++) {
+                        upperInk += Math.max(0, Number(rowInk[row]) || 0);
+                    }
+                    for (let row = lowerY0; row <= band.y1; row++) {
+                        lowerInk += Math.max(0, Number(rowInk[row]) || 0);
+                    }
+                    if (!upperInk || !lowerInk) continue;
+                    const balance = Math.min(
+                        adjacentUpperHeight,
+                        adjacentLowerHeight
+                    ) / Math.max(adjacentUpperHeight, adjacentLowerHeight);
+                    boundaries.push({
+                        upperY1,
+                        lowerY0,
+                        balance,
+                        gap: gapSize
+                    });
+                }
+                if (!boundaries.length) continue;
+                const pieces: OcrLineBand[] = [];
+                let pieceY0 = band.y0;
+                for (const boundary of boundaries) {
+                    let ink = 0;
+                    for (let row = pieceY0; row <= boundary.upperY1; row++) {
+                        ink += Math.max(0, Number(rowInk[row]) || 0);
+                    }
+                    if (ink) pieces.push({ y0: pieceY0, y1: boundary.upperY1, ink });
+                    pieceY0 = boundary.lowerY0;
+                }
+                let finalInk = 0;
+                for (let row = pieceY0; row <= band.y1; row++) {
+                    finalInk += Math.max(0, Number(rowInk[row]) || 0);
+                }
+                if (finalInk) pieces.push({ y0: pieceY0, y1: band.y1, ink: finalInk });
+                if (pieces.length < 2) continue;
+                const candidate: Candidate = {
+                    index,
+                    pieces,
+                    balance: Math.max(...boundaries.map(boundary => boundary.balance)),
+                    gap: Math.max(...boundaries.map(boundary => boundary.gap))
+                };
+                if (!best || candidate.pieces.length > best.pieces.length ||
+                    (candidate.pieces.length === best.pieces.length && (
+                        candidate.balance > best.balance + 1e-9 ||
+                        (Math.abs(candidate.balance - best.balance) <= 1e-9 &&
+                            candidate.gap > best.gap)
+                    ))) best = candidate;
+            }
+            if (!best) {
+                // Responsive scaling and a fixed pen width can close a small
+                // design-space gap completely. Use the nearest result row
+                // below the confirmed rule as an observed height reference;
+                // never derive a cut from prompt digits or expected values.
+                const reference = output
+                    .filter(band => (band.y0 + band.y1) / 2 > ruleY)
+                    .slice()
+                    .sort((left, right) =>
+                        (left.y0 + left.y1) - (right.y0 + right.y1)
+                    )[0];
+                const referenceHeight = reference
+                    ? reference.y1 - reference.y0 + 1
+                    : 0;
+                type TouchingCandidate = {
+                    index: number;
+                    upper: OcrLineBand;
+                    lower: OcrLineBand;
+                    score: number;
+                    distance: number;
+                };
+                let touching: TouchingCandidate | null = null;
+                if (referenceHeight >= minimumPieceHeight) {
+                    for (let index = 0; index < output.length; index++) {
+                        const band = output[index];
+                        if ((band.y0 + band.y1) / 2 >= ruleY) continue;
+                        const bandHeight = band.y1 - band.y0 + 1;
+                        if (bandHeight < referenceHeight * 1.55) continue;
+                        const minimumSide = Math.max(
+                            minimumPieceHeight,
+                            Math.ceil(referenceHeight * 0.65)
+                        );
+                        const target = band.y0 + referenceHeight - 1;
+                        const radius = Math.max(1, Math.round(referenceHeight * 0.15));
+                        const firstCut = Math.max(
+                            band.y0 + minimumSide - 1,
+                            target - radius
+                        );
+                        const lastCut = Math.min(
+                            band.y1 - minimumSide,
+                            target + radius
+                        );
+                        for (let cut = firstCut; cut <= lastCut; cut++) {
+                            const score = Math.max(0, Number(rowInk[cut]) || 0) +
+                                Math.max(0, Number(rowInk[cut + 1]) || 0);
+                            const distance = Math.abs(cut - target);
+                            if (touching && (
+                                score > touching.score ||
+                                (score === touching.score && distance >= touching.distance)
+                            )) continue;
+                            let upperInk = 0;
+                            let lowerInk = 0;
+                            for (let row = band.y0; row <= cut; row++) {
+                                upperInk += Math.max(0, Number(rowInk[row]) || 0);
+                            }
+                            for (let row = cut + 1; row <= band.y1; row++) {
+                                lowerInk += Math.max(0, Number(rowInk[row]) || 0);
+                            }
+                            if (!upperInk || !lowerInk) continue;
+                            touching = {
+                                index,
+                                upper: { y0: band.y0, y1: cut, ink: upperInk },
+                                lower: { y0: cut + 1, y1: band.y1, ink: lowerInk },
+                                score,
+                                distance
+                            };
+                        }
+                    }
+                }
+                if (!touching) break;
+                output.splice(touching.index, 1, touching.upper, touching.lower);
+                continue;
+            }
+            output.splice(best.index, 1, ...best.pieces);
+        }
     }
     return output.sort((left, right) => left.y0 - right.y0);
 }
@@ -1177,6 +1397,17 @@ export function segmentOcrCanvas(
 
     const scale = normalizePixelScale(pixelScale);
     let bands = findOcrLineBands(rowInk, width, scale);
+    if (options.maskCalculationRules && options.minimumColumnRowsAboveRule) {
+        bands = splitOcrColumnLineBands(
+            rowInk,
+            bands,
+            (source as HTMLCanvasElement & {
+                __liaOcrCalculationRules?: unknown;
+            }).__liaOcrCalculationRules,
+            options.minimumColumnRowsAboveRule,
+            scale
+        );
+    }
     if (options.maskDivisionRules) {
         bands = splitOcrDivisionLineBands(
             rowInk,

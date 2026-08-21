@@ -831,23 +831,33 @@ for (const project of projects) {
         await page.evaluate(() => {
           (window as any).__liaMultiClassicValue = '11';
           (window as any).__liaMultiCalculationResponses = ['x+1=2', 'x=1'];
-          const classicOcr = {
-            model: 'multi-instance-classic-stub',
+          (window as any).__liaMultiOcrMode = 'classic';
+          (window as any).__liaMultiLegacyCalls = 0;
+          (window as any).__liaMultiFormulaCalls = 0;
+          const legacyOcr = {
+            model: 'multi-instance-unused-legacy-stub',
             precision: 'fp32',
             task: 'image-to-text',
             ensureLoaded: async () => true,
-            recognize: async () => (window as any).__liaMultiClassicValue,
+            recognize: async () => {
+              (window as any).__liaMultiLegacyCalls += 1;
+              return 'legacy-engine-must-not-run';
+            },
           };
-          const calculationOcr = {
-            model: 'multi-instance-calculation-stub',
+          const formulaOcr = {
+            model: 'multi-instance-formulanet-stub',
             precision: 'fp32',
             task: 'image-to-text',
-            cacheKey: 'multi-instance-calculation-v1',
+            cacheKey: 'multi-instance-formulanet-v1',
             outputKind: 'latex',
             inputProfile: 'formulanet-line-384',
             calculationSinglePass: true,
             ensureLoaded: async () => true,
             recognize: async () => {
+              (window as any).__liaMultiFormulaCalls += 1;
+              if ((window as any).__liaMultiOcrMode === 'classic') {
+                return (window as any).__liaMultiClassicValue;
+              }
               const response = (window as any).__liaMultiCalculationResponses.shift();
               if (typeof response !== 'string') {
                 throw new Error('Missing multi-instance calculation response');
@@ -855,8 +865,8 @@ for (const project of projects) {
               return response;
             },
           };
-          window.__LIA_CANVAS_OCR__.ocr = classicOcr;
-          window.__LIA_CANVAS_OCR__.canvasPlusOcr = calculationOcr;
+          window.__LIA_CANVAS_OCR__.ocr = legacyOcr;
+          window.__LIA_CANVAS_OCR__.canvasPlusOcr = formulaOcr;
         });
 
         const fieldValues = () => page.locator('.lia-quiz__input').evaluateAll(
@@ -865,7 +875,11 @@ for (const project of projects) {
         const submitClassic = async (index: number, value: string) => {
           await page.evaluate(next => {
             (window as any).__liaMultiClassicValue = next;
+            (window as any).__liaMultiOcrMode = 'classic';
           }, value);
+          const callsBefore = await page.evaluate(
+            () => (window as any).__liaMultiFormulaCalls,
+          );
           const pair = classicPairs.nth(index);
           await pair.scrollIntoViewIfNeeded();
           await pair.locator('.lia-canvas-launch:visible').click();
@@ -900,10 +914,17 @@ for (const project of projects) {
             { fieldIndex: index, expected: value },
             { timeout: 10_000 },
           );
+          const callsAfter = await page.evaluate(() => ({
+            formula: (window as any).__liaMultiFormulaCalls,
+            legacy: (window as any).__liaMultiLegacyCalls,
+          }));
+          assert.equal(callsAfter.formula, callsBefore + 1);
+          assert.equal(callsAfter.legacy, 0);
         };
         const submitCalculation = async (index: number, values: string[]) => {
           await page.evaluate(next => {
             (window as any).__liaMultiCalculationResponses = [...next];
+            (window as any).__liaMultiOcrMode = 'calculation';
           }, values);
           const pair = calculationPairs.nth(index);
           await pair.scrollIntoViewIfNeeded();
@@ -1224,10 +1245,27 @@ for (const project of projects) {
           assert.equal(realOcrEngineApi.hasRecognize, true);
 
           await page.evaluate(() => {
+            (window as any).__liaClassicLegacyCalls = 0;
+            (window as any).__liaClassicFormulaCalls = 0;
             window.__LIA_CANVAS_OCR__.ocr = {
-              model: 'stub-model',
+              model: 'unused-legacy-stub',
               ensureLoaded: async () => true,
-              recognize: async () => '42',
+              recognize: async () => {
+                (window as any).__liaClassicLegacyCalls += 1;
+                return 'legacy-engine-must-not-run';
+              },
+            };
+            window.__LIA_CANVAS_OCR__.canvasPlusOcr = {
+              model: 'classic-formulanet-stub',
+              cacheKey: 'classic-formulanet-v1',
+              outputKind: 'latex',
+              inputProfile: 'formulanet-line-384',
+              calculationSinglePass: true,
+              ensureLoaded: async () => true,
+              recognize: async () => {
+                (window as any).__liaClassicFormulaCalls += 1;
+                return '42';
+              },
             };
           });
           await page.locator('.lia-rect-btn:visible').first().click();
@@ -1241,6 +1279,14 @@ for (const project of projects) {
 
           const submit = page.locator('.lia-rect-action:visible').first();
           await submit.waitFor({ state: 'visible', timeout: 5_000 });
+          assert.deepEqual(
+            await page.evaluate(() => ({
+              formula: (window as any).__liaClassicFormulaCalls,
+              legacy: (window as any).__liaClassicLegacyCalls,
+            })),
+            { formula: 0, legacy: 0 },
+            'classic OCR must remain submit-triggered',
+          );
           await submit.click();
           await page.waitForFunction(
             () => Array.from(
@@ -1251,6 +1297,14 @@ for (const project of projects) {
             }),
             undefined,
             { timeout: 10_000 },
+          );
+          assert.deepEqual(
+            await page.evaluate(() => ({
+              formula: (window as any).__liaClassicFormulaCalls,
+              legacy: (window as any).__liaClassicLegacyCalls,
+            })),
+            { formula: 1, legacy: 0 },
+            'classic submit must use exactly one FormulaNet pass',
           );
           assert.equal(
             await page.locator('.lia-canvasplus-dialog').count(),

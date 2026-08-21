@@ -30,6 +30,21 @@ export type OcrCalculationRuleHint = OcrSymbolBox & {
     pathIndexes: number[];
 };
 
+export type OcrCalculationRuleContext = {
+    /**
+     * Maximum distance from the rule to the second full-size row above it,
+     * measured in representative glyph heights. The conservative default is
+     * 3.6; written subtraction may opt into the selector's existing 4.5 range.
+     */
+    maximumSecondAboveDistance?: number;
+    /**
+     * Written multiplication may contain only its expression above the final
+     * rule while partial products are still missing. This opt-in remains
+     * conditional on an independently observed compact multiplication dot.
+     */
+    allowSingleMultiplicationRow?: boolean;
+};
+
 export type OcrDivisionRuleHint = OcrSymbolBox & {
     pathIndexes: number[];
 };
@@ -37,6 +52,8 @@ export type OcrDivisionRuleHint = OcrSymbolBox & {
 export type OcrCarryOneHint = OcrSymbolBox & {
     pathIndexes: number[];
     rulePathIndexes: number[];
+    /** Fitted vertical stem position; the hook itself may extend far left. */
+    stemX?: number;
 };
 
 export type OcrVerticalGlyphKind =
@@ -194,9 +211,10 @@ function fitVerticalStem(
     top: number,
     height: number
 ): VerticalStemFit | null {
-    // A numeral one's hook lives at its geometric top. Fitting only the lower
-    // part isolates the stem without relying on drawing direction.
-    const stemSamples = samples.filter(point => point.y >= top + height * 0.28);
+    // A numeral one's hook lives at its geometric top and can occupy almost
+    // half of a short carry glyph. Fitting only the lower portion isolates the
+    // stem without relying on drawing direction.
+    const stemSamples = samples.filter(point => point.y >= top + height * 0.46);
     if (stemSamples.length < 3) return null;
 
     let meanX = 0;
@@ -255,6 +273,224 @@ function residualSummary(
         p95: residuals[Math.floor((residuals.length - 1) * 0.95)],
         maximum: residuals[residuals.length - 1]
     };
+}
+
+type OrderedArmGeometry = {
+    endpoint: OcrSymbolPoint;
+    length: number;
+    chord: number;
+    verticalTravel: number;
+};
+
+function orderedArmGeometry(points: readonly OcrSymbolPoint[]): OrderedArmGeometry | null {
+    if (points.length < 2) return null;
+    let length = 0;
+    let verticalTravel = 0;
+    for (let index = 1; index < points.length; index++) {
+        const previous = points[index - 1];
+        const point = points[index];
+        length += Math.hypot(point.x - previous.x, point.y - previous.y);
+        verticalTravel += Math.abs(point.y - previous.y);
+    }
+    if (length <= EPSILON) return null;
+    const first = points[0];
+    const endpoint = points[points.length - 1];
+    return {
+        endpoint,
+        length,
+        chord: Math.hypot(endpoint.x - first.x, endpoint.y - first.y),
+        verticalTravel
+    };
+}
+
+/**
+ * Recognises a one-stroke school-style numeral one by its ordered topology.
+ *
+ * A real one has one short, simple diagonal arm from the top turn and one
+ * long, nearly monotone stem to the bottom.  This remains stable when the
+ * diagonal arm reaches well below the old fixed 48% hook band.  A seven has
+ * no downward hook arm, while a nine reaches the bottom through a loop rather
+ * than through a direct stem.
+ */
+function hasTurnedOneTopology(geometry: PolylineGeometry): boolean {
+    const height = geometry.box.y1 - geometry.box.y0;
+    if (height <= EPSILON || geometry.points.length < 3 ||
+        geometry.length > height * 2.05) return false;
+
+    const cumulative = [0];
+    for (let index = 1; index < geometry.points.length; index++) {
+        const previous = geometry.points[index - 1];
+        const point = geometry.points[index];
+        cumulative.push(cumulative[index - 1] + Math.hypot(
+            point.x - previous.x,
+            point.y - previous.y
+        ));
+    }
+    const topTolerance = Math.max(geometry.strokeWidth * 0.75, height * 0.025);
+    const topIndexes = geometry.points
+        .map((point, index) => ({ point, index }))
+        .filter(({ point, index }) =>
+            index > 0 && index < geometry.points.length - 1 &&
+            point.y <= geometry.box.y0 + topTolerance
+        );
+    if (!topIndexes.length) return false;
+    const topIndex = topIndexes.sort((left, right) => {
+        const leftBalance = Math.min(
+            cumulative[left.index],
+            geometry.length - cumulative[left.index]
+        );
+        const rightBalance = Math.min(
+            cumulative[right.index],
+            geometry.length - cumulative[right.index]
+        );
+        // Prefer the actual geometric apex.  Dense pointer sampling can place
+        // several points inside the stroke-width top tolerance; choosing the
+        // most balanced one first would move the split a few pixels down the
+        // stem and make the short hook arm appear non-monotone.
+        return left.point.y - right.point.y || rightBalance - leftBalance;
+    })[0].index;
+    const apex = geometry.points[topIndex];
+    const firstArmPoints = geometry.points.slice(0, topIndex + 1).reverse();
+    const secondArmPoints = geometry.points.slice(topIndex);
+    const firstArm = orderedArmGeometry(firstArmPoints);
+    const secondArm = orderedArmGeometry(secondArmPoints);
+    if (!firstArm || !secondArm) return false;
+
+    const firstDrop = firstArm.endpoint.y - apex.y;
+    const secondDrop = secondArm.endpoint.y - apex.y;
+    const stem = firstDrop >= secondDrop ? firstArm : secondArm;
+    const hook = firstDrop >= secondDrop ? secondArm : firstArm;
+    const stemDrop = stem.endpoint.y - apex.y;
+    const hookDrop = hook.endpoint.y - apex.y;
+    if (
+        stem.endpoint.y < geometry.box.y0 + height * 0.88 ||
+        stemDrop < height * 0.82 ||
+        stem.chord / stem.length < 0.86 ||
+        stemDrop / Math.max(stem.verticalTravel, EPSILON) < 0.9 ||
+        Math.abs(stem.endpoint.x - apex.x) >
+            Math.max(geometry.strokeWidth * 2.5, height * 0.42)
+    ) {
+        return false;
+    }
+    if (
+        hookDrop < height * 0.08 ||
+        hookDrop > height * 0.75 ||
+        hook.chord / hook.length < 0.84 ||
+        hookDrop / Math.max(hook.verticalTravel, EPSILON) < 0.86
+    ) {
+        return false;
+    }
+
+    const stemSlope = (stem.endpoint.x - apex.x) / Math.max(stemDrop, EPSILON);
+    if (Math.abs(stemSlope) > 0.2) return false;
+    const stemXAtHookEnd = apex.x + stemSlope * hookDrop;
+    const hookReach = Math.abs(hook.endpoint.x - stemXAtHookEnd);
+    return hookReach >= Math.max(geometry.strokeWidth * 2.2, height * 0.085) &&
+        hookReach <= height * 0.68;
+}
+
+/** Handles a one drawn from its upper diagonal endpoint into the stem. */
+function hasTerminalShoulderOneTopology(geometry: PolylineGeometry): boolean {
+    const height = geometry.box.y1 - geometry.box.y0;
+    if (height <= EPSILON || geometry.points.length < 3 ||
+        geometry.length > height * 1.9) return false;
+
+    const first = geometry.points[0];
+    const last = geometry.points[geometry.points.length - 1];
+    const points = first.y <= last.y
+        ? geometry.points
+        : geometry.points.slice().reverse();
+    const top = points[0];
+    const bottom = points[points.length - 1];
+    if (
+        top.y > geometry.box.y0 + height * 0.2 ||
+        bottom.y < geometry.box.y0 + height * 0.88
+    ) {
+        return false;
+    }
+
+    for (let jointIndex = 1; jointIndex < points.length - 1; jointIndex++) {
+        const joint = points[jointIndex];
+        const jointY = (joint.y - geometry.box.y0) / height;
+        if (jointY < 0.05 || jointY > 0.42) continue;
+        const shoulder = orderedArmGeometry(points.slice(0, jointIndex + 1));
+        const stem = orderedArmGeometry(points.slice(jointIndex));
+        if (!shoulder || !stem) continue;
+
+        const shoulderDrop = joint.y - top.y;
+        const stemDrop = bottom.y - joint.y;
+        if (
+            shoulderDrop < height * 0.05 || shoulderDrop > height * 0.42 ||
+            shoulder.chord / shoulder.length < 0.84 ||
+            shoulderDrop / Math.max(shoulder.verticalTravel, EPSILON) < 0.84 ||
+            stemDrop < height * 0.55 ||
+            stem.chord / stem.length < 0.88 ||
+            stemDrop / Math.max(stem.verticalTravel, EPSILON) < 0.9 ||
+            Math.abs(bottom.x - joint.x) >
+                Math.max(geometry.strokeWidth * 2.5, height * 0.42)
+        ) {
+            continue;
+        }
+
+        const stemSlope = (bottom.x - joint.x) / Math.max(stemDrop, EPSILON);
+        // A slightly falling top bar followed by the diagonal leg of a seven
+        // has the same two direct, monotone arms as this alternate one form.
+        // The distinguishing feature is the lower arm: a numeral one keeps a
+        // predominantly vertical stem, whereas the seven traverses a large
+        // horizontal distance on its way to the baseline. Keep the broader
+        // slope handling below for ordinary bars; this topology shortcut must
+        // remain deliberately narrower because it returns `hooked-one` early.
+        if (Math.abs(stemSlope) > 0.2) continue;
+        const stemXAtTop = joint.x + stemSlope * (top.y - joint.y);
+        const shoulderReach = Math.abs(top.x - stemXAtTop);
+        if (
+            shoulderReach >= Math.max(geometry.strokeWidth * 2.2, height * 0.085) &&
+            shoulderReach <= height * 0.68
+        ) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function hasSamePathOneTopology(geometry: PolylineGeometry): boolean {
+    return hasTurnedOneTopology(geometry) ||
+        hasTerminalShoulderOneTopology(geometry);
+}
+
+function hasTouchingPath(
+    paths: readonly OcrSymbolPath[],
+    targetIndex: number,
+    target: PolylineGeometry
+): boolean {
+    for (let index = 0; index < paths.length; index++) {
+        if (index === targetIndex) continue;
+        const other = polylineGeometry(paths[index]);
+        if (!other) continue;
+        const tolerance = Math.max(target.strokeWidth, other.strokeWidth) * 1.5;
+        if (
+            intervalGap(target.box.x0, target.box.x1, other.box.x0, other.box.x1) > tolerance ||
+            intervalGap(target.box.y0, target.box.y1, other.box.y0, other.box.y1) > tolerance
+        ) {
+            continue;
+        }
+        // A long sloped calculation rule can have a global bounding box that
+        // overlaps a carry although the rule is still several pixels below it
+        // at the carry's x-position.  Confirm proximity on the uniformly
+        // sampled paths instead of treating that coarse box overlap as an
+        // attachment.
+        for (const targetPoint of target.samples) {
+            if (other.samples.some(otherPoint =>
+                Math.hypot(
+                    targetPoint.x - otherPoint.x,
+                    targetPoint.y - otherPoint.y
+                ) <= tolerance
+            )) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 function median(values: readonly number[]): number {
@@ -480,7 +716,16 @@ export function classifyOcrVerticalSymbolPath(
     if (!target) return 'other';
 
     const height = target.box.y1 - target.box.y0;
-    if (height < target.strokeWidth * 6 || height <= EPSILON) return 'other';
+    // Responsive canvas coordinates scale while the selected pen width stays
+    // device-sized. Short carry ones from the reported half-scale canvas are
+    // still legible at about 5.7 stroke widths.
+    if (height < target.strokeWidth * 5.5 || height <= EPSILON) return 'other';
+
+    if (hasSamePathOneTopology(target)) {
+        return hasTouchingPath(paths, targetIndex, target)
+            ? 'ambiguous'
+            : 'hooked-one';
+    }
 
     const fit = fitVerticalStem(target.samples, target.box.y0, height);
     if (!fit || Math.abs(fit.slope) > 0.65) return 'other';
@@ -505,7 +750,7 @@ export function classifyOcrVerticalSymbolPath(
     for (const point of target.samples) {
         const relativeY = (point.y - target.box.y0) / height;
         const distance = signedStemDistance(fit, point);
-        if (relativeY <= 0.34) {
+        if (relativeY <= 0.48) {
             positiveTopReach = Math.max(positiveTopReach, distance);
             negativeTopReach = Math.max(negativeTopReach, -distance);
             if (relativeY >= -0.02 && Math.abs(distance) <= axisTolerance) {
@@ -518,12 +763,6 @@ export function classifyOcrVerticalSymbolPath(
 
     const topReach = Math.max(positiveTopReach, negativeTopReach);
     const oppositeTopReach = Math.min(positiveTopReach, negativeTopReach);
-    const samePathHook = topReach >= strongReach &&
-        topReach <= height * 0.65 &&
-        oppositeTopReach <= weakReach &&
-        bodyReach <= Math.max(target.strokeWidth * 1.7, height * 0.04) &&
-        hasTopAxisContact;
-
     let separateHook = false;
     let ambiguousAttachment = false;
     for (let index = 0; index < paths.length; index++) {
@@ -562,11 +801,14 @@ export function classifyOcrVerticalSymbolPath(
         const branchHeight = other.box.y1 - other.box.y0;
         const relativeTop = (other.box.y0 - target.box.y0) / height;
         const relativeBottom = (other.box.y1 - target.box.y0) / height;
-        const topLocal = relativeTop >= -0.25 && relativeBottom <= 0.42;
+        const topLocal = relativeTop >= -0.3 &&
+            relativeBottom >= 0.12 && relativeBottom <= 0.68;
         const meaningfulBranch = other.length >= Math.max(combinedStrokeWidth * 1.5, height * 0.025) &&
             other.length <= height * 0.85 &&
             branchWidth >= Math.max(combinedStrokeWidth * 1.5, height * 0.045) &&
-            branchWidth >= branchHeight * 0.25;
+            branchWidth >= branchHeight * 0.25 &&
+            branchHeight >= Math.max(combinedStrokeWidth, height * 0.08) &&
+            other.chord / Math.max(other.length, EPSILON) >= 0.84;
         if (
             topLocal &&
             meaningfulBranch &&
@@ -582,7 +824,7 @@ export function classifyOcrVerticalSymbolPath(
     // A crossbar wins over hook evidence. This is the conservative distinction
     // needed for separately drawn fours and plus signs.
     if (ambiguousAttachment) return 'ambiguous';
-    if (samePathHook || separateHook) return 'hooked-one';
+    if (separateHook) return 'hooked-one';
     if (topReach > weakReach || bodyReach > weakReach) return 'ambiguous';
 
     const residual = residualSummary(target.samples, fit);
@@ -681,7 +923,12 @@ function calculationRuleStroke(
     if (
         horizontalEfficiency < 0.84 ||
         directness < 0.88 ||
-        endpointRise > Math.max(geometry.strokeWidth * 3, width * 0.055) ||
+        // A school calculation rule only needs to be predominantly
+        // horizontal. On a wide canvas a natural left-to-right hand motion
+        // can easily drift by six or seven percent while remaining a clear
+        // separator. The aspect-ratio, directness and travel checks above and
+        // below still reject diagonal glyph strokes and irregular scribbles.
+        endpointRise > Math.max(geometry.strokeWidth * 3, width * 0.08) ||
         geometry.verticalTravel > Math.max(geometry.strokeWidth * 8, width * 0.16)
     ) {
         return null;
@@ -836,9 +1083,38 @@ function clusterInkBands(
     return bands;
 }
 
+function hasCompactMultiplicationDot(
+    band: InkBand,
+    geometries: readonly PolylineGeometry[],
+    representativeHeight: number
+): boolean {
+    const members = geometries.filter(geometry => {
+        const centerY = (geometry.box.y0 + geometry.box.y1) / 2;
+        return Math.abs(centerY - band.centerY) <= representativeHeight * 0.48;
+    });
+    const fullSize = members.filter(geometry =>
+        geometry.box.y1 - geometry.box.y0 >= representativeHeight * 0.55
+    );
+    const compact = members.filter(geometry => {
+        const width = geometry.box.x1 - geometry.box.x0;
+        const height = geometry.box.y1 - geometry.box.y0;
+        const minimumSize = geometry.strokeWidth * 0.75;
+        return width >= minimumSize && height >= minimumSize &&
+            width <= representativeHeight * 0.28 &&
+            height <= representativeHeight * 0.28 &&
+            width / Math.max(height, EPSILON) >= 0.35 &&
+            width / Math.max(height, EPSILON) <= 2.8;
+    });
+    return compact.some(dot =>
+        fullSize.some(glyph => glyph.box.x1 < dot.box.x0) &&
+        fullSize.some(glyph => glyph.box.x0 > dot.box.x1)
+    );
+}
+
 function hasCalculationStackGeometry(
     group: CalculationRuleGroup,
-    geometries: readonly PolylineGeometry[]
+    geometries: readonly PolylineGeometry[],
+    context: OcrCalculationRuleContext
 ): boolean {
     const horizontallyRelevant = geometries.filter(geometry =>
         geometry.box.x1 >= group.box.x0 &&
@@ -880,13 +1156,37 @@ function hasCalculationStackGeometry(
         .filter(band => band.centerY > group.centerY + sideTolerance)
         .sort((left, right) => left.centerY - right.centerY);
 
-    if (above.length < 2 || below.length < 1) return false;
+    const allowSingleMultiplicationRow =
+        context.allowSingleMultiplicationRow === true;
+    const minimumRowsAbove = allowSingleMultiplicationRow ? 1 : 2;
+    if (above.length < minimumRowsAbove || below.length < 1) return false;
     const nearestAbove = group.centerY - above[0].centerY;
-    const secondAbove = group.centerY - above[1].centerY;
     const nearestBelow = below[0].centerY - group.centerY;
-    return nearestAbove <= representativeHeight * 1.95 &&
-        secondAbove <= representativeHeight * 3.45 &&
-        nearestBelow <= representativeHeight * 1.95;
+    if (nearestAbove > representativeHeight * 1.95 ||
+        nearestBelow > representativeHeight * 1.95) return false;
+    if (above.length < 2) {
+        return allowSingleMultiplicationRow &&
+            hasCompactMultiplicationDot(
+                above[0],
+                nearby,
+                representativeHeight
+            );
+    }
+    const secondAbove = group.centerY - above[1].centerY;
+    const maximumSecondAboveDistance = Number.isFinite(
+        context.maximumSecondAboveDistance
+    )
+        ? Math.max(3.6, Math.min(4.5, Number(
+            context.maximumSecondAboveDistance
+        )))
+        : 3.6;
+    return (
+        // The first operand in a four-row school layout can sit slightly
+        // higher when the carry row is written close to the rule. The exact
+        // reported stack needs 3.51 glyph heights; both full-size-row checks
+        // above still prevent a small annotation from satisfying this slot.
+        secondAbove <= representativeHeight * maximumSecondAboveDistance
+    );
 }
 
 /**
@@ -902,19 +1202,24 @@ function hasCalculationStackGeometry(
  * possible.
  */
 export function findOcrCalculationRuleHints(
-    paths: readonly OcrSymbolPath[]
+    paths: readonly OcrSymbolPath[],
+    options: OcrCalculationRuleContext = {}
 ): OcrCalculationRuleHint[] {
     const geometries = paths.map(path => polylineGeometry(path));
     const strokes = paths
         .map((path, index) => calculationRuleStroke(path, index))
         .filter((stroke): stroke is CalculationRuleStroke => Boolean(stroke));
     const excludedIndexes = new Set(strokes.map(stroke => stroke.index));
-    const context = geometries.filter(
+    const geometryContext = geometries.filter(
         (geometry, index): geometry is PolylineGeometry =>
             Boolean(geometry) && !excludedIndexes.has(index)
     );
     const groups = groupCalculationRuleStrokes(paths, strokes)
-        .filter(group => hasCalculationStackGeometry(group, context))
+        .filter(group => hasCalculationStackGeometry(
+            group,
+            geometryContext,
+            options
+        ))
         .sort((left, right) =>
             left.centerY - right.centerY || left.box.x0 - right.box.x0
         );
@@ -1016,6 +1321,7 @@ export function findOcrDivisionRuleHints(
 type HookedOneComponent = {
     box: OcrSymbolBox;
     pathIndexes: number[];
+    stemX: number;
 };
 
 function intervalGap(
@@ -1039,6 +1345,8 @@ function hookedOneComponents(
         if (!target) continue;
         const height = target.box.y1 - target.box.y0;
         if (height <= EPSILON) continue;
+        const stemFit = fitVerticalStem(target.samples, target.box.y0, height);
+        if (!stemFit) continue;
 
         const neighborhood = [targetIndex];
         for (let otherIndex = 0; otherIndex < paths.length; otherIndex++) {
@@ -1089,8 +1397,11 @@ function hookedOneComponents(
         if (keys.has(key)) continue;
         const box = delimiterBox(paths, pathIndexes);
         if (!box) continue;
+        const stemY = target.box.y0 + height * 0.75;
+        const stemX = stemFit.slope * stemY + stemFit.intercept;
+        if (!Number.isFinite(stemX)) continue;
         keys.add(key);
-        components.push({ box, pathIndexes });
+        components.push({ box, pathIndexes, stemX });
     }
 
     return components.sort((left, right) => {
@@ -1130,7 +1441,19 @@ export function findOcrCarryOneHints(
         if (component.pathIndexes.some(index => excludedRulePaths.has(index))) {
             continue;
         }
-        const componentHeight = component.box.y1 - component.box.y0;
+        // delimiterBox includes half a stroke width above and below the raw
+        // paths, while representativeInkHeight deliberately uses raw path
+        // bounds. Compare like with like so a thicker pen cannot turn the
+        // same small carry glyph into a full-size operand glyph.
+        const componentGeometries = component.pathIndexes
+            .map(index => geometries[index])
+            .filter((geometry): geometry is PolylineGeometry => Boolean(geometry));
+        if (!componentGeometries.length) continue;
+        const componentHeight = Math.max(
+            ...componentGeometries.map(geometry => geometry.box.y1)
+        ) - Math.min(
+            ...componentGeometries.map(geometry => geometry.box.y0)
+        );
         const componentCenterX = (component.box.x0 + component.box.x1) / 2;
         const componentCenterY = (component.box.y0 + component.box.y1) / 2;
         let bestRule: {
@@ -1184,6 +1507,7 @@ export function findOcrCarryOneHints(
         hints.push({
             ...component.box,
             pathIndexes: component.pathIndexes,
+            stemX: component.stemX,
             rulePathIndexes: Array.from(bestRule.rule.pathIndexes)
         });
     }

@@ -17,6 +17,7 @@ import {
     normalizeOcrOperationSide,
     recoverOcrOperationSeparatorFromWholeLine,
     segmentOcrCanvas,
+    splitOcrColumnLineBands,
     splitOcrDivisionLineBands,
     splitOcrLineBandsAtRules,
     insertPlusMinusIntoIndexedRootSolution,
@@ -187,6 +188,130 @@ test('does not silently merge a ninth handwriting line', () => {
     }
     const bands = findOcrLineBands(projection(152, spans), 240);
     assert.equal(bands.length, 9);
+});
+
+test('reopens tightly spaced full-size operands only for a confirmed column rule', () => {
+    const rows = projection(140, [
+        [10, 30, 24],
+        [34, 54, 23],
+        [72, 80, 7],
+        [110, 130, 24]
+    ]);
+    const generic = findOcrLineBands(rows, 220);
+    assert.deepEqual(
+        generic.map(({ y0, y1 }) => [y0, y1]),
+        [[10, 54], [72, 80], [110, 130]],
+        'the generic fraction-safe segmenter deliberately merges the close rows'
+    );
+    assert.deepEqual(
+        splitOcrColumnLineBands(
+            rows,
+            generic,
+            [{ x0: 20, y0: 94, x1: 180, y1: 98 }],
+            2
+        ).map(({ y0, y1 }) => [y0, y1]),
+        [[10, 30], [34, 54], [72, 80], [110, 130]]
+    );
+    assert.deepEqual(
+        splitOcrColumnLineBands(rows, generic, [], 2),
+        generic,
+        'without an independently confirmed rule no band is reopened'
+    );
+});
+
+test('separates two full operands and a smaller annotation from one merged band', () => {
+    const rows = projection(130, [
+        [10, 30, 24],
+        [33, 53, 23],
+        [56, 65, 8],
+        [100, 120, 24]
+    ]);
+    const generic = findOcrLineBands(rows, 220);
+    assert.deepEqual(
+        generic.map(({ y0, y1 }) => [y0, y1]),
+        [[10, 65], [100, 120]],
+        'both operand gaps and the nearby annotation are generically merged'
+    );
+    assert.deepEqual(
+        splitOcrColumnLineBands(
+            rows,
+            generic,
+            [{ x0: 20, y0: 82, x1: 180, y1: 86 }],
+            2
+        ).map(({ y0, y1 }) => [y0, y1]),
+        [[10, 30], [33, 53], [56, 65], [100, 120]]
+    );
+});
+
+test('splits two touching operand rows from the observed result-row height', () => {
+    const rows = projection(210, [
+        [10, 92, 24],
+        [110, 135, 8],
+        [155, 196, 24]
+    ]);
+    rows[50] = 4;
+    rows[51] = 3;
+    const generic = findOcrLineBands(rows, 220);
+    assert.deepEqual(
+        generic.map(({ y0, y1 }) => [y0, y1]),
+        [[10, 92], [110, 135], [155, 196]]
+    );
+    assert.deepEqual(
+        splitOcrColumnLineBands(
+            rows,
+            generic,
+            [{ x0: 20, y0: 140, x1: 180, y1: 144 }],
+            2
+        ).map(({ y0, y1 }) => [y0, y1]),
+        [[10, 50], [51, 92], [110, 135], [155, 196]]
+    );
+});
+
+test('does not promote a superscript-sized component to a column operand', () => {
+    const rows = projection(96, [
+        [8, 13, 5],
+        [17, 37, 24],
+        [62, 82, 24]
+    ]);
+    const generic = findOcrLineBands(rows, 220);
+    assert.deepEqual(
+        splitOcrColumnLineBands(
+            rows,
+            generic,
+            [{ x0: 20, y0: 48, x1: 180, y1: 51 }],
+            2
+        ),
+        generic
+    );
+});
+
+test('column canvas segmentation applies the tight-row recovery end to end', () => {
+    withFakeCanvasDocument(() => {
+        const rule = { x0: 42, y0: 140, x1: 178, y1: 144 };
+        const source = fakeRasterCanvas(220, 210, [
+            [70, 10, 150, 50],
+            [48, 50, 150, 91],
+            [90, 110, 130, 135],
+            [42, 140, 178, 144],
+            [70, 155, 150, 196]
+        ], [rule]);
+        const genericColumn = segmentOcrCanvas(source, 1, {
+            maskCalculationRules: true
+        });
+        const subtractionColumn = segmentOcrCanvas(source, 1, {
+            maskCalculationRules: true,
+            minimumColumnRowsAboveRule: 2
+        });
+        assert.deepEqual(
+            genericColumn.map(segment => [segment.inkBox.y, segment.inkBox.height]),
+            [[10, 82], [110, 26], [155, 42]]
+        );
+        assert.deepEqual(
+            subtractionColumn.length,
+            4,
+            'touching operands, annotation and result must become four crops'
+        );
+    });
 });
 
 test('masks a written-addition rule only in the explicit column segmentation mode', () => {

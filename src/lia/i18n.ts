@@ -87,6 +87,8 @@ const BUILTIN_TRANSLATIONS: Record<string, Record<string, string>> = {
         'ocr.plus.preparedLines': '{count} Zeilen im Hintergrund vorbereitet.',
         'ocr.plus.preparedStale': 'Neue Erkennung vorbereitet – bitte erneut darstellen.',
         'ocr.plus.rendered': 'Rechenblock dargestellt.',
+        'ocr.plus.draft': 'Die Struktur ist unsicher. Pr\u00fcfe den dargestellten Entwurf, korrigiere die Handschrift und sende ihn erneut.',
+        'ocr.plus.draftSummary': 'Bearbeitbarer OCR-Entwurf',
         'ocr.plus.stale': 'Handschrift geändert – bitte erneut darstellen.',
         'ocr.plus.renderError': 'Der Rechenblock konnte nicht erkannt werden.',
         'ocr.plus.engineUnavailable': 'Die OCR-Engine f\u00fcr Rechenbl\u00f6cke ist nicht verf\u00fcgbar.',
