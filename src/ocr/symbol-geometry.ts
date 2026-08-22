@@ -1095,20 +1095,83 @@ function hasCompactMultiplicationDot(
     const fullSize = members.filter(geometry =>
         geometry.box.y1 - geometry.box.y0 >= representativeHeight * 0.55
     );
-    const compact = members.filter(geometry => {
-        const width = geometry.box.x1 - geometry.box.x0;
-        const height = geometry.box.y1 - geometry.box.y0;
-        const minimumSize = geometry.strokeWidth * 0.75;
-        return width >= minimumSize && height >= minimumSize &&
-            width <= representativeHeight * 0.28 &&
-            height <= representativeHeight * 0.28 &&
-            width / Math.max(height, EPSILON) >= 0.35 &&
-            width / Math.max(height, EPSILON) <= 2.8;
-    });
-    return compact.some(dot =>
-        fullSize.some(glyph => glyph.box.x1 < dot.box.x0) &&
-        fullSize.some(glyph => glyph.box.x0 > dot.box.x1)
+    if (fullSize.length < 2) return false;
+
+    // The stored polylines describe pen centres, while the learner sees their
+    // complete round-capped footprints. More importantly, a filled dot is
+    // often made from several overlapping paths. Evaluate all operator-height
+    // ink in one gap together, rather than allowing any old tiny path to remain
+    // an existential dot proof after a minus or equals sign is drawn around it.
+    const fullSizeSet = new Set(fullSize);
+    const compact = members
+        .filter(geometry => !fullSizeSet.has(geometry))
+        .map(geometry => {
+            const halfStroke = geometry.strokeWidth / 2;
+            return {
+                geometry,
+                box: {
+                    x0: geometry.box.x0 - halfStroke,
+                    y0: geometry.box.y0 - halfStroke,
+                    x1: geometry.box.x1 + halfStroke,
+                    y1: geometry.box.y1 + halfStroke
+                }
+            };
+        });
+    if (!compact.length) return false;
+
+    const fullCentersY = fullSize.map(geometry =>
+        (geometry.box.y0 + geometry.box.y1) / 2
+    ).sort((left, right) => left - right);
+    const typicalCenterY = fullCentersY[
+        Math.floor((fullCentersY.length - 1) / 2)
+    ];
+    const orderedFullSize = [...fullSize].sort((left, right) =>
+        (left.box.x0 + left.box.x1) - (right.box.x0 + right.box.x1)
     );
+
+    for (let index = 0; index < orderedFullSize.length - 1; index++) {
+        const left = orderedFullSize[index];
+        const right = orderedFullSize[index + 1];
+        if (left.box.x1 >= right.box.x0) continue;
+
+        const operatorInk = compact.filter(entry => {
+            const centerY = (entry.box.y0 + entry.box.y1) / 2;
+            return entry.box.x0 > left.box.x1 &&
+                entry.box.x1 < right.box.x0 &&
+                Math.abs(centerY - typicalCenterY) <=
+                    representativeHeight * 0.42;
+        });
+        if (!operatorInk.length) continue;
+
+        const x0 = Math.min(...operatorInk.map(entry => entry.box.x0));
+        const y0 = Math.min(...operatorInk.map(entry => entry.box.y0));
+        const x1 = Math.max(...operatorInk.map(entry => entry.box.x1));
+        const y1 = Math.max(...operatorInk.map(entry => entry.box.y1));
+        const width = x1 - x0;
+        const height = y1 - y0;
+        const maximumStrokeWidth = Math.max(
+            ...operatorInk.map(entry => entry.geometry.strokeWidth)
+        );
+        const minimumSize = maximumStrokeWidth * 0.75;
+        if (width < minimumSize || height < minimumSize) continue;
+
+        const aspect = width / Math.max(height, EPSILON);
+        const isSmallDot = width <= representativeHeight * 0.32 &&
+            height <= representativeHeight * 0.32 &&
+            aspect >= 0.35 && aspect <= 2.8;
+        const hasRoundedTrace = operatorInk.some(entry =>
+            entry.geometry.chord /
+                Math.max(entry.geometry.length, EPSILON) <= 0.72
+        ) || operatorInk.every(entry =>
+            entry.geometry.length <= entry.geometry.strokeWidth * 2.4
+        );
+        const isLargeRoundedDot = width <= representativeHeight * 0.45 &&
+            height <= representativeHeight * 0.45 &&
+            Math.min(width, height) / Math.max(width, height) >= 0.55 &&
+            hasRoundedTrace;
+        if (isSmallDot || isLargeRoundedDot) return true;
+    }
+    return false;
 }
 
 function hasCalculationStackGeometry(

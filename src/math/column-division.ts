@@ -542,9 +542,7 @@ function positionedValue(value: string, start: number, width: number): string {
     return phantomDigits(start) + value + phantomDigits(width - start - value.length);
 }
 
-const DIVISION_STEP_COLORS = ['blue', 'green', 'orange', 'red'] as const;
-
-/** Renders the pinned SchulLia alternating subtraction/bring-down layout. */
+/** Renders the pinned SchulLia subtraction/bring-down layout in monochrome. */
 export function composeColumnDivisionLatex(
     value: string | ColumnDivisionSubmission
 ): string {
@@ -558,12 +556,10 @@ export function composeColumnDivisionLatex(
     const rows: string[] = [
         `${submission.dividend}:${submission.divisor}&=${submission.quotient}${remainder}`
     ];
-    for (let index = 0; index < submission.steps.length; index++) {
-        const step = submission.steps[index];
-        const color = DIVISION_STEP_COLORS[index % DIVISION_STEP_COLORS.length];
+    for (const step of submission.steps) {
         rows.push(
             phantomDigits(step.subtractedProductStart) +
-            `\\underline{-\\textcolor{${color}}{${step.subtractedProduct}}}` +
+            `\\underline{-${step.subtractedProduct}}` +
             phantomDigits(width - step.subtractedProductStart - step.subtractedProduct.length) +
             divisorPadding + '&'
         );

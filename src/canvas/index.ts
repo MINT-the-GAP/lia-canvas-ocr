@@ -1749,26 +1749,48 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         const typicalCenterY = digitCentersY[
             Math.floor((digitCentersY.length - 1) / 2)
         ];
-        const dotCandidates = compact.filter(component => {
+        const operatorComponents = compact.filter(component => {
             const width = component.x1 - component.x0 + 1;
             const height = heightOf(component);
-            const aspect = width / Math.max(1, height);
             const centerY = (component.y0 + component.y1) / 2;
             return component.x0 > left.x1 && component.x1 < right.x0 &&
                 width >= 2 && height >= 2 &&
-                width <= typicalHeight * 0.32 &&
-                height <= typicalHeight * 0.32 &&
-                aspect >= 0.4 && aspect <= 2.5 &&
                 Math.abs(centerY - typicalCenterY) <= typicalHeight * 0.42;
         });
-        if (dotCandidates.length !== 1) return null;
+        if (!operatorComponents.length) return null;
 
-        const dot = dotCandidates[0];
-        const carryCandidates = compact.filter(component => component !== dot);
+        // Treat every compact component in the OCR-selected operand gap as one
+        // visible operator. This accepts a naturally filled multi-stroke dot,
+        // but prevents a previously drawn tiny dab from legitimising a later
+        // minus or equals sign around it.
+        const dotX0 = Math.min(...operatorComponents.map(component => component.x0));
+        const dotX1 = Math.max(...operatorComponents.map(component => component.x1));
+        const dotY0 = Math.min(...operatorComponents.map(component => component.y0));
+        const dotY1 = Math.max(...operatorComponents.map(component => component.y1));
+        const dotWidth = dotX1 - dotX0 + 1;
+        const dotHeight = dotY1 - dotY0 + 1;
+        const dotAspect = dotWidth / Math.max(1, dotHeight);
+        const dotPixels = operatorComponents.reduce(
+            (total, component) => total + component.pixels,
+            0
+        );
+        const isSmallDot = dotWidth <= typicalHeight * 0.32 &&
+            dotHeight <= typicalHeight * 0.32 &&
+            dotAspect >= 0.4 && dotAspect <= 2.5;
+        const isLargeRoundedDot = dotWidth <= typicalHeight * 0.45 &&
+            dotHeight <= typicalHeight * 0.45 &&
+            Math.min(dotWidth, dotHeight) / Math.max(dotWidth, dotHeight) >= 0.55 &&
+            dotPixels / Math.max(1, dotWidth * dotHeight) >= 0.3;
+        if (!isSmallDot && !isLargeRoundedDot) return null;
+
+        const operatorSet = new Set(operatorComponents);
+        const carryCandidates = compact.filter(component =>
+            !operatorSet.has(component)
+        );
         const mainCenters = mainDigits.map(component =>
             (component.x0 + component.x1) / 2
         );
-        const dotCenter = (dot.x0 + dot.x1) / 2;
+        const dotCenter = (dotX0 + dotX1) / 2;
         const carryComponents: OcrRasterMultiplicationCarryComponent[] = [];
         const occupiedColumns = new Set<number>();
         for (const component of carryCandidates) {

@@ -294,11 +294,13 @@ test('relaxes only the subtraction first-row distance from 3.6 to 4.5 glyph heig
 });
 
 test('single-row multiplication rules require an independent compact dot', () => {
-  const expressionWith = (operator: OcrSymbolPath): OcrSymbolPath[] => [
+  const expressionWithOperators = (
+    operators: OcrSymbolPath[],
+  ): OcrSymbolPath[] => [
     digitLoop(120, 80),
     digitLoop(160, 80),
     digitLoop(200, 80),
-    operator,
+    ...operators,
     digitLoop(270, 80),
     path([[100, 190], [180, 189], [255, 191], [330, 190]], 3),
     digitLoop(150, 220),
@@ -306,6 +308,8 @@ test('single-row multiplication rules require an independent compact dot', () =>
     digitLoop(230, 220),
     digitLoop(270, 220),
   ];
+  const expressionWith = (operator: OcrSymbolPath): OcrSymbolPath[] =>
+    expressionWithOperators([operator]);
   const compactDot = path([
     [239, 107], [244, 102], [249, 107], [244, 112], [239, 107],
   ], 3);
@@ -321,6 +325,80 @@ test('single-row multiplication rules require an independent compact dot', () =>
       allowSingleMultiplicationRow: true,
     }).map(rule => rule.pathIndexes),
     [[5]],
+  );
+
+  const shortRoundCappedDot = expressionWith(path([
+    [243, 107], [243.8, 107.2],
+  ], 3));
+  assert.deepEqual(
+    findOcrCalculationRuleHints(shortRoundCappedDot, {
+      allowSingleMultiplicationRow: true,
+    }).map(rule => rule.pathIndexes),
+    [[5]],
+    'a short pen-centre path whose round cap paints a compact dot must remain multiplication evidence',
+  );
+
+  const thickRoundedDot = path([
+    [234, 110], [237, 103], [244, 100], [251, 103], [254, 110],
+    [251, 117], [244, 120], [237, 117], [234, 110],
+  ], 3);
+  assert.deepEqual(
+    findOcrCalculationRuleHints(expressionWith(thickRoundedDot), {
+      allowSingleMultiplicationRow: true,
+    }).map(rule => rule.pathIndexes),
+    [[5]],
+    'a directly drawn rounded 23px footprint at 60px glyph height must be accepted',
+  );
+
+  const innerDab = path([[243.6, 110], [244.4, 110.2]], 3);
+  for (const operators of [
+    [thickRoundedDot, innerDab],
+    [innerDab, thickRoundedDot],
+  ]) {
+    assert.deepEqual(
+      findOcrCalculationRuleHints(expressionWithOperators(operators), {
+        allowSingleMultiplicationRow: true,
+      }).map(rule => rule.pathIndexes),
+      [[6]],
+      'the same visible rounded dot must not depend on stroke order',
+    );
+  }
+
+  const thickMinusWithSeed = expressionWithOperators([
+    path([[233, 110], [255, 110]], 6),
+    innerDab,
+  ]);
+  assert.deepEqual(
+    findOcrCalculationRuleHints(thickMinusWithSeed, {
+      allowSingleMultiplicationRow: true,
+    }),
+    [],
+    'an inner dab must not turn a thick minus into multiplication evidence',
+  );
+
+  const equalsWithSeed = expressionWithOperators([
+    path([[232, 103], [256, 103]], 3),
+    path([[232, 117], [256, 117]], 3),
+    innerDab,
+  ]);
+  assert.deepEqual(
+    findOcrCalculationRuleHints(equalsWithSeed, {
+      allowSingleMultiplicationRow: true,
+    }),
+    [],
+    'an inner dab must not turn two equals rails into multiplication evidence',
+  );
+
+  const oversizedRoundedBlob = expressionWith(path([
+    [230, 110], [234, 100], [244, 96], [254, 100], [258, 110],
+    [254, 120], [244, 124], [234, 120], [230, 110],
+  ], 3));
+  assert.deepEqual(
+    findOcrCalculationRuleHints(oversizedRoundedBlob, {
+      allowSingleMultiplicationRow: true,
+    }),
+    [],
+    'an oversized round symbol is not a multiplication dot',
   );
 
   const minusInsteadOfDot = expressionWith(path([[237, 107], [251, 107]], 3));

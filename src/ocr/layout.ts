@@ -7,7 +7,7 @@ import {
     type OcrSymbolBox
 } from './symbol-geometry.ts';
 
-export const OCR_LAYOUT_ALGORITHM_VERSION = 'lines-v20-deep-hook-carries';
+export const OCR_LAYOUT_ALGORITHM_VERSION = 'lines-v21-multiplication-dot-clusters';
 
 export type OcrVerticalStrokeHint = {
     x0: number;

@@ -162,6 +162,27 @@ function dotStrokes(x: number, y: number): Stroke[] {
   ];
 }
 
+function shortRoundCappedDotStrokes(x: number, y: number): Stroke[] {
+  // Real pen input often records only a sub-pen-width centre-line movement.
+  // The round canvas cap still paints a visible multiplication dot.
+  return [
+    [[x, y], [x + 0.8, y + 0.2]],
+  ];
+}
+
+function thickRoundDotStrokes(x: number, y: number): Stroke[] {
+  // A fresh, deliberately thick scribbled dot. The outer and inner loops are
+  // one connected stroke, so this exercises the initial recognition instead
+  // of relying on a previously accepted tiny dab.
+  return [[
+    [x - 10, y], [x - 7, y - 7], [x, y - 10], [x + 7, y - 7],
+    [x + 10, y], [x + 7, y + 7], [x, y + 10], [x - 7, y + 7],
+    [x - 10, y], [x - 6, y], [x - 4, y - 4], [x, y - 6],
+    [x + 4, y - 4], [x + 6, y], [x + 4, y + 4], [x, y + 6],
+    [x - 4, y + 4], [x - 6, y], [x, y],
+  ]];
+}
+
 function colonStrokes(x: number, y: number): Stroke[] {
   return [
     ...dotStrokes(x, y),
@@ -269,7 +290,9 @@ function screenshotIncompleteMultiplication(): Drawing {
   };
 }
 
-export function screenshotCarryMultiplicationStrokes(): Stroke[] {
+export function screenshotCarryMultiplicationStrokes(
+  operatorStrokes = shortRoundCappedDotStrokes(294, 47),
+): Stroke[] {
   return [
     ...digitStrokes('7', 112, 18),
     ...digitStrokes('3', 176, 18),
@@ -277,7 +300,7 @@ export function screenshotCarryMultiplicationStrokes(): Stroke[] {
     // Observed compact carry marks: 8*6 -> 4, then 3*6+4 -> 2.
     ...digitStrokes('2', 151, 66, 13, 23),
     ...digitStrokes('4', 215, 66, 13, 23),
-    ...dotStrokes(294, 47),
+    ...operatorStrokes,
     ...digitStrokes('6', 330, 18),
     [[55, 139], [145, 138], [250, 140], [365, 139]],
     ...rightAlignedNumberStrokes('4428', 330, 169),
@@ -289,6 +312,16 @@ function screenshotCarryMultiplication(): Drawing {
     width: 470,
     height: 300,
     strokes: screenshotCarryMultiplicationStrokes(),
+  };
+}
+
+function screenshotThickCarryMultiplication(): Drawing {
+  return {
+    width: 470,
+    height: 300,
+    strokes: screenshotCarryMultiplicationStrokes(
+      thickRoundDotStrokes(294, 47),
+    ),
   };
 }
 
@@ -899,17 +932,11 @@ export function registerWrittenArithmeticBrowserRegression(): void {
         );
         assert.match(division.latex, /07/u);
         assert.equal(
-          (division.latex.match(/\\underline\{-\\textcolor\{/gu) || []).length,
+          (division.latex.match(/\\underline\{-/gu) || []).length,
           4,
           'all four structural division underlines must be reconstructed in TeX',
         );
-        assert.deepEqual(
-          Array.from(
-            division.latex.matchAll(/\\textcolor\{([^}]+)\}/gu),
-            match => match[1],
-          ),
-          ['blue', 'green', 'orange', 'red'],
-        );
+        assert.doesNotMatch(division.latex, /\\textcolor\{/u);
         const divisionAnswer = JSON.parse(division.answer);
         assert.equal(divisionAnswer.kind, 'column-division');
         assert.equal(divisionAnswer.version, 1);
@@ -1255,7 +1282,7 @@ export function registerWrittenArithmeticBrowserRegression(): void {
   );
 
   test(
-    'current chromium smoke: multiplication carry raster gate accepts observed comma carries and rejects hallucinated marks or a real minus',
+    'current chromium smoke: multiplication dot gate accepts thick equals aliases and rejects hallucinated marks or a real minus',
     { timeout: 240_000 },
     async t => {
       const requested = new Set(
@@ -1276,6 +1303,13 @@ export function registerWrittenArithmeticBrowserRegression(): void {
           drawing: screenshotCarryMultiplication(),
           previewMode: 'structured',
           cropCount: 4,
+        },
+        {
+          label: 'thick-dot-equals-carries',
+          responses: [String.raw`7_{2}3_{4}8=6`, '4428'],
+          drawing: screenshotThickCarryMultiplication(),
+          previewMode: 'structured',
+          cropCount: 2,
         },
         {
           label: 'hallucinated-subscripts',
@@ -1602,6 +1636,7 @@ export function registerWrittenArithmeticBrowserRegression(): void {
             assert.equal(division.previewMode, 'structured');
             assert.equal(division.lineCount, scenario.expectedLineCount);
             assert.equal(division.remainingResponses, 0);
+            assert.doesNotMatch(division.latex, /\\textcolor\{/u);
             const answer = JSON.parse(division.answer);
             assert.equal(answer.kind, 'column-division');
             assert.equal(answer.steps.length, scenario.expectedSteps);
@@ -1610,7 +1645,7 @@ export function registerWrittenArithmeticBrowserRegression(): void {
               assert.equal(answer.steps[2].subtractedProduct, '71');
               assert.match(
                 division.latex,
-                /\\underline\{-\\textcolor\{orange\}\{71\}\}/u,
+                /\\underline\{-71\}/u,
               );
             } else if (scenario.label === 'observed-header-mismatch') {
               assert.equal(answer.dividend, '9736');

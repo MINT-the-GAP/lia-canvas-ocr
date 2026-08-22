@@ -389,6 +389,14 @@ test('reads only the geometry-gated FormulaNet multiplication-dot alias shape', 
         normalizeOcrColumnMultiplicationDotAlias('  7 3 8 \t\u2212\t0 0 6  '),
         ['738', '006'],
     );
+    assert.deepEqual(
+        normalizeOcrColumnMultiplicationDotAlias('738=6'),
+        ['738', '6'],
+    );
+    assert.deepEqual(
+        normalizeOcrColumnMultiplicationDotAlias(' 7 3 8 = 0 0 6 '),
+        ['738', '006'],
+    );
 
     for (const rejected of [
         '',
@@ -397,6 +405,9 @@ test('reads only the geometry-gated FormulaNet multiplication-dot alias shape', 
         '-6',
         '738--6',
         '738-6-1',
+        '=738=6',
+        '738==6',
+        '738=6=4428',
         '738+6',
         '738\u20136',
         '738\u20146',
@@ -470,6 +481,10 @@ test('reads only observed multiplication subscripts without inferring carries', 
         { operands: ['738', '6'], carryMarks: ['2', '4', null] },
     );
     assert.deepEqual(
+        normalizeOcrColumnMultiplicationCarryExpression('7_{2}3_{4}8=6'),
+        { operands: ['738', '6'], carryMarks: ['2', '4', null] },
+    );
+    assert.deepEqual(
         normalizeOcrColumnMultiplicationCarryExpression('7_{2},3_{4},8'),
         { operands: ['73', '8'], carryMarks: ['2', '4'] },
         'the parser retains this candidate; only raster-dot geometry may accept it',
@@ -478,6 +493,7 @@ test('reads only observed multiplication subscripts without inferring carries', 
     for (const rejected of [
         '738\\cdot6',
         '7_{2}3_{4}8+6',
+        '7_{2}3_{4}8==6',
         '7_{2}3_{4}8\\cdot66',
         '7_{22}3_{4}8\\cdot6',
         '7^{2}3_{4}8\\cdot6',

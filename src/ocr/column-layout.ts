@@ -403,12 +403,12 @@ export function inferOcrColumnAdditionOperandCount<T extends OcrColumnSegmentLik
 }
 
 /**
- * Reads only FormulaNet's multiplication-dot-as-minus confusion.
+ * Reads only FormulaNet's multiplication-dot-as-minus-or-equals confusion.
  *
  * This helper deliberately does not confirm the multiplication-dot geometry;
  * the caller must do that before accepting the alias. It accepts one
- * horizontal ASCII or Unicode minus between two nonnegative plain-integer digit
- * groups and returns only the observed digits.
+ * ASCII/Unicode minus or equals sign between two nonnegative plain-integer
+ * digit groups and returns only the observed digits.
  */
 export function normalizeOcrColumnMultiplicationDotAlias(
     latex: unknown
@@ -417,7 +417,7 @@ export function normalizeOcrColumnMultiplicationDotAlias(
     const source = latex.trim();
     if (!source || /[\r\n\u2028\u2029]/u.test(source)) return null;
 
-    const match = /^([0-9](?:\s*[0-9])*)\s*[-\u2212]\s*([0-9](?:\s*[0-9])*)$/u.exec(source);
+    const match = /^([0-9](?:\s*[0-9])*)\s*[-\u2212=]\s*([0-9](?:\s*[0-9])*)$/u.exec(source);
     if (!match) return null;
 
     const first = match[1].replace(/\s/gu, '');
@@ -505,7 +505,7 @@ export function normalizeOcrColumnMultiplicationCarryExpression(
 
     let leftSource = '';
     let multiplier = '';
-    const explicit = /^(.*?)(?:\\(?:cdot|times)(?![A-Za-z])|[\u00b7\u22c5\u00d7*\-\u2212])(\d)$/u.exec(source);
+    const explicit = /^(.*?)(?:\\(?:cdot|times)(?![A-Za-z])|[\u00b7\u22c5\u00d7*\-\u2212=])(\d)$/u.exec(source);
     if (explicit) {
         leftSource = explicit[1];
         multiplier = explicit[2];

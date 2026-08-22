@@ -71,7 +71,7 @@ test('formats subtraction, multiplication and long division through the shared p
     const cases = [
         ['9002-3487', /\\mathllap\{-\}/u],
         ['738*6', /738 \\cdot 6/u],
-        ['8736:8', /\\underline\{-\\textcolor\{blue\}\{8\}\}/u]
+        ['8736:8', /\\underline\{-8\}/u]
     ] as const;
     for (const [prompt, marker] of cases) {
         const submission = createExpectedWrittenArithmeticSubmission(prompt);
@@ -97,6 +97,10 @@ test('formats subtraction, multiplication and long division through the shared p
     assert.match(
         formatTexForPreview(serializeWrittenArithmeticSubmission(division)),
         /07/u
+    );
+    assert.doesNotMatch(
+        formatTexForPreview(serializeWrittenArithmeticSubmission(division)),
+        /\\textcolor\{/u
     );
 });
 

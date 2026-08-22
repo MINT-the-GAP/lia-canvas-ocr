@@ -194,19 +194,16 @@ test('serializes and decodes only the strict versioned object shape', () => {
     })), null);
 });
 
-test('renders the pinned alternating rows with step colors and leading zero', () => {
+test('renders the pinned alternating rows in monochrome with a leading zero', () => {
     const submission = createExpectedColumnDivisionSubmission('8736:8=1092');
     assert.ok(submission);
     const latex = composeColumnDivisionLatex(submission);
     assert.equal(
         latex,
-        String.raw`\begin{aligned} 8736:8&=1092 \\ \underline{-\textcolor{blue}{8}}\phantom{000}\phantom{:8}& \\ 07\phantom{00}\phantom{:8}& \\ \phantom{0}\underline{-\textcolor{green}{0}}\phantom{00}\phantom{:8}& \\ \phantom{0}73\phantom{0}\phantom{:8}& \\ \phantom{0}\underline{-\textcolor{orange}{72}}\phantom{0}\phantom{:8}& \\ \phantom{00}16\phantom{:8}& \\ \phantom{00}\underline{-\textcolor{red}{16}}\phantom{:8}& \\ \phantom{000}0\phantom{:8}& \end{aligned}`,
+        String.raw`\begin{aligned} 8736:8&=1092 \\ \underline{-8}\phantom{000}\phantom{:8}& \\ 07\phantom{00}\phantom{:8}& \\ \phantom{0}\underline{-0}\phantom{00}\phantom{:8}& \\ \phantom{0}73\phantom{0}\phantom{:8}& \\ \phantom{0}\underline{-72}\phantom{0}\phantom{:8}& \\ \phantom{00}16\phantom{:8}& \\ \phantom{00}\underline{-16}\phantom{:8}& \\ \phantom{000}0\phantom{:8}& \end{aligned}`,
     );
     assert.match(latex, /07/u);
-    assert.deepEqual(
-        Array.from(latex.matchAll(/\\textcolor\{([^}]+)\}/gu), match => match[1]),
-        ['blue', 'green', 'orange', 'red'],
-    );
+    assert.doesNotMatch(latex, /\\textcolor\{/u);
 });
 
 test('validates quotient, remainder and every required long-division step', () => {
