@@ -318,16 +318,43 @@ async function translateWithMyMemory(toLang: string, text: string): Promise<stri
     }
 }
 
+const HTML_ENTITIES: Record<string, string> = {
+    amp: '&',
+    lt: '<',
+    gt: '>',
+    quot: '"',
+    apos: String.fromCharCode(39),
+    nbsp: ' '
+};
+
+// Decodes without parsing HTML: feeding untrusted remote text to innerHTML
+// (even on a textarea) is a sink we do not want on this path at all.
 function decodeHtmlEntities(s: string): string {
-    const txt = document.createElement('textarea');
-    txt.innerHTML = String(s || '');
-    return txt.value || '';
+    return String(s || '').replace(
+        /&(#x[0-9a-fA-F]+|#[0-9]+|[a-zA-Z]+);/g,
+        (_match, body: string) => {
+            if (body[0] === '#') {
+                const code = body[1] === 'x' || body[1] === 'X'
+                    ? parseInt(body.slice(2), 16)
+                    : parseInt(body.slice(1), 10);
+                if (!isFinite(code) || code < 0x20 || code > 0x10ffff) return ' ';
+                try { return String.fromCodePoint(code); } catch (_) { return ' '; }
+            }
+            const named = HTML_ENTITIES[body.toLowerCase()];
+            return named === undefined ? ' ' : named;
+        }
+    );
 }
 
+// Remote translations (MyMemory) are untrusted input. Strip markup BEFORE
+// decoding, so a decoded entity can never reintroduce a tag, then drop the
+// characters that could break out of an attribute or text context downstream.
 function sanitizeTranslatedText(s: string): string {
     let out = String(s || '');
+    out = out.replace(/<[^>]*>/g, ' ');
     out = decodeHtmlEntities(out);
-    out = out.replace(/<[^>]+>/g, ' ');
+    out = out.replace(/<[^>]*>/g, ' ');
+    out = out.replace(/[<>"]/g, ' ');
     out = out.replace(/\s+/g, ' ').trim();
     return out;
 }

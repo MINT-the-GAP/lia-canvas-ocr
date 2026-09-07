@@ -6,7 +6,7 @@
     "allowImportingTsExtensions": true,
     "strict": true,
     "lib": ["ES2017", "DOM", "DOM.Iterable"],
-    "outDir": "dist",
+    "noEmit": true,
     "rootDir": "src",
     "skipLibCheck": true
   },

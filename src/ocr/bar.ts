@@ -78,11 +78,32 @@ export function ensureOcrBar(): any {
         progress: null
     };
 
-    const LS_KEY = '__LIA_TEX_OCR_PREC__';
-    const LS_MODEL = '__LIA_TEX_OCR_MODEL__';
+    // Namespaced per plugin: these plugins share one origin, so bare keys can
+    // collide. The legacy keys stay readable so saved settings survive.
+    const LS_KEY = 'lia-canvas-ocr:precision';
+    const LS_MODEL = 'lia-canvas-ocr:model';
+    const LS_KEY_LEGACY = '__LIA_TEX_OCR_PREC__';
+    const LS_MODEL_LEGACY = '__LIA_TEX_OCR_MODEL__';
 
-    try { const s = localStorage.getItem(LS_MODEL); if (s) state.model = s; } catch (_) { }
-    try { const s = localStorage.getItem(LS_KEY); if (s) state.precision = s; } catch (_) { }
+    const VALID_MODELS = ['Xenova/texify2', 'Xenova/trocr-small-handwritten'];
+    const VALID_PRECISIONS = ['fp32', 'fp16', 'int8'];
+
+    // Stored values are attacker-writable in principle; only known-good ones
+    // are accepted, so a corrupt entry falls back to the default.
+    function readStored(key: string, legacyKey: string, allowed: string[]): string | null {
+        for (const k of [key, legacyKey]) {
+            try {
+                const s = localStorage.getItem(k);
+                if (s && allowed.indexOf(s) !== -1) return s;
+            } catch (_) { }
+        }
+        return null;
+    }
+
+    const storedModel = readStored(LS_MODEL, LS_MODEL_LEGACY, VALID_MODELS);
+    if (storedModel) state.model = storedModel;
+    const storedPrecision = readStored(LS_KEY, LS_KEY_LEGACY, VALID_PRECISIONS);
+    if (storedPrecision) state.precision = storedPrecision;
 
     // -------- BAR (only when SHOW_BAR) --------
     let bar: HTMLElement | null = null;

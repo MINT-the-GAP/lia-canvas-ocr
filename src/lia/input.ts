@@ -435,14 +435,19 @@ function __liaEnsureTexPreview(el: HTMLElement): HTMLElement | null {
     __liaSyncTexPreviewBorder(el);
 
     const box = document.createElement('span');
-        const editLabel = liaT('canvas.edit', 'Edit');
+    const editLabel = liaT('canvas.edit', 'Edit');
     box.className = 'lia-tex-preview';
     box.dataset.on = '0';
     box.dataset.multiline = '0';
-    box.innerHTML = `
-    <span class="lia-tex-preview-math"></span>
-        <span class="lia-tex-preview-hint">${editLabel}</span>
-  `;
+    // Built as nodes rather than interpolated markup: editLabel comes from
+    // liaT(), which may hold remotely translated text.
+    const previewMath = document.createElement('span');
+    previewMath.className = 'lia-tex-preview-math';
+    const previewHint = document.createElement('span');
+    previewHint.className = 'lia-tex-preview-hint';
+    previewHint.textContent = editLabel;
+    box.appendChild(previewMath);
+    box.appendChild(previewHint);
 
     box.addEventListener('click', (e: MouseEvent) => {
         e.preventDefault();
