@@ -2,10 +2,12 @@
 
 import { LIA } from '../index';
 import { isLineFeedbackEnabledForPair } from '../lia/calculation-options';
-import { liaT } from '../lia/i18n';
+import { liaT, calculationRoleLabel, calculationRoleCheckLabel } from '../lia/i18n';
+import { calculationMethodFallback, type CalculationCheckRole } from '../math/calculation-methods';
 import { __liaRenderTexPreview } from '../lia/input';
 import { alignFirstTopLevelRelation } from '../ocr/layout';
 import { ensureMountUID } from './store';
+import { paintStrokePath } from './stroke-rendering';
 import { getAccentCssVar, getAutoPen, rgbaFromAny } from './theme';
 import {
     sanitizeCalculationReviewFreezeState,
@@ -273,11 +275,6 @@ function cfPaintFreezeItems(ctx: CanvasRenderingContext2D, items: any[]): void {
         if (!pts.length) continue;
 
         ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(cfNum(pts[0][0], 0), cfNum(pts[0][1], 0));
-        for (let j = 1; j < pts.length; j++) {
-            ctx.lineTo(cfNum(pts[j][0], 0), cfNum(pts[j][1], 0));
-        }
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.lineWidth = Math.max(0.75, cfNum(it.w, 1));
@@ -291,7 +288,10 @@ function cfPaintFreezeItems(ctx: CanvasRenderingContext2D, items: any[]): void {
             ctx.globalAlpha = cfClamp(cfNum(it.a, 1), 0, 1);
             ctx.strokeStyle = String(it.c || '#000');
         }
-        ctx.stroke();
+        paintStrokePath(ctx, pts.map((point: any) => ({
+            x: cfNum(point[0], 0),
+            y: cfNum(point[1], 0)
+        })));
         ctx.restore();
     }
 }
@@ -551,8 +551,11 @@ function cfTransitionLabel(
     status: CalculationReviewFreezeCheck['status'] | 'pending',
     from: number,
     to: number,
-    stale: boolean
+    stale: boolean,
+    role?: CalculationCheckRole
 ): string {
+    const contextualLabel = calculationRoleCheckLabel(role, from, to, status, stale, liaT);
+    if (contextualLabel) return contextualLabel;
     const positions = { from: from + 1, to: to + 1 };
     if (stale) {
         return cfReplaceTokens(
@@ -600,6 +603,8 @@ function cfTransitionLabel(
 }
 
 function cfCheckMessage(check: CalculationReviewFreezeCheck): string {
+    const methodMessage = calculationMethodFallback(check.reason);
+    if (methodMessage) return liaT('ocr.plus.validation.' + check.reason, methodMessage);
     if (check.reason === 'quadratic-root-solutions') {
         return liaT(
             'ocr.plus.validation.validRoots',
@@ -776,7 +781,11 @@ function cfFreezeTransitionDetail(
     index: number
 ): string {
     const check = review.state === 'ready' ? review.checks[index] : null;
-    if (check) return cfCheckMessage(check);
+    if (check) {
+        const prefix = check.role && check.role !== 'equivalence'
+            ? calculationRoleLabel(check.role, liaT) + ': ' : '';
+        return prefix + cfCheckMessage(check);
+    }
     if (review.state === 'running') {
         return liaT('ocr.plus.validation.checking', 'Checking');
     }
@@ -799,8 +808,12 @@ function cfRenderFreezeTransition(
             ? 'incorrect'
             : status;
     const transition = cfAppendElement(parent, 'div', 'lia-canvasplus-transition');
-    transition.dataset.fromIndex = String(index);
-    transition.dataset.toIndex = String(index + 1);
+    const fromIndex = check?.fromIndex ?? index;
+    const toIndex = check?.toIndex ?? index + 1;
+    transition.dataset.checkIndex = String(index);
+    transition.dataset.fromIndex = String(fromIndex);
+    transition.dataset.toIndex = String(toIndex);
+    if (check?.role) transition.dataset.role = check.role;
     transition.dataset.verdict = verdict;
     transition.dataset.code = check?.reason || (
         review.state === 'running' ? 'pending' : 'analysis-error'
@@ -815,6 +828,12 @@ function cfRenderFreezeTransition(
         '\u2193'
     );
     arrow.setAttribute('aria-hidden', 'true');
+    if ((check?.role && check.role !== 'equivalence') || toIndex > fromIndex + 1) {
+        arrow.classList.add('lia-canvasplus-transition-role');
+        arrow.textContent = check?.role && check.role !== 'equivalence'
+            ? calculationRoleLabel(check.role, liaT) : `${fromIndex + 1} \u2192 ${toIndex + 1}`;
+        arrow.style.cssText = 'font-size:.7rem;font-weight:700;line-height:1.1;overflow-wrap:anywhere';
+    }
 
     const statusBox = cfAppendElement(
         transition,
@@ -822,7 +841,7 @@ function cfRenderFreezeTransition(
         'lia-canvasplus-transition-trigger'
     );
     statusBox.setAttribute('role', 'status');
-    const labelText = cfTransitionLabel(status, index, index + 1, review.stale === 1);
+    const labelText = cfTransitionLabel(status, fromIndex, toIndex, review.stale === 1, check?.role);
     statusBox.setAttribute('aria-label', labelText);
     const icon = cfAppendElement(
         statusBox,
@@ -883,8 +902,7 @@ function cfRefreshCalculationReviewFreezeTexts(
 
     for (let index = 0; index + 1 < review.lines.length; index++) {
         const transition = root.querySelector<HTMLElement>(
-            `.lia-canvasplus-transition[data-from-index='${index}']` +
-            `[data-to-index='${index + 1}']`
+            `.lia-canvasplus-transition[data-check-index='${index}']`
         );
         if (!transition) continue;
 
@@ -893,9 +911,10 @@ function cfRefreshCalculationReviewFreezeTexts(
             (review.state === 'running' ? 'pending' : 'unknown');
         const labelText = cfTransitionLabel(
             status,
-            index,
-            index + 1,
-            review.stale === 1
+            check?.fromIndex ?? index,
+            check?.toIndex ?? index + 1,
+            review.stale === 1,
+            check?.role
         );
         transition.querySelector<HTMLElement>(
             '.lia-canvasplus-transition-trigger'
@@ -905,6 +924,11 @@ function cfRefreshCalculationReviewFreezeTexts(
             '.lia-canvasplus-transition-label'
         );
         if (label) label.textContent = labelText;
+
+        const roleBadge = transition.querySelector<HTMLElement>('.lia-canvasplus-transition-role');
+        if (roleBadge && check?.role && check.role !== 'equivalence') {
+            roleBadge.textContent = calculationRoleLabel(check.role, liaT);
+        }
 
         const detail = transition.querySelector<HTMLElement>(
             '.lia-canvasplus-transition-detail'
@@ -979,8 +1003,9 @@ function cfRenderCalculationReviewFreezeState(
     if (review.state === 'ready') {
         for (let index = 0; index < review.checks.length; index++) {
             const check = review.checks[index];
-            if (check.status === 'invalid' && rows[index + 1]) {
-                rows[index + 1].dataset.errorSide = check.side || 'whole';
+            const target = rows[check.toIndex ?? index + 1];
+            if (check.status === 'invalid' && target) {
+                target.dataset.errorSide = check.side || 'whole';
             }
         }
     }

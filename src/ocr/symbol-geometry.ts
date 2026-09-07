@@ -206,6 +206,28 @@ function polylineGeometry(path: OcrSymbolPath): PolylineGeometry | null {
     };
 }
 
+// A tap is ink evidence, but cannot be a line, digit stem or delimiter.
+// Keep it out of polyline classifiers and use it only when checking an
+// independently observed multiplication dot between full-size operands.
+function tapGeometry(path: OcrSymbolPath): PolylineGeometry | null {
+    const points = finitePoints(path);
+    const first = points[0];
+    if (!first || points.some(point =>
+        point.x !== first.x || point.y !== first.y
+    )) return null;
+    return {
+        points: [first],
+        samples: [first],
+        box: { x0: first.x, y0: first.y, x1: first.x, y1: first.y },
+        length: 0,
+        chord: 0,
+        verticalTravel: 0,
+        strokeWidth: Number.isFinite(path.strokeWidth) && Number(path.strokeWidth) > 0
+            ? Number(path.strokeWidth)
+            : 1
+    };
+}
+
 function fitVerticalStem(
     samples: readonly OcrSymbolPoint[],
     top: number,
@@ -1160,6 +1182,7 @@ function hasCompactMultiplicationDot(
             height <= representativeHeight * 0.32 &&
             aspect >= 0.35 && aspect <= 2.8;
         const hasRoundedTrace = operatorInk.some(entry =>
+            entry.geometry.length > EPSILON &&
             entry.geometry.chord /
                 Math.max(entry.geometry.length, EPSILON) <= 0.72
         ) || operatorInk.every(entry =>
@@ -1177,7 +1200,8 @@ function hasCompactMultiplicationDot(
 function hasCalculationStackGeometry(
     group: CalculationRuleGroup,
     geometries: readonly PolylineGeometry[],
-    context: OcrCalculationRuleContext
+    context: OcrCalculationRuleContext,
+    taps: readonly PolylineGeometry[]
 ): boolean {
     const horizontallyRelevant = geometries.filter(geometry =>
         geometry.box.x1 >= group.box.x0 &&
@@ -1231,7 +1255,7 @@ function hasCalculationStackGeometry(
         return allowSingleMultiplicationRow &&
             hasCompactMultiplicationDot(
                 above[0],
-                nearby,
+                taps.length ? [...nearby, ...taps] : nearby,
                 representativeHeight
             );
     }
@@ -1277,11 +1301,17 @@ export function findOcrCalculationRuleHints(
         (geometry, index): geometry is PolylineGeometry =>
             Boolean(geometry) && !excludedIndexes.has(index)
     );
+    const taps = options.allowSingleMultiplicationRow === true
+        ? paths.map(tapGeometry).filter(
+            (geometry): geometry is PolylineGeometry => Boolean(geometry)
+        )
+        : [];
     const groups = groupCalculationRuleStrokes(paths, strokes)
         .filter(group => hasCalculationStackGeometry(
             group,
             geometryContext,
-            options
+            options,
+            taps
         ))
         .sort((left, right) =>
             left.centerY - right.centerY || left.box.x0 - right.box.x0

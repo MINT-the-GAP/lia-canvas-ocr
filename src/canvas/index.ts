@@ -1,3 +1,4 @@
+import { validateCalculationPathSubmission as validateCalculationSubmission } from '../math/calculation-path';
 // Canvas: markup, setup, init, launcher.
 
 import { LIA } from '../index';
@@ -6,6 +7,9 @@ import {
     setUndoIcon, setRedoIcon, setEraserIcon, setRectIcon
 } from './theme';
 import { ensureMountUID, __liaDispatchCanvasFreezeChange } from './store';
+import { paintStrokePath } from './stroke-rendering';
+import { CalculationCorrections } from './calculation-corrections';
+import { normalizeCalculationNotation } from '../ocr/math-notation';
 export { ensureCanvasFreezeApi } from './freeze';
 import {
     __liaApplyValue,
@@ -29,8 +33,7 @@ import {
 import {
     extractCalculationEquation,
     MAX_CALCULATION_ANSWER_LENGTH,
-    serializeCalculationSubmission,
-    validateCalculationSubmission
+    serializeCalculationSubmission
 } from '../math/equivalence';
 import {
     createColumnAdditionSubmission,
@@ -96,10 +99,14 @@ import {
     recoverOcrOperationSeparatorFromWholeLine,
     segmentOcrCanvas,
     type OcrLineSegment,
+    type OcrOperationSeparator,
     type OcrStructuralToken
 } from '../ocr/layout';
 import { enqueueOcrJob, promoteOcrJob, type OcrJobPriority } from '../ocr/job-queue';
 import { ensureFormulaOcrEngine } from '../ocr/formulanet-engine';
+import { getOcrEquationTokenBudget, planOcrEquationChunks } from '../ocr/equation-chunks';
+import { composeOcrEquationChunks } from '../ocr/equation-recognition';
+import { findOcrDivisionOperationHead, composeOcrDivisionOperation } from '../ocr/operation-head';
 import {
     classifyOcrVerticalSymbolPath,
     findOcrCalculationRuleHints,
@@ -194,6 +201,7 @@ type CanvasPlusDocumentRecognition = {
     lines: Array<{
         bbox: { x: number; y: number; width: number; height: number };
         fingerprint: string;
+        correctionKey: string;
         latex: string;
         source: 'cache' | 'inflight' | 'recognition';
     }>;
@@ -205,6 +213,7 @@ type CanvasPlusDocumentRecognition = {
     awaitedCount: number;
     recognizedCount: number;
     writtenSubmission?: WrittenArithmeticSubmission;
+    hasCorrections?: boolean;
 };
 
 type CanvasPlusInflightLine = {
@@ -846,6 +855,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
                 summary: plusResultSummary,
                 translate: liaT,
                 mode: writtenArithmeticKind || 'equation-path',
+                promptEquation: canvasPair?.dataset.calculationPrompt || '',
                 composeLatex: isWrittenArithmetic
                     ? lines => __plusWrittenSubmission
                         ? composeWrittenArithmeticLatex(__plusWrittenSubmission)
@@ -1138,30 +1148,8 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         return s;
     }
 
-    function __ocrNormalizeTimesVsX(input: string): string {
-        if (!input) return input;
-        // Normalize \div to : consistently (same as post-OCR step, moved here so voting benefits too)
-        if (input.indexOf('\\div') !== -1) input = input.replace(/\s*\\div\s*/g, ':');
-        if (input.indexOf('\\times') === -1) return input;
-        let out = '', i = 0;
-        const s = input;
-        while (i < s.length) {
-            const match = s.indexOf('\\times', i);
-            if (match === -1) { out += s.slice(i); break; }
-            out += s.slice(i, match);
-            let after = match + 6;
-            while (after < s.length && s[after] === ' ') after++;
-            let before = match - 1;
-            while (before >= 0 && s[before] === ' ') before--;
-            const nextCh = s[after] || '', prevCh = s[before] || '';
-            const isDigit = (c: string) => c >= '0' && c <= '9';
-            const isAlphaLower = (c: string) => c >= 'a' && c <= 'z';
-            if (isDigit(prevCh) && isDigit(nextCh)) out += '\\cdot';
-            else if (isAlphaLower(prevCh) || isAlphaLower(nextCh)) out += 'x';
-            else out += '\\cdot';
-            i = match + 6;
-        }
-        return out;
+    function __ocrNormalizeNotation(input: string): string {
+        return normalizeCalculationNotation(input);
     }
 
     function __ocrCropFromRect(rectItem: any): HTMLCanvasElement | null {
@@ -1417,9 +1405,9 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             engine.recognize(varB, opts).catch(() => ''),
             engine.recognize(varC, opts).catch(() => ''),
         ]);
-        const latexA = __ocrNormalizeTimesVsX(__ocrUnwrapRoman(__ocrCleanLatex(rawA)));
-        const latexB = __ocrNormalizeTimesVsX(__ocrUnwrapRoman(__ocrCleanLatex(rawB)));
-        const latexC = __ocrNormalizeTimesVsX(__ocrUnwrapRoman(__ocrCleanLatex(rawC)));
+        const latexA = __ocrNormalizeNotation(__ocrUnwrapRoman(__ocrCleanLatex(rawA)));
+        const latexB = __ocrNormalizeNotation(__ocrUnwrapRoman(__ocrCleanLatex(rawB)));
+        const latexC = __ocrNormalizeNotation(__ocrUnwrapRoman(__ocrCleanLatex(rawC)));
         const scoreA = __ocrScoreLatex(latexA);
         const scoreB = __ocrScoreLatex(latexB);
         const scoreC = __ocrScoreLatex(latexC);
@@ -1531,7 +1519,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         for (let i = 0; i < variantDefs.length; i++) {
             let raw = '';
             try { raw = await engine.recognize(variantDefs[i](), { max_new_tokens: 8, do_sample: false, temperature: 0, __silent: true }); } catch (_) { continue; }
-            let latex = __ocrCleanLatex(raw); latex = __ocrUnwrapRoman(latex); latex = __ocrNormalizeTimesVsX(latex);
+            let latex = __ocrCleanLatex(raw); latex = __ocrUnwrapRoman(latex); latex = __ocrNormalizeNotation(latex);
             const cand = __ocrDigitCandidateFrom(latex); if (!cand) continue;
             if (!counts[cand]) { counts[cand] = 0; order.push(cand); }
             counts[cand] += 1;
@@ -1919,7 +1907,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             : emitsLatex
                 ? __ocrCleanLatex(raw)
                 : __ocrUnwrapRoman(__ocrCleanLatex(raw));
-        return __ocrNormalizeTimesVsX(cleaned);
+        return __ocrNormalizeNotation(cleaned);
     }
 
     function __ocrCalculationNeedsRetry(value: string): boolean {
@@ -1929,13 +1917,14 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         return /^(?:generated_text|text|latex)\s*:/i.test(text);
     }
 
-    async function __ocrRecognizeCalculationCrop(
+    async function __ocrRecognizeCalculationWholeCrop(
         engine: any,
         crop: HTMLCanvasElement,
-        silent: boolean
+        silent: boolean,
+        maxNewTokens = 64
     ): Promise<string> {
         const opts: Record<string, any> = {
-            max_new_tokens: 64,
+            max_new_tokens: maxNewTokens,
             do_sample: false,
             temperature: 0
         };
@@ -1948,11 +1937,79 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
 
         let retry = crop;
         try { retry = __ocrPrepareCalculationInput(engine, crop, true); } catch (_) { retry = crop; }
-        const retryOpts = { ...opts, max_new_tokens: 128 };
+        const retryOpts = { ...opts, max_new_tokens: Math.max(128, maxNewTokens) };
         const secondRaw = await engine.recognize(retry, retryOpts);
         const second = __ocrCleanCalculationResult(engine, secondRaw);
         if (!__ocrCalculationNeedsRetry(second)) return second;
         return second || first;
+    }
+
+    async function __ocrRecognizeCalculationCrop(
+        engine: any,
+        crop: HTMLCanvasElement,
+        silent: boolean
+    ): Promise<string> {
+        // Written arithmetic has its own row/operator contract. Its OCR calls
+        // retain their established crops, budgets and calculation procedures.
+        if (!isCanvasPlus || writtenArithmeticKind || engine.inputProfile !== 'formulanet-line-384') {
+            return __ocrRecognizeCalculationWholeCrop(engine, crop, silent);
+        }
+        const ink = __ocrInkBBoxQuick(crop);
+        if (!ink) return __ocrRecognizeCalculationWholeCrop(engine, crop, silent);
+        const maxNewTokens = getOcrEquationTokenBudget(ink.w, ink.h);
+        if (maxNewTokens === 64) return __ocrRecognizeCalculationWholeCrop(engine, crop, silent);
+        const generation = __plusGeneration;
+        const modelKey = __plusModelKey(engine);
+        const assertCurrent = () => {
+            if (generation !== __plusGeneration || __plusModelKey(__plusGetOcrEngine()) !== modelKey) {
+                throw __plusCancelledError();
+            }
+        };
+        let plan: ReturnType<typeof planOcrEquationChunks> = null;
+        try {
+            const context = crop.getContext('2d', { willReadFrequently: true });
+            if (context) {
+                const image = context.getImageData(0, 0, crop.width, crop.height);
+                const mask = new Uint8Array(crop.width * crop.height);
+                for (let i = 0; i < mask.length; i++) {
+                    const offset = i * 4;
+                    const alpha = image.data[offset + 3] / 255;
+                    const grey = image.data[offset] * 0.299 + image.data[offset + 1] * 0.587 + image.data[offset + 2] * 0.114;
+                    mask[i] = 255 - alpha * (255 - grey) < 200 ? 1 : 0;
+                }
+                plan = planOcrEquationChunks(mask, crop.width, crop.height,
+                    Number((crop as any).__liaOcrPixelScale) || 1);
+            }
+        } catch (_) {
+            // Missing raster evidence never licenses a guessed split.
+        }
+        if (plan) {
+            try {
+                const parts: string[] = [];
+                for (let partIndex = 0; partIndex < plan.ranges.length; partIndex++) {
+                    assertCurrent();
+                    const range = plan.ranges[partIndex];
+                    // Keep the visible equality before every right-hand operand
+                    // as recognition context. It anchors otherwise floating terms.
+                    const fromX = partIndex > 0 ? plan.separators[partIndex - 1].x0 : range.x0;
+                    const part = __ocrSliceCanvas(crop, fromX, range.x1 - 1);
+                    const partInk = part && __ocrInkBBoxQuick(part);
+                    if (!part || !partInk) throw new Error('An equation crop has no ink.');
+                    parts.push(await __ocrRecognizeCalculationWholeCrop(engine, part, silent,
+                        getOcrEquationTokenBudget(partInk.w, partInk.h)));
+                    assertCurrent();
+                }
+                const composed = composeOcrEquationChunks(parts, true);
+                if (composed) return composed;
+            } catch (error) {
+                if (__plusIsCancelledError(error)) throw error;
+                // A failed part is never committed or cached as a complete row.
+            }
+        }
+        assertCurrent();
+        const whole = await __ocrRecognizeCalculationWholeCrop(engine, crop, silent, maxNewTokens);
+        assertCurrent();
+        return whole;
     }
 
     function __ocrSliceCanvas(
@@ -1966,6 +2023,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         const output = document.createElement('canvas');
         output.width = x1 - x0 + 1;
         output.height = source.height;
+        (output as any).__liaOcrPixelScale = (source as any).__liaOcrPixelScale;
         const context = output.getContext('2d', { willReadFrequently: true });
         if (!context) return null;
         context.fillStyle = '#fff';
@@ -2385,6 +2443,59 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         return false;
     }
 
+    async function __ocrRecognizeOperationRange(
+        engine: any,
+        segment: OcrLineSegment,
+        separator: OcrOperationSeparator,
+        silent: boolean
+    ): Promise<string> {
+        const rangeStart = separator.x1 + 1;
+        const rangeEnd = segment.canvas.width - 1;
+        let head: ReturnType<typeof findOcrDivisionOperationHead> = null;
+        // Written arithmetic retains its separate operator/layout contract.
+        // Only a vector-confirmed operation bar licenses this right-side check.
+        if (!writtenArithmeticKind && separator.source === 'vector' && separator.confidence === 'high') {
+            try {
+                const crop = __ocrSliceCanvas(segment.canvas, rangeStart, rangeEnd);
+                if (crop && crop.width * crop.height <= 1_000_000) {
+                    const context = crop.getContext('2d', { willReadFrequently: true });
+                    if (context) {
+                        const image = context.getImageData(0, 0, crop.width, crop.height);
+                        const mask = new Uint8Array(crop.width * crop.height);
+                        for (let index = 0; index < mask.length; index++) {
+                            mask[index] = image.data[index * 4 + 3] > 10 && image.data[index * 4] < 128 ? 1 : 0;
+                        }
+                        head = findOcrDivisionOperationHead(mask, crop.width, crop.height,
+                            Number((crop as any).__liaOcrPixelScale) || 1);
+                    }
+                }
+            } catch (_) { /* Missing final raster evidence leaves the original side crop intact. */ }
+        }
+        if (head) {
+            const generation = __plusGeneration;
+            const modelKey = __plusModelKey(engine);
+            const assertCurrent = () => {
+                if (generation !== __plusGeneration || __plusModelKey(__plusGetOcrEngine()) !== modelKey) {
+                    throw __plusCancelledError();
+                }
+            };
+            try {
+                assertCurrent();
+                const operand = await __ocrRecognizeStructuredRange(engine, segment,
+                    rangeStart + head.operandX0, rangeEnd, silent, false);
+                assertCurrent();
+                const composed = composeOcrDivisionOperation(head, operand);
+                if (composed) return composed;
+            } catch (error) {
+                assertCurrent();
+                if (__plusIsCancelledError(error)) throw error;
+            }
+            // A failed operand never becomes a complete-looking ':'.
+            assertCurrent();
+        }
+        return __ocrRecognizeStructuredRange(engine, segment, rangeStart, rangeEnd, silent, false);
+    }
+
     async function __ocrRecognizeCalculationLine(
         engine: any,
         segment: OcrLineSegment,
@@ -2402,14 +2513,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
                     __ocrRecognizeStructuredRange(
                         engine, segment, 0, separator.x0 - 1, silent, false
                     ),
-                    __ocrRecognizeStructuredRange(
-                        engine,
-                        segment,
-                        separator.x1 + 1,
-                        segment.canvas.width - 1,
-                        silent,
-                        false
-                    )
+                    __ocrRecognizeOperationRange(engine, segment, separator, silent)
                 ]);
                 const normalizedRight = normalizeOcrOperationSide(right);
                 if (canComposeOcrOperationSeparator(left, normalizedRight)) {
@@ -2524,7 +2628,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         let latex = isTrocr
             ? __ocrTidyMathText(raw)
             : (preferDigits ? __ocrUnwrapRoman(__ocrCleanLatex(raw)) : raw);
-        latex = __ocrNormalizeTimesVsX(latex);
+        latex = __ocrNormalizeNotation(latex);
 
         const tryDigitSalvage = preferDigits || __ocrIsShortPlainToken(latex);
         if (tryDigitSalvage) {
@@ -2650,12 +2754,16 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     const RECT_ALPHA = 0.28;
     let currentPath: any = null, currentRect: any = null;
     let currentStrokeRenderedPointCount = 0;
+    let currentStrokePointerType = '';
     let __strokePresentRAF = 0;
 
     // ---- Multi-line calculation background recognition ----
     const PLUS_BACKGROUND_IDLE_MS = 1400;
     const PLUS_LINE_CACHE_LIMIT = 128;
     const __plusLineCache = new Map<string, string>();
+    const __plusCorrections = new CalculationCorrections(PLUS_LINE_CACHE_LIMIT);
+    const __plusStrokeIds = new WeakMap<object, number>();
+    let __plusNextStrokeId = 0;
     const __plusLineInflight = new Map<string, CanvasPlusInflightLine>();
     const __plusOperatorlessRetryFailures = new Set<string>();
     let __plusInkRevision = 0;
@@ -2698,6 +2806,9 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
                 ? analysis.checks.map(check => ({
                     status: check.status,
                     reason: check.reason,
+                    fromIndex: check.fromIndex,
+                    toIndex: check.toIndex,
+                    ...(check.role ? { role: check.role } : {}),
                     ...(check.side ? { side: check.side } : {})
                 }))
                 : []
@@ -2722,6 +2833,47 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             String(engine && engine.precision || '') + '|' +
             String(engine && engine.task || '') + '|' +
             OCR_LAYOUT_ALGORITHM_VERSION;
+    }
+
+    function __plusCorrectionKey(crop: HTMLCanvasElement, segment: OcrLineSegment, modelKey: string): string {
+        const origin = (crop as any).__liaOcrWorldBounds;
+        const scale = Number((crop as any).__liaOcrPixelScale);
+        if (!origin || !isFinite(scale) || scale <= 0) return '';
+        const ink = segment.inkBox;
+        const margin = 3 / scale;
+        const row = {
+            x0: origin.x + ink.x / scale - margin,
+            y0: origin.y + ink.y / scale - margin,
+            x1: origin.x + (ink.x + ink.width) / scale + margin,
+            y1: origin.y + (ink.y + ink.height) / scale + margin
+        };
+        const selection = __plusSelectionBounds();
+        const signatures: string[] = [];
+        let hasPen = false;
+        for (const item of ITEMS) {
+            const bounds = __plusPathBounds(item);
+            if (!bounds || !__plusBoundsIntersect(bounds, row)) continue;
+            if (selection && !__plusBoundsIntersect(bounds, selection)) continue;
+            if (item.tool !== 'eraser') {
+                hasPen = true;
+                if (selection && (bounds.x0 < selection.x0 || bounds.x1 > selection.x1 ||
+                    bounds.y0 < selection.y0 || bounds.y1 > selection.y1)) return '';
+                // A partly clipped path or one shared by several rows cannot
+                // safely identify one corrected line. Prefer recognizing it.
+                if (item.points.some((point: any) =>
+                    point.x < row.x0 || point.x > row.x1 ||
+                    point.y < row.y0 || point.y > row.y1 ||
+                    (selection && (point.x < selection.x0 || point.x > selection.x1 ||
+                        point.y < selection.y0 || point.y > selection.y1))
+                )) return '';
+            }
+            let id = __plusStrokeIds.get(item);
+            if (!id) { id = ++__plusNextStrokeId; __plusStrokeIds.set(item, id); }
+            // Paths only grow by appending points; undo/redo preserves their objects.
+            // Cloned/imported paths get fresh IDs. Do not copy handwriting into this key.
+            signatures.push(JSON.stringify([id, item.tool, item.width, item.color, item.alpha, item.points.length]));
+        }
+        return hasPen ? modelKey + '|' + signatures.join('|') : '';
     }
 
     function __plusLineKey(engine: any, segment: OcrLineSegment): string {
@@ -2783,7 +2935,8 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         modelKey: string,
         isCurrent: () => boolean
     ): void {
-        if (!isCurrent() || __plusModelKey(engine) !== modelKey) {
+        if (!isCurrent() || __plusModelKey(engine) !== modelKey ||
+            __plusModelKey(__plusGetOcrEngine()) !== modelKey) {
             throw __plusCancelledError();
         }
     }
@@ -2867,10 +3020,24 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         }
         const descriptors = segments.map(segment => {
             const key = __plusLineKey(engine, segment);
+            const correctionKey = writtenArithmeticKind ? '' : __plusCorrectionKey(crop, segment, modelKey);
+            const original = __plusCorrections.originalFor(correctionKey);
+            if (original !== undefined) {
+                return { segment, key, correctionKey, source: 'cache' as const, promise: Promise.resolve(original) };
+            }
+            // Pixel rounding can change when the document crop origin moves.
+            // The existing complete-stroke identity is independent of that phase
+            // and invalidates on edits/erasures, model changes and layout changes.
+            const stableKey = correctionKey ? 'ink|' + correctionKey : '';
+            if (stableKey && __plusLineCache.has(stableKey)) {
+                return { segment, key, correctionKey, source: 'cache' as const,
+                    promise: Promise.resolve(__plusLineCache.get(stableKey) || '') };
+            }
             if (__plusLineCache.has(key)) {
                 return {
                     segment,
                     key,
+                    correctionKey,
                     source: 'cache' as const,
                     promise: Promise.resolve(__plusLineCache.get(key) || '')
                 };
@@ -2881,6 +3048,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
                 return {
                     segment,
                     key,
+                    correctionKey,
                     source: 'inflight' as const,
                     promise: running.promise
                 };
@@ -2888,6 +3056,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             return {
                 segment,
                 key,
+                correctionKey,
                 source: 'recognition' as const,
                 promise: null as Promise<string> | null
             };
@@ -2913,7 +3082,14 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
                 if (__plusLineCache.has(key)) return __plusLineCache.get(key) || '';
                 const latex = await __ocrRecognizeCalculationLine(engine, segment, silent);
                 __plusAssertRecognitionCurrent(engine, modelKey, isCurrent);
-                if (latex) __plusRememberLine(key, latex);
+                if (latex) {
+                    __plusRememberLine(key, latex);
+                    for (const descriptor of descriptors) {
+                        if (descriptor.key === key && descriptor.correctionKey) {
+                            __plusRememberLine('ink|' + descriptor.correctionKey, latex);
+                        }
+                    }
+                }
                 return latex;
             });
             const entry: CanvasPlusInflightLine = {
@@ -2935,6 +3111,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         const recognized = await Promise.all(descriptors.map(async descriptor => ({
             bbox: descriptor.segment.bbox,
             fingerprint: descriptor.segment.fingerprint,
+            correctionKey: descriptor.correctionKey,
             latex: await (descriptor.promise || Promise.resolve('')),
             source: descriptor.source
         })));
@@ -3656,12 +3833,14 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             ...line,
             latex: lineLatex[index] || ''
         }));
+        const corrected = __plusCorrections.apply(normalizedLines);
         return {
             kind: 'equation',
             lines: normalizedLines,
-            editableText: lineLatex.join('\n'),
-            latex: composeMultilineLatex(lineLatex),
-            lineCount: recognized.length,
+            editableText: corrected.lines.join('\n'),
+            latex: composeMultilineLatex(corrected.lines),
+            lineCount: corrected.lines.length,
+            hasCorrections: corrected.corrected,
             modelKey,
             cacheHits: descriptors.filter(item => item.source === 'cache').length,
             awaitedCount: descriptors.filter(item => item.source === 'inflight').length,
@@ -3743,7 +3922,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             item.kind === 'path' &&
             item.tool !== 'eraser' &&
             Array.isArray(item.points) &&
-            item.points.length > 1
+            item.points.length > 0
         );
     }
 
@@ -3780,7 +3959,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         y1: number;
     } | null {
         if (!item || item.kind !== 'path' ||
-            !Array.isArray(item.points) || item.points.length < 2) return null;
+            !Array.isArray(item.points) || item.points.length < 1) return null;
         let x0 = Number.POSITIVE_INFINITY;
         let y0 = Number.POSITIVE_INFINITY;
         let x1 = Number.NEGATIVE_INFINITY;
@@ -4087,6 +4266,9 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         );
         const snapshot = plusReview?.getSnapshot();
         if (!snapshot) return;
+        if (__plusDraft?.kind === 'equation' && __plusDraft.modelKey === modelKey) {
+            __plusCorrections.remember(__plusDraft.lines, snapshot.lines);
+        }
         canvasPair?.dispatchEvent(new CustomEvent('lia:canvasplus-correction', {
             bubbles: true,
             detail: {
@@ -4169,7 +4351,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         } else {
             for (const item of ITEMS) {
                 if (!item || item.kind !== 'path' || item.tool === 'eraser' ||
-                    !Array.isArray(item.points) || item.points.length < 2) continue;
+                    !Array.isArray(item.points) || item.points.length < 1) continue;
                 const padding = Math.max(1, Number(item.width) || 1) * 0.5 + 2;
                 for (const point of item.points) {
                     if (!point || !isFinite(point.x) || !isFinite(point.y)) continue;
@@ -4233,7 +4415,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             sampleContext.clip();
         }
         for (const item of ITEMS) {
-            if (!item || item.kind !== 'path' || !Array.isArray(item.points) || item.points.length < 2) continue;
+            if (!item || item.kind !== 'path' || !Array.isArray(item.points) || item.points.length < 1) continue;
             sampleContext.save();
             sampleContext.globalCompositeOperation = item.tool === 'eraser' ? 'destination-out' : 'source-over';
             sampleContext.globalAlpha = 1;
@@ -4241,12 +4423,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             sampleContext.lineWidth = Math.max(0.5, Number(item.width) || 1);
             sampleContext.lineCap = 'round';
             sampleContext.lineJoin = 'round';
-            sampleContext.beginPath();
-            sampleContext.moveTo(item.points[0].x, item.points[0].y);
-            for (let index = 1; index < item.points.length; index++) {
-                sampleContext.lineTo(item.points[index].x, item.points[index].y);
-            }
-            sampleContext.stroke();
+            paintStrokePath(sampleContext, item.points);
             sampleContext.restore();
         }
         sampleContext.restore();
@@ -4296,12 +4473,36 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         }
         outputContext.putImageData(binary, 0, 0);
         (output as any).__liaOcrPixelScale = rasterScale;
+        (output as any).__liaOcrWorldBounds = {
+            x: worldX0 + inkX0 / rasterScale,
+            y: worldY0 + inkY0 / rasterScale
+        };
         const hintPathItems = ITEMS.filter(item => {
             if (!item || item.kind !== 'path' || item.tool === 'eraser' ||
-                !Array.isArray(item.points) || item.points.length < 2) return false;
-            if (!selectionBounds) return true;
-            const bounds = __plusPathBounds(item);
-            return Boolean(bounds && __plusBoundsIntersect(bounds, selectionBounds));
+                !Array.isArray(item.points) || item.points.length < 1) return false;
+            if (selectionBounds) {
+                const bounds = __plusPathBounds(item);
+                if (!bounds || !__plusBoundsIntersect(bounds, selectionBounds)) return false;
+            }
+            if (item.points.length === 1) {
+                // Erased taps remain in the undo history. Only their surviving
+                // raster ink may support a written multiplication layout.
+                const point = item.points[0];
+                const radius = Math.max(0.5, Number(item.width) || 1) * rasterScale / 2;
+                const cx = (point.x - worldX0) * rasterScale;
+                const cy = (point.y - worldY0) * rasterScale;
+                const x0 = Math.max(0, Math.floor(cx - radius));
+                const x1 = Math.min(sampleWidth - 1, Math.ceil(cx + radius));
+                const y0 = Math.max(0, Math.floor(cy - radius));
+                const y1 = Math.min(sampleHeight - 1, Math.ceil(cy + radius));
+                for (let y = y0; y <= y1; y++) {
+                    for (let x = x0; x <= x1; x++) {
+                        if (image.data[(y * sampleWidth + x) * 4 + 3] > 10) return true;
+                    }
+                }
+                return false;
+            }
+            return true;
         });
         const hintSymbolPaths = hintPathItems.map(item => ({
             points: item.points,
@@ -4754,7 +4955,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
                 recognition.editableText,
                 revision,
                 modelKey,
-                'ocr',
+                recognition.hasCorrections ? 'correction' : 'ocr',
                 recognition.recognizedCount === 0,
                 recognition.writtenSubmission || null
             );
@@ -4872,6 +5073,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
 
     function __plusInvalidateInk(reason: string): void {
         if (!isCanvasPlus) return;
+        if (reason === 'clear') __plusCorrections.clear();
         __plusCancelNativeResolveHandoff();
         if (__plusBackgroundTimer) {
             clearTimeout(__plusBackgroundTimer);
@@ -5254,10 +5456,9 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     function rebuildStrokeLayer(): void {
         clearLayer(sctx); setViewportTransformOn(sctx);
         for (const it of ITEMS) {
-            if (!it || it.kind !== 'path' || !it.points || it.points.length < 2) continue;
-            applyPathStyleTo(sctx, it); sctx.beginPath(); sctx.moveTo(it.points[0].x, it.points[0].y);
-            for (let i = 1; i < it.points.length; i++) sctx.lineTo(it.points[i].x, it.points[i].y);
-            sctx.stroke();
+            if (!it || it.kind !== 'path' || !it.points || it.points.length < 1) continue;
+            applyPathStyleTo(sctx, it);
+            paintStrokePath(sctx, it.points);
         }
         if (currentPath && Array.isArray(currentPath.points)) {
             currentStrokeRenderedPointCount = currentPath.points.length;
@@ -5289,20 +5490,14 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         if (!currentPath || !Array.isArray(currentPath.points)) return false;
         const points = currentPath.points;
         const end = points.length;
-        if (end <= Math.max(1, currentStrokeRenderedPointCount)) return false;
+        if (end <= currentStrokeRenderedPointCount) return false;
         const start = Math.max(0, currentStrokeRenderedPointCount - 1);
         const first = points[start];
         if (!first) return false;
 
         setViewportTransformOn(sctx);
         applyPathStyleTo(sctx, currentPath);
-        sctx.beginPath();
-        sctx.moveTo(first.x, first.y);
-        for (let index = start + 1; index < end; index++) {
-            const point = points[index];
-            if (point) sctx.lineTo(point.x, point.y);
-        }
-        sctx.stroke();
+        paintStrokePath(sctx, points, start, end);
         currentStrokeRenderedPointCount = end;
         return true;
     }
@@ -5395,11 +5590,12 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         }
     }
 
-    function startStrokeAtScreen(sx: number, sy: number): void {
+    function startStrokeAtScreen(sx: number, sy: number, pointerType: string): void {
         const w = screenToWorld(sx, sy);
         const it = { kind: 'path', tool, color: penBaseColor(), alpha: penAlpha, width: (tool === 'eraser') ? eraserWidth : penWidth, points: [{ x: w.x, y: w.y }] };
         ITEMS.push(it); currentPath = it; REDO.length = 0;
-        currentStrokeRenderedPointCount = 1;
+        currentStrokeRenderedPointCount = 0;
+        currentStrokePointerType = pointerType;
         __plusInvalidateInk('stroke-start');
         cancelCanvasFreezeNotify();
         updateUI();
@@ -5438,13 +5634,28 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         appendStrokePointFromScreen(sx, sy);
         return Array.isArray(currentPath.points) && currentPath.points.length > before;
     }
-    function endStroke(): void {
+    function endStroke(cancelTap = false): void {
         const finished = currentPath;
+        if (cancelTap && finished?.points.length === 1) {
+            const pendingIndex = ITEMS.indexOf(finished);
+            if (pendingIndex >= 0) ITEMS.splice(pendingIndex, 1);
+            currentPath = null;
+            currentStrokeRenderedPointCount = 0;
+            currentStrokePointerType = '';
+            flushStrokePresent();
+            rebuildStrokeLayer();
+            present();
+            updateUI();
+            __plusScheduleBackground('stroke-cancel');
+            persist('stroke-cancel');
+            return;
+        }
         flushStrokePresent();
         currentPath = null;
         currentStrokeRenderedPointCount = 0;
+        currentStrokePointerType = '';
         if (finished && finished.kind === 'path' && Array.isArray(finished.points)) {
-            if (finished.points.length > 1) __plusRasterInkState = 'unknown';
+            if (finished.points.length > 0) __plusRasterInkState = 'unknown';
             __plusScheduleBackground(finished.points.length > 1 ? 'stroke-end' : 'stroke-tap');
         }
         if (finished) persist('stroke-end');
@@ -5561,6 +5772,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         }
         __plusGeneration++;
         __plusLineCache.clear();
+        __plusCorrections.clear();
         __plusLineInflight.clear();
         __plusOperatorlessRetryFailures.clear();
         __plusCloseEditor(false);
@@ -5631,7 +5843,14 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         if ((e.target as Element)?.classList?.contains('lia-resize-corner')) return;
         const p = getScreenPos(e); pointers.set(e.pointerId, p); canvas.setPointerCapture(e.pointerId);
         if (pointers.size === 2) {
-            hideEraserRing(); if (mode === 'draw') endStroke(); if (mode === 'rect') finishRect(false);
+            hideEraserRing();
+            if (mode === 'draw') {
+                if (currentStrokePointerType === 'touch' && currentPath?.points.length === 1) {
+                    // The first contact of a pinch is a gesture, not a written dot.
+                    endStroke(true);
+                } else endStroke();
+            }
+            if (mode === 'rect') finishRect(false);
             const arr = Array.from(pointers.values()); const m = mid(arr[0], arr[1]); const d = Math.max(1e-6, dist(arr[0], arr[1]));
             pinchStart = { dist: d, worldMid: screenToWorld(m.sx, m.sy), startScale: VIEW.scale }; mode = 'pinch'; return;
         }
@@ -5639,7 +5858,8 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         const wantPan = isRightMouse || isMiddleMouse || (e.pointerType === 'mouse' && spaceDown);
         if (wantPan) { hideEraserRing(); mode = 'pan'; lastPanSX = p.sx; lastPanSY = p.sy; canvas.style.cursor = 'grab'; return; }
         if (tool === 'rect') { hideEraserRing(); mode = 'rect'; canvas.style.cursor = 'crosshair'; startRectAtScreen(p.sx, p.sy); present(); return; }
-        mode = 'draw'; canvas.style.cursor = 'crosshair'; startStrokeAtScreen(p.sx, p.sy);
+        mode = 'draw'; canvas.style.cursor = 'crosshair';
+        startStrokeAtScreen(p.sx, p.sy, String(e.pointerType || '').toLowerCase());
         if (tool === 'eraser') updateEraserRingFromScreen(p.sx, p.sy); else hideEraserRing();
     });
 
@@ -5724,7 +5944,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
                 const finalPoint = getScreenPos(e);
                 extendStrokeToScreen(finalPoint.sx, finalPoint.sy);
             }
-            endStroke(); mode = 'idle'; updateUI(); return;
+            endStroke(e.type === 'pointercancel'); mode = 'idle'; updateUI(); return;
         }
     }
     canvas.addEventListener('pointerup', stopPointer);

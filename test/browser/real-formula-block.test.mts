@@ -131,6 +131,7 @@ test(
     );
     const harness = await createHarness(null, { context });
     try {
+      await clearPersistedCourseState(harness.page, CALCULATION_QUIZ_COURSE_URL);
       await openCourse(
         harness,
         CALCULATION_QUIZ_COURSE_URL,
@@ -437,13 +438,16 @@ test(
       await pair.locator('.lia-canvas-launch:visible').click();
       assert.equal(await pair.getAttribute('data-calculation-kind'), 'column-division');
 
+      await harness.page.waitForFunction(() =>
+        typeof (window.__LIA_CANVAS_OCR__ as any)?.createFormulaOcrEngine === 'function');
       await harness.page.evaluate(() => {
         const registry = window.__LIA_CANVAS_OCR__ as any;
-        const engine = registry.canvasPlusOcr;
+        const engine = registry.canvasPlusOcr || registry.createFormulaOcrEngine('reference');
+        registry.canvasPlusOcr = engine;
         const original = engine.recognize.bind(engine);
         (window as any).__liaRealDivisionRaw = [];
-        engine.recognize = async (input: HTMLCanvasElement) => {
-          const value = await original(input);
+        engine.recognize = async (input: HTMLCanvasElement, options: any) => {
+          const value = await original(input, options);
           (window as any).__liaRealDivisionRaw.push(String(value || ''));
           return value;
         };
@@ -506,6 +510,18 @@ test(
       assert.equal(result.engine.model, 'alephpi/FormulaNet');
       assert.equal(result.engine.revision, '63e04c86fc96c2324811114351eeea8118bf6b28');
       assert.equal(result.rawLines.length, 9);
+      assert.equal(result.state, 'ready');
+      assert.equal(result.ocrError, '');
+      // Nine model calls alone do not prove that the written procedure was read.
+      const submission = JSON.parse(answer);
+      assert.equal(submission.kind, 'column-division');
+      assert.equal(submission.dividend, '8736');
+      assert.equal(submission.divisor, '8');
+      assert.equal(submission.quotient, '1092');
+      assert.equal(result.grade?.accepted, true, 'the actual recognized division must pass all written steps');
+      await checkNativeQuiz(harness.page, selector);
+      assert.equal(await answerBeforePair(harness.page, selector), answer);
+      assert.deepEqual(harness.pageErrors, []);
     } finally {
       await harness.context.close();
     }

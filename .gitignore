@@ -1,3 +1,6 @@
 node_modules/
 .parcel-cache/
 *.map
+
+# Optional, reproducible OCR benchmark screenshots and model crops.
+*.json.assets/

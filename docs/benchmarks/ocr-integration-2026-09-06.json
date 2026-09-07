@@ -1,0 +1,1134 @@
+{
+  "schema": "berechneocr-integration-comparison-v1",
+  "date": "2026-09-06",
+  "synthetic": true,
+  "scope": "Real authored mouse strokes, production crop/segmentation/symbol repair/chunking/fallback/cache, real FP32 model, real KaTeX preview, native answer transport and public native grading APIs. No expected equation is injected into OCR.",
+  "limitations": [
+    "Fixed authored stroke probes; no pupil data. These counts measure this sample, not general handwriting accuracy or statistical confidence.",
+    "One repeat per case and snapshot. Load, first inference, recognition and cache resubmission are separate measurements; no general speedup claim.",
+    "The task holdout was previously evaluated and is not untouched after these fixes.",
+    "Two ambiguous controls have identical authored pixels but different intended case; their results are separate from the ten explicit probes.",
+    "Old eleven probes are unassessed for letter distinction, correcting the initial source default label without changing its raw report.",
+    "accepted=false/outcome=unknown is unresolved, not a proved correct rejection. acceptedFlagAgreement and conclusiveGradeAgreement are separate.",
+    "A matching grade does not establish OCR fidelity. case-wrong-xX-step is already refused for its OCR-mismatching given system; this does not locate the intended erroneous middle step.",
+    "DPR2 is diagnostic only, with saveImages=true in TEMP. Its times are not directly compared with DPR1 saveImages=false. No strokes, events, freeze data or images are embedded.",
+    "Model-call wall durations include overlapping queue waits; their sum is neither pipeline elapsed time nor isolated inference time. Case timings are rounded to 0.001 ms; transcription metrics and source hashes are preserved.",
+    "Public validate/check accepted and outcome fields agree in every retained run; UI transition results are retained independently."
+  ],
+  "definitions": {
+    "conclusiveGradeAgreement": "Expected true requires accepted=true/outcome=correct; expected false requires accepted=false/outcome=incorrect. Unknown and incomplete never count.",
+    "caseSequence": "Observe literal x/X/y/Y in order per line, skipping TeX control words and control symbols. Preserve case and line boundaries; no variable equivalence or text repair.",
+    "caseSequenceScanner": "\\\\[A-Za-z]+|\\\\[^\\r\\n]|[xXyY]; retain one-character matches",
+    "exact": "Copied source compareOcrTex metrics; explicit TeX row separators preserve line boundaries. Normalization is syntactic, not mathematical equivalence.",
+    "operationWhitespaceOnlyAgreement": "Compare source expectedOperations/actualOperations after deleting whitespace from each non-null string; preserve nulls/order. Source operationTextExact flags remain unchanged.",
+    "measuredAt": "Source report measurement timestamp, not asserted completion time.",
+    "columns": {
+      "grade": [
+        "accepted",
+        "outcome",
+        "promptStatus",
+        "promptReason",
+        "finalStatus",
+        "finalReason"
+      ],
+      "transitions": [
+        "fromIndex",
+        "toIndex",
+        "roleOrNull",
+        "status",
+        "reason",
+        "operationOrNull",
+        "sideOrNull"
+      ],
+      "exact": [
+        "rawExact",
+        "normalizedExact",
+        "expectedTokens",
+        "actualTokens",
+        "tokenEdits",
+        "tokenErrorRate"
+      ],
+      "timing": [
+        "submitToPipelineReadyWallMs",
+        "separateNativeApiWallMs",
+        "recognitionModelCallCount",
+        "observedModelCallWallSumMs",
+        "cropEncodingWallSumMs",
+        "includesFirstInference"
+      ],
+      "cache": [
+        "resubmitWallMs",
+        "additionalModelCalls"
+      ],
+      "structure": [
+        "uiState",
+        "analysisState",
+        "actualLineCount",
+        "lineCountExact",
+        "actualOperationsByLine",
+        "operationTextExact"
+      ],
+      "uiChecks": [
+        "fromIndex",
+        "toIndex",
+        "status",
+        "reason"
+      ],
+      "caseSequence": [
+        "actualSequenceByLine",
+        "equalsExpectedSequenceByLine"
+      ],
+      "runtimeResources": [
+        "url",
+        "httpStatus",
+        "sha256",
+        "bytes"
+      ]
+    }
+  },
+  "model": {
+    "model": "alephpi/FormulaNet",
+    "revision": "63e04c86fc96c2324811114351eeea8118bf6b28",
+    "precision": "fp32",
+    "profile": "reference",
+    "verifiedFiles": [
+      {
+        "path": "fp32/63e04c86fc96c2324811114351eeea8118bf6b28/config.json",
+        "sha256": "c3816c7ee90aa2815691d2ab376be704964b3735ebd238fb812ff7e0c0cbe336"
+      },
+      {
+        "path": "fp32/63e04c86fc96c2324811114351eeea8118bf6b28/tokenizer.json",
+        "sha256": "1240f9d178e1ad2a0076fe95ba62e332871c702accdd5ce3ae3ef33ffd6c3a1e"
+      },
+      {
+        "path": "fp32/63e04c86fc96c2324811114351eeea8118bf6b28/tokenizer_config.json",
+        "sha256": "714479320ce6dbd82ef3df74be4ef543f3535f96f074ea65056b962805f2ccf7"
+      },
+      {
+        "path": "fp32/63e04c86fc96c2324811114351eeea8118bf6b28/generation_config.json",
+        "sha256": "597241304b9611f729aa859405ee60934fed6c03b38db9dbc4ae86dbe3d2fd93"
+      },
+      {
+        "path": "fp32/63e04c86fc96c2324811114351eeea8118bf6b28/special_tokens_map.json",
+        "sha256": "358c249e2fb29060c6b73157d428853b0c48710deffc8ee670ab1013880946c9"
+      },
+      {
+        "path": "fp32/63e04c86fc96c2324811114351eeea8118bf6b28/onnx/encoder_model.onnx",
+        "sha256": "95cccef463e5ed3623282f1541c0011a00b8a5d0828ea2cd57d6953ad4310b5b"
+      },
+      {
+        "path": "fp32/63e04c86fc96c2324811114351eeea8118bf6b28/onnx/decoder_model_merged.onnx",
+        "sha256": "10be29b751f6de5f9900c3658551020dc865257eb2c3034bc4c1e016e4d0e35d"
+      }
+    ],
+    "manifestSha256": "248e007d4641ef5c0096058e055a6cdbeee5cdef65a3be200becb9870e08fcf2"
+  },
+  "corpus": {
+    "id": "berechneocr-combined-v1",
+    "synthetic": true,
+    "parts": [
+      {
+        "id": "berechneocr-authored-pipeline-v1",
+        "synthetic": true,
+        "source": "Authored normalized glyphs and layouts. No pupil records, screenshots, telemetry or captured handwriting.",
+        "splitPolicy": "All variants of one baseTaskId share a fixed split. Holdout means excluded from development tuning; reporting a holdout result consumes that evaluation.",
+        "limitation": "This small synthetic development/holdout sample measures specific pipeline behavior, not general handwriting accuracy. Deliberately wrong calculations have deliberately wrong transcription targets."
+      },
+      {
+        "id": "berechneocr-authored-letter-case-v1",
+        "synthetic": true,
+        "source": "Authored vector letter styles plus existing authored mathematical glyphs; no pupil data, screenshots, recorded handwriting or repository PNG files.",
+        "splitPolicy": "All numerical task variants and variable renamings share a baseTaskId and split. Both intentionally ambiguous twins are development controls, never holdout examples.",
+        "limitation": "This fixed synthetic probe measures case-sensitive transcription and grading behavior, not general handwriting accuracy. Clear examples and ambiguous controls must be reported separately; the latter have conflicting authored targets for identical pixels."
+      }
+    ],
+    "limitation": "Combined authored development and previously evaluated task holdout. Pixel-identical ambiguous letter controls are reported separately and cannot establish a unique intended case.",
+    "selection": "combined"
+  },
+  "runtimeResources": [
+    [
+      "https://liascript.github.io/course/?https://lia-canvas-ocr.invalid/courses/pipeline-60b953d26936b394.md",
+      200,
+      "d75e448f1a5436059093ab1ade5e3f7d2ef0274b88e14bbe9c15a2051136e697",
+      3957
+    ],
+    [
+      "https://liascript.github.io/course/index.4fa9e2a8.js",
+      200,
+      "63d76ce45d26deaafcfc6b3ac4abe52fceed575199c3f8c407fcf60ded2c0f63",
+      127990
+    ],
+    [
+      "https://liascript.github.io/course/index.c497fc87.js",
+      200,
+      "32c21129f32f9bf0ec99d76dff64f281531b374fad41ccd5a85976fe886a35c9",
+      1763
+    ],
+    [
+      "https://liascript.github.io/course/index.616e5487.js",
+      200,
+      "145cd36a39b4fd0058a721968d3c981fc4bc2f6af8b65c50c18e16f033d0ab39",
+      8952
+    ],
+    [
+      "https://liascript.github.io/course/index.1df2912f.js",
+      200,
+      "fc02ba6517bfaef22ea7e5e6522c378822b04a344bc69d4fbc7f81b9feeeca1b",
+      3687
+    ],
+    [
+      "https://liascript.github.io/course/index.40df2935.js",
+      200,
+      "0ad34d8a43a2504120932a52c6fb157d30fb1fc2c0983023e57ed623e7af1bfb",
+      34097
+    ],
+    [
+      "https://liascript.github.io/course/index.f0592a20.js",
+      200,
+      "fd05f7e73a4bda8354f40c852f7b50c9712de241eb81853dad00c484e89b0359",
+      110441
+    ],
+    [
+      "https://liascript.github.io/course/index.aca4b632.js",
+      200,
+      "5a9561189a61be8125f415b342f35394ce2c116b2c6dcdacfeb33dcf342f18ad",
+      756775
+    ],
+    [
+      "https://liascript.github.io/course/index.44f3494f.js",
+      200,
+      "f5d841c9e14083853d047f15c525620b2b4d9300031cefc1f9c15288a94808b2",
+      306831
+    ],
+    [
+      "https://code.responsivevoice.org/responsivevoice.js?key=blVZszUw",
+      200,
+      "c9f5ae3d6496a1bb32ceac6b6fe7a99c22df7a8395c75ca04249b5cb3f45b00e",
+      113477
+    ],
+    [
+      "https://liascript.github.io/course/index.0b19dc34.js",
+      200,
+      "953791244d2acb5f4c15f0747cd47c8b491ff459511a2c689dc6ee08acda5218",
+      968496
+    ],
+    [
+      "https://liascript.github.io/course/Worker.c8f61b6b.js",
+      200,
+      "1024120b73a44533c83e07925d40476e3348965d0fadb183ce7769c6fd909f07",
+      1746
+    ],
+    [
+      "https://liascript.github.io/course/Browser.a6d9d9c2.js",
+      200,
+      "524efba74f7cab0735b31dd0ffa8dcaeefcd35fcd27f60d783e299ff9b0aa026",
+      105824
+    ],
+    [
+      "https://liascript.github.io/course/index.2e1efa5b.js",
+      200,
+      "89f6a768822eadc44d7a26daf2fac6e9275706dcecc49fad1bf2264347e3f9c1",
+      1352304
+    ],
+    [
+      "https://cdn.jsdelivr.net/gh/LiaTemplates/algebrite@0.6.3/dist/index.js",
+      200,
+      "4c5d57e3263883d6b0f32a406d158695f4f8267e89ca2cdaced160f8c4f3b275",
+      850597
+    ],
+    [
+      "https://lia-canvas-ocr.invalid/dist/index.js",
+      200,
+      "2b12b7785c306ae0252eab5278977be397560ffbff5d9ed8688e5fa13518df28",
+      469846
+    ],
+    [
+      "https://liascript.github.io/course/theme-dreamweaver.js",
+      200,
+      "e9ff91b1d768d3cce4bd9bd875c586085a8d7f3c7e7037f9a1bf965635794081",
+      4186
+    ],
+    [
+      "https://liascript.github.io/course/mode-markdown.js",
+      200,
+      "3da0190995adf97a2bde70668971c2958baceeb308b6f38e794494756b92ca88",
+      74891
+    ],
+    [
+      "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/+esm",
+      200,
+      "72bd2255af0cb33ee0167d439b78b1010b232c6cc2bc5e8c607167c5c8b84565",
+      502025
+    ],
+    [
+      "https://cdn.jsdelivr.net/npm/onnxruntime-common/+esm",
+      200,
+      "ffbc8214008f4ff0fcee5d3e236c7639672a7faf3d9986a55624619164601cfb",
+      19672
+    ],
+    [
+      "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0-dev.20250409-89f8206ba4/+esm",
+      200,
+      "c223b5a5deb30887e53777e26afd160da06d5f45c7a54b22388b97c8bbb8241d",
+      395093
+    ],
+    [
+      "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/ort-wasm-simd-threaded.jsep.mjs",
+      200,
+      "08fb86ec433c78bfb032c5d84a68b8e8e5a8d81268fa39e24314179a5767a5b9",
+      44484
+    ],
+    [
+      "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.mjs",
+      200,
+      "3de582c88577c17a667658525d0387138a02467d822fda25cc00e5886ca496ef",
+      606245
+    ],
+    [
+      "https://lia-canvas-ocr.invalid/dist/index.js",
+      200,
+      "6514ae969633306589738243a4d5bb0dfffcf28dd9c1670cd3bf563e9cc0090b",
+      476503
+    ],
+    [
+      "https://liascript.github.io/course/?https://lia-canvas-ocr.invalid/courses/pipeline-06780510772c872c.md",
+      200,
+      "d75e448f1a5436059093ab1ade5e3f7d2ef0274b88e14bbe9c15a2051136e697",
+      3957
+    ]
+  ],
+  "snapshots": {
+    "initial": {
+      "sourceFile": "lia-ocr-combination-initial.json",
+      "sourceSha256": "f7b2716b27408b925b0c7784afb6aff5d188b13c6c1ff6c398761acc88197b33",
+      "measuredAt": "2026-09-06T15:45:01.223Z",
+      "status": "complete",
+      "repeats": 1,
+      "saveImages": false,
+      "environment": {
+        "browser": "151.0.7922.34",
+        "host": "https://liascript.github.io/course/",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+        "hardwareConcurrency": 16,
+        "crossOriginIsolated": false,
+        "devicePixelRatio": 1,
+        "viewport": {
+          "width": 1920,
+          "height": 1200
+        }
+      },
+      "inputsSha256": {
+        "scripts/benchmark-ocr-pipeline.mts": "6115285d0ff9ddc3dff5d624337213b870b55a86696a61b4c5da33b56922d382",
+        "dist/index.js": "2b12b7785c306ae0252eab5278977be397560ffbff5d9ed8688e5fa13518df28",
+        "test/fixtures/ocr-pipeline-corpus.mts": "cfebca47941ea1399cb6bef068db2227dac869c12971fa11130cf2d78ecd9b4c",
+        "test/fixtures/ocr-letter-case-corpus.mts": "5b8c136ab89d6cdfef948ac7b4f649503e52d5a0093e4333f75ece0929439fb3",
+        "test/fixtures/ocr-equation-chunks.mts": "523863e8c8ebfc9bc15354f62f5ccb399896d793221002d314d05db585bbe8fe",
+        "scripts/ocr-quality-metrics.mts": "b74e75e84aa6f4ed5865020257fada85a892703fd637b4f598e38f693ed60b43",
+        "test/browser/support.mts": "7645f8e8c28fb51e054105ec2d02aaa06a2e0973ee6fd2e0a8f0736bf6b636d3",
+        "test/fixtures/lia-canvas-ocr-local.md": "8ffbbcd4253db14164d1ffadcdb6022b2415f1240fa80239d76df68a32d0d390",
+        "test/fixtures/algebrite-local.md": "51a97ef988f31e2e5f8dc0af79eefe7be061ec5c1e7e6859de437fc7e23bd5db",
+        "package-lock.json": "ebc090b5c530659bb7f6607debefe748cf386585cf76cced925788b47cd3d7f5",
+        "src/ocr/layout.ts": "ed8555918844b33243d0e70b03619decc6fc974ab647cbe4fe28571e19d1953d",
+        "src/math/equivalence.ts": "e941ffe3488f7e313c2386f32fab5208f3c1a8921e1979651c93e5f24e17f746",
+        "src/math/calculation-structure.ts": "5aacde500e59a6e1d245d9549400c861ab78aa4964fe19b7b63eb6f6458b15ef"
+      },
+      "runtimeResourceIndices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "load": {
+        "wallMs": 4580.200000286102,
+        "runtimeUrl": "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/+esm",
+        "model": "alephpi/FormulaNet",
+        "revision": "63e04c86fc96c2324811114351eeea8118bf6b28",
+        "precision": "fp32",
+        "backend": "wasm",
+        "cacheKey": "alephpi/FormulaNet@63e04c86fc96c2324811114351eeea8118bf6b28|formulanet-v1"
+      },
+      "diagnostics": {
+        "errors": [],
+        "pageErrors": [],
+        "requestErrors": [],
+        "artifactErrorCount": 0,
+        "consoleWarningCount": 95,
+        "knownOnnxShapeWarningCount": 95,
+        "otherConsoleMessages": []
+      },
+      "overall": {
+        "total": 23,
+        "completed": 23,
+        "rawExact": 0,
+        "normalizedExact": 6,
+        "expectedTokens": 502,
+        "actualTokens": 526,
+        "tokenEdits": 48,
+        "tokenErrorRate": 0.09561752988047809,
+        "acceptedFlagAgreement": 9,
+        "conclusiveGradeAgreement": 8,
+        "gradeOutcomes": {
+          "correct": 5,
+          "incorrect": 7,
+          "unknown": 11,
+          "incomplete": 0
+        },
+        "lineCountExact": 23,
+        "operationTextExact": 20,
+        "operationWhitespaceOnlyAgreement": 21,
+        "explicitCaseSequenceAssessed": 10,
+        "explicitCaseSequenceAgreement": 8,
+        "recognitionModelCalls": 95,
+        "cacheAdditionalModelCalls": 0
+      },
+      "byCategory": {
+        "unassessed": {
+          "total": 11,
+          "completed": 11,
+          "rawExact": 0,
+          "normalizedExact": 3,
+          "expectedTokens": 260,
+          "actualTokens": 272,
+          "tokenEdits": 29,
+          "tokenErrorRate": 0.11153846153846154,
+          "acceptedFlagAgreement": 3,
+          "conclusiveGradeAgreement": 3,
+          "gradeOutcomes": {
+            "correct": 2,
+            "incorrect": 3,
+            "unknown": 6,
+            "incomplete": 0
+          },
+          "lineCountExact": 11,
+          "operationTextExact": 8,
+          "operationWhitespaceOnlyAgreement": 9,
+          "explicitCaseSequenceAssessed": 0,
+          "explicitCaseSequenceAgreement": 0,
+          "recognitionModelCalls": 47,
+          "cacheAdditionalModelCalls": 0
+        },
+        "explicit": {
+          "total": 10,
+          "completed": 10,
+          "rawExact": 0,
+          "normalizedExact": 3,
+          "expectedTokens": 208,
+          "actualTokens": 218,
+          "tokenEdits": 14,
+          "tokenErrorRate": 0.0673076923076923,
+          "acceptedFlagAgreement": 5,
+          "conclusiveGradeAgreement": 4,
+          "gradeOutcomes": {
+            "correct": 3,
+            "incorrect": 2,
+            "unknown": 5,
+            "incomplete": 0
+          },
+          "lineCountExact": 10,
+          "operationTextExact": 10,
+          "operationWhitespaceOnlyAgreement": 10,
+          "explicitCaseSequenceAssessed": 10,
+          "explicitCaseSequenceAgreement": 8,
+          "recognitionModelCalls": 42,
+          "cacheAdditionalModelCalls": 0
+        },
+        "ambiguous": {
+          "total": 2,
+          "completed": 2,
+          "rawExact": 0,
+          "normalizedExact": 0,
+          "expectedTokens": 34,
+          "actualTokens": 36,
+          "tokenEdits": 5,
+          "tokenErrorRate": 0.14705882352941177,
+          "acceptedFlagAgreement": 1,
+          "conclusiveGradeAgreement": 1,
+          "gradeOutcomes": {
+            "correct": 0,
+            "incorrect": 2,
+            "unknown": 0,
+            "incomplete": 0
+          },
+          "lineCountExact": 2,
+          "operationTextExact": 2,
+          "operationWhitespaceOnlyAgreement": 2,
+          "explicitCaseSequenceAssessed": 0,
+          "explicitCaseSequenceAgreement": 0,
+          "recognitionModelCalls": 6,
+          "cacheAdditionalModelCalls": 0
+        }
+      },
+      "bySplit": {
+        "development": {
+          "total": 16,
+          "completed": 16,
+          "rawExact": 0,
+          "normalizedExact": 5,
+          "expectedTokens": 324,
+          "actualTokens": 333,
+          "tokenEdits": 25,
+          "tokenErrorRate": 0.07716049382716049,
+          "acceptedFlagAgreement": 7,
+          "conclusiveGradeAgreement": 7,
+          "gradeOutcomes": {
+            "correct": 4,
+            "incorrect": 6,
+            "unknown": 6,
+            "incomplete": 0
+          },
+          "lineCountExact": 16,
+          "operationTextExact": 14,
+          "operationWhitespaceOnlyAgreement": 15,
+          "explicitCaseSequenceAssessed": 6,
+          "explicitCaseSequenceAgreement": 4,
+          "recognitionModelCalls": 63,
+          "cacheAdditionalModelCalls": 0
+        },
+        "holdout": {
+          "total": 7,
+          "completed": 7,
+          "rawExact": 0,
+          "normalizedExact": 1,
+          "expectedTokens": 178,
+          "actualTokens": 193,
+          "tokenEdits": 23,
+          "tokenErrorRate": 0.12921348314606743,
+          "acceptedFlagAgreement": 2,
+          "conclusiveGradeAgreement": 1,
+          "gradeOutcomes": {
+            "correct": 1,
+            "incorrect": 1,
+            "unknown": 5,
+            "incomplete": 0
+          },
+          "lineCountExact": 7,
+          "operationTextExact": 6,
+          "operationWhitespaceOnlyAgreement": 6,
+          "explicitCaseSequenceAssessed": 4,
+          "explicitCaseSequenceAgreement": 4,
+          "recognitionModelCalls": 32,
+          "cacheAdditionalModelCalls": 0
+        }
+      },
+      "sourceWallMsSummary": {
+        "count": 23,
+        "excluded": 0,
+        "median": 2823.2000002861023,
+        "p95": 3607.800000190735
+      }
+    },
+    "final": {
+      "sourceFile": "lia-ocr-combination-final.json",
+      "sourceSha256": "a5395fc9d48a90ff931abff1476aac4506f0305c6e94b2e454494d4218c4f689",
+      "measuredAt": "2026-09-06T16:07:51.064Z",
+      "status": "complete",
+      "repeats": 1,
+      "saveImages": false,
+      "environment": {
+        "browser": "151.0.7922.34",
+        "host": "https://liascript.github.io/course/",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+        "hardwareConcurrency": 16,
+        "crossOriginIsolated": false,
+        "devicePixelRatio": 1,
+        "viewport": {
+          "width": 1920,
+          "height": 1200
+        }
+      },
+      "inputsSha256": {
+        "scripts/benchmark-ocr-pipeline.mts": "05a4a9ccb9e708a4105a6456dc5c77b3f1559e3d2162565f680079baa91a07df",
+        "dist/index.js": "6514ae969633306589738243a4d5bb0dfffcf28dd9c1670cd3bf563e9cc0090b",
+        "test/fixtures/ocr-pipeline-corpus.mts": "cfebca47941ea1399cb6bef068db2227dac869c12971fa11130cf2d78ecd9b4c",
+        "test/fixtures/ocr-letter-case-corpus.mts": "5b8c136ab89d6cdfef948ac7b4f649503e52d5a0093e4333f75ece0929439fb3",
+        "test/fixtures/ocr-equation-chunks.mts": "523863e8c8ebfc9bc15354f62f5ccb399896d793221002d314d05db585bbe8fe",
+        "scripts/ocr-quality-metrics.mts": "b74e75e84aa6f4ed5865020257fada85a892703fd637b4f598e38f693ed60b43",
+        "test/browser/support.mts": "7645f8e8c28fb51e054105ec2d02aaa06a2e0973ee6fd2e0a8f0736bf6b636d3",
+        "test/fixtures/lia-canvas-ocr-local.md": "8ffbbcd4253db14164d1ffadcdb6022b2415f1240fa80239d76df68a32d0d390",
+        "test/fixtures/algebrite-local.md": "51a97ef988f31e2e5f8dc0af79eefe7be061ec5c1e7e6859de437fc7e23bd5db",
+        "package-lock.json": "ebc090b5c530659bb7f6607debefe748cf386585cf76cced925788b47cd3d7f5",
+        "src/ocr/layout.ts": "bd1bcea90262408e62a7d86554e352f0b19ad6b90ecdd78663ef8cde2bd806e6",
+        "src/ocr/operation-head.ts": "274b12743febbf8cb861fbbcb312be939d8084ec5add08056f6ca5c5d66a3a12",
+        "src/canvas/index.ts": "b0dad87d0a1ddbced5b5113093cc04bb4e5d4a0f137f3a939693887d924828e8",
+        "src/math/equivalence.ts": "0c26b56cd1274fadfd6612fc96fa71327d2e8145e9abb9eb29ff8dc22977b162",
+        "src/math/calculation-structure.ts": "546d05710cef40d461f8dbbf15b1848f3a2fd2e894d29888a0014514e9eb9a9f",
+        "src/math/equality-groups.ts": "1abd4a792745fffb6e036cac9ec690d57ff5ab08b66f4e0dce16db2b6648ac3e",
+        "src/math/calculation-path.ts": "be0160e89e09916932f844b0c9f84d28c9ed66d37876e84b34ee84e6ca5ea6a7"
+      },
+      "runtimeResourceIndices": [
+        0,
+        5,
+        2,
+        3,
+        1,
+        6,
+        9,
+        8,
+        7,
+        4,
+        10,
+        11,
+        12,
+        13,
+        14,
+        23,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "load": {
+        "wallMs": 3466,
+        "runtimeUrl": "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/+esm",
+        "model": "alephpi/FormulaNet",
+        "revision": "63e04c86fc96c2324811114351eeea8118bf6b28",
+        "precision": "fp32",
+        "backend": "wasm",
+        "cacheKey": "alephpi/FormulaNet@63e04c86fc96c2324811114351eeea8118bf6b28|formulanet-v1"
+      },
+      "diagnostics": {
+        "errors": [],
+        "pageErrors": [],
+        "requestErrors": [],
+        "artifactErrorCount": 0,
+        "consoleWarningCount": 91,
+        "knownOnnxShapeWarningCount": 91,
+        "otherConsoleMessages": []
+      },
+      "overall": {
+        "total": 23,
+        "completed": 23,
+        "rawExact": 0,
+        "normalizedExact": 8,
+        "expectedTokens": 502,
+        "actualTokens": 526,
+        "tokenEdits": 45,
+        "tokenErrorRate": 0.08964143426294821,
+        "acceptedFlagAgreement": 15,
+        "conclusiveGradeAgreement": 15,
+        "gradeOutcomes": {
+          "correct": 11,
+          "incorrect": 8,
+          "unknown": 4,
+          "incomplete": 0
+        },
+        "lineCountExact": 23,
+        "operationTextExact": 20,
+        "operationWhitespaceOnlyAgreement": 23,
+        "explicitCaseSequenceAssessed": 10,
+        "explicitCaseSequenceAgreement": 8,
+        "recognitionModelCalls": 91,
+        "cacheAdditionalModelCalls": 0
+      },
+      "byCategory": {
+        "unassessed": {
+          "total": 11,
+          "completed": 11,
+          "rawExact": 0,
+          "normalizedExact": 5,
+          "expectedTokens": 260,
+          "actualTokens": 272,
+          "tokenEdits": 26,
+          "tokenErrorRate": 0.1,
+          "acceptedFlagAgreement": 5,
+          "conclusiveGradeAgreement": 5,
+          "gradeOutcomes": {
+            "correct": 4,
+            "incorrect": 3,
+            "unknown": 4,
+            "incomplete": 0
+          },
+          "lineCountExact": 11,
+          "operationTextExact": 8,
+          "operationWhitespaceOnlyAgreement": 11,
+          "explicitCaseSequenceAssessed": 0,
+          "explicitCaseSequenceAgreement": 0,
+          "recognitionModelCalls": 43,
+          "cacheAdditionalModelCalls": 0
+        },
+        "explicit": {
+          "total": 10,
+          "completed": 10,
+          "rawExact": 0,
+          "normalizedExact": 3,
+          "expectedTokens": 208,
+          "actualTokens": 218,
+          "tokenEdits": 14,
+          "tokenErrorRate": 0.0673076923076923,
+          "acceptedFlagAgreement": 9,
+          "conclusiveGradeAgreement": 9,
+          "gradeOutcomes": {
+            "correct": 7,
+            "incorrect": 3,
+            "unknown": 0,
+            "incomplete": 0
+          },
+          "lineCountExact": 10,
+          "operationTextExact": 10,
+          "operationWhitespaceOnlyAgreement": 10,
+          "explicitCaseSequenceAssessed": 10,
+          "explicitCaseSequenceAgreement": 8,
+          "recognitionModelCalls": 42,
+          "cacheAdditionalModelCalls": 0
+        },
+        "ambiguous": {
+          "total": 2,
+          "completed": 2,
+          "rawExact": 0,
+          "normalizedExact": 0,
+          "expectedTokens": 34,
+          "actualTokens": 36,
+          "tokenEdits": 5,
+          "tokenErrorRate": 0.14705882352941177,
+          "acceptedFlagAgreement": 1,
+          "conclusiveGradeAgreement": 1,
+          "gradeOutcomes": {
+            "correct": 0,
+            "incorrect": 2,
+            "unknown": 0,
+            "incomplete": 0
+          },
+          "lineCountExact": 2,
+          "operationTextExact": 2,
+          "operationWhitespaceOnlyAgreement": 2,
+          "explicitCaseSequenceAssessed": 0,
+          "explicitCaseSequenceAgreement": 0,
+          "recognitionModelCalls": 6,
+          "cacheAdditionalModelCalls": 0
+        }
+      },
+      "bySplit": {
+        "development": {
+          "total": 16,
+          "completed": 16,
+          "rawExact": 0,
+          "normalizedExact": 6,
+          "expectedTokens": 324,
+          "actualTokens": 333,
+          "tokenEdits": 23,
+          "tokenErrorRate": 0.07098765432098765,
+          "acceptedFlagAgreement": 10,
+          "conclusiveGradeAgreement": 10,
+          "gradeOutcomes": {
+            "correct": 7,
+            "incorrect": 6,
+            "unknown": 3,
+            "incomplete": 0
+          },
+          "lineCountExact": 16,
+          "operationTextExact": 14,
+          "operationWhitespaceOnlyAgreement": 16,
+          "explicitCaseSequenceAssessed": 6,
+          "explicitCaseSequenceAgreement": 4,
+          "recognitionModelCalls": 59,
+          "cacheAdditionalModelCalls": 0
+        },
+        "holdout": {
+          "total": 7,
+          "completed": 7,
+          "rawExact": 0,
+          "normalizedExact": 2,
+          "expectedTokens": 178,
+          "actualTokens": 193,
+          "tokenEdits": 22,
+          "tokenErrorRate": 0.12359550561797752,
+          "acceptedFlagAgreement": 5,
+          "conclusiveGradeAgreement": 5,
+          "gradeOutcomes": {
+            "correct": 4,
+            "incorrect": 2,
+            "unknown": 1,
+            "incomplete": 0
+          },
+          "lineCountExact": 7,
+          "operationTextExact": 6,
+          "operationWhitespaceOnlyAgreement": 7,
+          "explicitCaseSequenceAssessed": 4,
+          "explicitCaseSequenceAgreement": 4,
+          "recognitionModelCalls": 32,
+          "cacheAdditionalModelCalls": 0
+        }
+      },
+      "sourceWallMsSummary": {
+        "count": 23,
+        "excluded": 0,
+        "median": 2812.4000000953674,
+        "p95": 3392.199999809265
+      }
+    }
+  },
+  "observations": {
+    "explicitLetterCases": {
+      "total": 10,
+      "acceptedFlagAgreement": {
+        "initial": 5,
+        "final": 9
+      },
+      "conclusiveGradeAgreement": {
+        "initial": 4,
+        "final": 9
+      },
+      "unknownOutcomes": {
+        "initial": 5,
+        "final": 0
+      },
+      "caseSequenceAgreement": {
+        "initial": 8,
+        "final": 8
+      },
+      "remainingSequenceMismatchCaseIds": [
+        "case-mixed-xX",
+        "case-wrong-xX-step"
+      ],
+      "note": "Grading improves; the observed case-sensitive letter sequence does not improve in these ten probes."
+    },
+    "divisionBoundary": [
+      {
+        "caseId": "linear-valid",
+        "initialOperations": [
+          "+ 5",
+          null,
+          null
+        ],
+        "finalOperations": [
+          "+ 5",
+          ": 3",
+          null
+        ],
+        "initialOutcome": "unknown",
+        "finalOutcome": "correct",
+        "initialWallMs": 4621.1,
+        "finalWallMs": 3007.9,
+        "observedWallReductionMs": 1613.2,
+        "initialModelCalls": 8,
+        "finalModelCalls": 5
+      },
+      {
+        "caseId": "linear-wrong-step",
+        "initialOperations": [
+          "+ 5",
+          ": 3",
+          null
+        ],
+        "finalOperations": [
+          "+ 5",
+          ": 3",
+          null
+        ],
+        "initialOutcome": "incorrect",
+        "finalOutcome": "incorrect",
+        "initialWallMs": 3607.8,
+        "finalWallMs": 2860.8,
+        "observedWallReductionMs": 747.0,
+        "initialModelCalls": 6,
+        "finalModelCalls": 5
+      },
+      {
+        "caseId": "holdout-linear",
+        "initialOperations": [
+          "- 6",
+          "\\cdot 5",
+          null
+        ],
+        "finalOperations": [
+          "- 6",
+          ": 5",
+          null
+        ],
+        "initialOutcome": "incorrect",
+        "finalOutcome": "correct",
+        "initialWallMs": 2842.9,
+        "finalWallMs": 2840.6,
+        "observedWallReductionMs": 2.3,
+        "initialModelCalls": 5,
+        "finalModelCalls": 5
+      }
+    ],
+    "divisionNote": ":3 changes linear-valid from unknown to correct and reduces calls eight to five. :5 changes holdout-linear from incorrect to correct with five calls. Deliberately wrong 15 and final 4 remain written and rejected. Single-run observations, not general latency estimates.",
+    "finalOperations": {
+      "expectedNonNull": 6,
+      "whitespaceOnlyMatches": 6,
+      "rawWholeCaseMatches": 20,
+      "wholeCases": 23,
+      "note": "The three raw operationTextExact failures differ only by whitespace: + 5/+5, - 6/-6, : 3/:3 and : 5/:5. Source flags remain unchanged."
+    }
+  },
+  "dpr2Diagnostic": {
+    "snapshot": {
+      "sourceFile": "lia-ocr-combination-dpr2.json",
+      "sourceSha256": "49a57cd203d415aad3f18bdd0cb94e36088db34f5085d57fe566c716ccc8fca5",
+      "measuredAt": "2026-09-06T16:11:37.600Z",
+      "status": "complete",
+      "repeats": 1,
+      "saveImages": true,
+      "environment": {
+        "browser": "151.0.7922.34",
+        "host": "https://liascript.github.io/course/",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+        "hardwareConcurrency": 16,
+        "crossOriginIsolated": false,
+        "devicePixelRatio": 2,
+        "viewport": {
+          "width": 1920,
+          "height": 1200
+        }
+      },
+      "inputsSha256": {
+        "scripts/benchmark-ocr-pipeline.mts": "05a4a9ccb9e708a4105a6456dc5c77b3f1559e3d2162565f680079baa91a07df",
+        "dist/index.js": "6514ae969633306589738243a4d5bb0dfffcf28dd9c1670cd3bf563e9cc0090b",
+        "test/fixtures/ocr-pipeline-corpus.mts": "cfebca47941ea1399cb6bef068db2227dac869c12971fa11130cf2d78ecd9b4c",
+        "test/fixtures/ocr-letter-case-corpus.mts": "5b8c136ab89d6cdfef948ac7b4f649503e52d5a0093e4333f75ece0929439fb3",
+        "test/fixtures/ocr-equation-chunks.mts": "523863e8c8ebfc9bc15354f62f5ccb399896d793221002d314d05db585bbe8fe",
+        "scripts/ocr-quality-metrics.mts": "b74e75e84aa6f4ed5865020257fada85a892703fd637b4f598e38f693ed60b43",
+        "test/browser/support.mts": "7645f8e8c28fb51e054105ec2d02aaa06a2e0973ee6fd2e0a8f0736bf6b636d3",
+        "test/fixtures/lia-canvas-ocr-local.md": "8ffbbcd4253db14164d1ffadcdb6022b2415f1240fa80239d76df68a32d0d390",
+        "test/fixtures/algebrite-local.md": "51a97ef988f31e2e5f8dc0af79eefe7be061ec5c1e7e6859de437fc7e23bd5db",
+        "package-lock.json": "ebc090b5c530659bb7f6607debefe748cf386585cf76cced925788b47cd3d7f5",
+        "src/ocr/layout.ts": "bd1bcea90262408e62a7d86554e352f0b19ad6b90ecdd78663ef8cde2bd806e6",
+        "src/ocr/operation-head.ts": "274b12743febbf8cb861fbbcb312be939d8084ec5add08056f6ca5c5d66a3a12",
+        "src/canvas/index.ts": "b0dad87d0a1ddbced5b5113093cc04bb4e5d4a0f137f3a939693887d924828e8",
+        "src/math/equivalence.ts": "0c26b56cd1274fadfd6612fc96fa71327d2e8145e9abb9eb29ff8dc22977b162",
+        "src/math/calculation-structure.ts": "546d05710cef40d461f8dbbf15b1848f3a2fd2e894d29888a0014514e9eb9a9f",
+        "src/math/equality-groups.ts": "1abd4a792745fffb6e036cac9ec690d57ff5ab08b66f4e0dce16db2b6648ac3e",
+        "src/math/calculation-path.ts": "be0160e89e09916932f844b0c9f84d28c9ed66d37876e84b34ee84e6ca5ea6a7"
+      },
+      "runtimeResourceIndices": [
+        24,
+        1,
+        5,
+        3,
+        6,
+        9,
+        4,
+        2,
+        7,
+        8,
+        10,
+        11,
+        13,
+        12,
+        14,
+        23,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "load": {
+        "wallMs": 3491.9000000953674,
+        "runtimeUrl": "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/+esm",
+        "model": "alephpi/FormulaNet",
+        "revision": "63e04c86fc96c2324811114351eeea8118bf6b28",
+        "precision": "fp32",
+        "backend": "wasm",
+        "cacheKey": "alephpi/FormulaNet@63e04c86fc96c2324811114351eeea8118bf6b28|formulanet-v1"
+      },
+      "diagnostics": {
+        "errors": [],
+        "pageErrors": [],
+        "requestErrors": [],
+        "artifactErrorCount": 0,
+        "consoleWarningCount": 25,
+        "knownOnnxShapeWarningCount": 25,
+        "otherConsoleMessages": []
+      },
+      "overall": {
+        "total": 5,
+        "completed": 5,
+        "rawExact": 0,
+        "normalizedExact": 0,
+        "expectedTokens": 115,
+        "actualTokens": 115,
+        "tokenEdits": 7,
+        "tokenErrorRate": 0.06086956521739131,
+        "acceptedFlagAgreement": 2,
+        "conclusiveGradeAgreement": 2,
+        "gradeOutcomes": {
+          "correct": 0,
+          "incorrect": 5,
+          "unknown": 0,
+          "incomplete": 0
+        },
+        "lineCountExact": 5,
+        "operationTextExact": 2,
+        "operationWhitespaceOnlyAgreement": 5,
+        "explicitCaseSequenceAssessed": 2,
+        "explicitCaseSequenceAgreement": 0,
+        "recognitionModelCalls": 25,
+        "cacheAdditionalModelCalls": 0
+      },
+      "byCategory": {
+        "unassessed": {
+          "total": 3,
+          "completed": 3,
+          "rawExact": 0,
+          "normalizedExact": 0,
+          "expectedTokens": 67,
+          "actualTokens": 67,
+          "tokenEdits": 3,
+          "tokenErrorRate": 0.04477611940298507,
+          "acceptedFlagAgreement": 1,
+          "conclusiveGradeAgreement": 1,
+          "gradeOutcomes": {
+            "correct": 0,
+            "incorrect": 3,
+            "unknown": 0,
+            "incomplete": 0
+          },
+          "lineCountExact": 3,
+          "operationTextExact": 0,
+          "operationWhitespaceOnlyAgreement": 3,
+          "explicitCaseSequenceAssessed": 0,
+          "explicitCaseSequenceAgreement": 0,
+          "recognitionModelCalls": 15,
+          "cacheAdditionalModelCalls": 0
+        },
+        "explicit": {
+          "total": 2,
+          "completed": 2,
+          "rawExact": 0,
+          "normalizedExact": 0,
+          "expectedTokens": 48,
+          "actualTokens": 48,
+          "tokenEdits": 4,
+          "tokenErrorRate": 0.08333333333333333,
+          "acceptedFlagAgreement": 1,
+          "conclusiveGradeAgreement": 1,
+          "gradeOutcomes": {
+            "correct": 0,
+            "incorrect": 2,
+            "unknown": 0,
+            "incomplete": 0
+          },
+          "lineCountExact": 2,
+          "operationTextExact": 2,
+          "operationWhitespaceOnlyAgreement": 2,
+          "explicitCaseSequenceAssessed": 2,
+          "explicitCaseSequenceAgreement": 0,
+          "recognitionModelCalls": 10,
+          "cacheAdditionalModelCalls": 0
+        }
+      },
+      "bySplit": {
+        "development": {
+          "total": 4,
+          "completed": 4,
+          "rawExact": 0,
+          "normalizedExact": 0,
+          "expectedTokens": 92,
+          "actualTokens": 92,
+          "tokenEdits": 6,
+          "tokenErrorRate": 0.06521739130434782,
+          "acceptedFlagAgreement": 2,
+          "conclusiveGradeAgreement": 2,
+          "gradeOutcomes": {
+            "correct": 0,
+            "incorrect": 4,
+            "unknown": 0,
+            "incomplete": 0
+          },
+          "lineCountExact": 4,
+          "operationTextExact": 2,
+          "operationWhitespaceOnlyAgreement": 4,
+          "explicitCaseSequenceAssessed": 2,
+          "explicitCaseSequenceAgreement": 0,
+          "recognitionModelCalls": 20,
+          "cacheAdditionalModelCalls": 0
+        },
+        "holdout": {
+          "total": 1,
+          "completed": 1,
+          "rawExact": 0,
+          "normalizedExact": 0,
+          "expectedTokens": 23,
+          "actualTokens": 23,
+          "tokenEdits": 1,
+          "tokenErrorRate": 0.043478260869565216,
+          "acceptedFlagAgreement": 0,
+          "conclusiveGradeAgreement": 0,
+          "gradeOutcomes": {
+            "correct": 0,
+            "incorrect": 1,
+            "unknown": 0,
+            "incomplete": 0
+          },
+          "lineCountExact": 1,
+          "operationTextExact": 0,
+          "operationWhitespaceOnlyAgreement": 1,
+          "explicitCaseSequenceAssessed": 0,
+          "explicitCaseSequenceAgreement": 0,
+          "recognitionModelCalls": 5,
+          "cacheAdditionalModelCalls": 0
+        }
+      },
+      "sourceWallMsSummary": {
+        "count": 5,
+        "excluded": 0,
+        "median": 3050.800000190735,
+        "p95": 3436.4000000953674
+      }
+    },
+    "includedInMainComparison": false,
+    "saveImages": true,
+    "imageLocation": "TEMP only; no images copied.",
+    "caseResultsKey": "dpr2Cases",
+    "observation": "All three division probes retain :3/:5. Old cross-style final variables are read as X instead of x, making linear-valid and holdout-linear incorrect. Both mixed x/X probes retain the same wrong initial variable sequences as DPR1. No evidence for improved recognition from higher pixel density or a preprocessing default change."
+  },
+  "cases": [
+    {"id":"linear-valid","baseTaskId":"linear-3x-minus5-equals7","split":"development","family":"linear-path","prompt":"3x-5=7","expectedLines":["3x-5=7 \\mid +5","3x=12 \\mid :3","x=4"],"expectedGradeAccepted":true,"category":"unassessed","expectedOperations":["+5",":3",null],"initial":{"lines":["3 x - 5 = 7 \\mid + 5","3 x = 1 2 \\vert i 3","x = 4"],"grade":[false,"unknown","unknown","prompt-unproven","incomplete","not-isolated"],"transitions":[[0,1,null,"unknown","unsupported-or-unproven",null,null],[1,2,null,"unknown","unsupported-or-unproven",null,null]],"exact":[false,false,22,22,2,0.09090909090909091],"timing":[4621.1,1,8,6256.8,1.5,true],"cache":[60.6,0],"structure":["ready","ready",3,true,["+ 5",null,null],false],"uiChecks":[[0,1,"unknown","unsupported-or-unproven"],[1,2,"unknown","unsupported-or-unproven"]],"firstProblem":{"stage":"prompt","reason":"prompt-unproven","lineIndex":0}},"final":{"lines":["3 x - 5 = 7 \\mid + 5","3 x = 1 2 \\mid : 3","x = 4"],"grade":[true,"correct","valid","prompt-match","valid","solved-variable"],"transitions":[[0,1,null,"valid","operation-applied-both-sides","+ 5",null],[1,2,null,"valid","operation-applied-both-sides",": 3",null]],"exact":[false,true,22,22,0,0],"timing":[3007.9,42.4,5,4045.4,0.8,true],"cache":[61,0],"structure":["ready","ready",3,true,["+ 5",": 3",null],false],"uiChecks":[[0,1,"correct","operation-applied-both-sides"],[1,2,"correct","operation-applied-both-sides"]]}},
+    {"id":"linear-wrong-step","baseTaskId":"linear-3x-minus5-equals7","split":"development","family":"negative-linear-path","prompt":"3x-5=7","expectedLines":["3x-5=7 \\mid +5","3x=15 \\mid :3","x=4"],"expectedGradeAccepted":false,"category":"unassessed","expectedOperations":["+5",":3",null],"intentionalError":"The authored wrong 15 and final 4 must be transcribed unchanged. Correcting either number is an OCR error.","initial":{"lines":["3 x - 5 = 7 \\mid + 5","3 x = 1 5 \\mid : 3","x = 4"],"grade":[false,"incorrect","valid","prompt-match","valid","solved-variable"],"transitions":[[0,1,null,"invalid","operation-missing-right","+ 5","right"],[1,2,null,"invalid","operation-missing-right",": 3","right"]],"exact":[false,true,22,22,0,0],"timing":[3607.8,53.6,6,4629.6,0.8,false],"cache":[62.2,0],"structure":["ready","ready",3,true,["+ 5",": 3",null],false],"uiChecks":[[0,1,"incorrect","operation-missing-right"],[1,2,"incorrect","operation-missing-right"]],"firstProblem":{"stage":"transition","reason":"operation-missing-right","lineIndex":0}},"final":{"lines":["3 x - 5 = 7 \\mid + 5","3 x = 1 5 \\mid : 3","x = 4"],"grade":[false,"incorrect","valid","prompt-match","valid","solved-variable"],"transitions":[[0,1,null,"invalid","operation-missing-right","+ 5","right"],[1,2,null,"invalid","operation-missing-right",": 3","right"]],"exact":[false,true,22,22,0,0],"timing":[2860.8,32.9,5,3865.1,0.8,false],"cache":[40.6,0],"structure":["ready","ready",3,true,["+ 5",": 3",null],false],"uiChecks":[[0,1,"incorrect","operation-missing-right"],[1,2,"incorrect","operation-missing-right"]],"firstProblem":{"stage":"transition","reason":"operation-missing-right","lineIndex":0}}},
+    {"id":"multiplication-tap","baseTaskId":"x-23-times4","split":"development","family":"multiplication-dot","prompt":"x=23\\cdot4","expectedLines":["x=23\\cdot4","x=92"],"expectedGradeAccepted":true,"category":"unassessed","expectedOperations":[null,null],"initial":{"lines":["x = 2 3 \\cdot 4","X = 9 2"],"grade":[false,"unknown","valid","prompt-match","incomplete","not-isolated"],"transitions":[[0,1,null,"unknown","unsupported-or-unproven",null,null]],"exact":[false,false,11,11,1,0.09090909090909091],"timing":[1256.5,41.1,2,1157.5,0.4,false],"cache":[75.3,0],"structure":["ready","ready",2,true,[null,null],true],"uiChecks":[[0,1,"unknown","unsupported-or-unproven"]],"firstProblem":{"stage":"transition","reason":"unsupported-or-unproven","lineIndex":0}},"final":{"lines":["x = 2 3 \\cdot 4","X = 9 2"],"grade":[false,"unknown","valid","prompt-match","incomplete","not-isolated"],"transitions":[[0,1,null,"unknown","unsupported-or-unproven",null,null]],"exact":[false,false,11,11,1,0.09090909090909091],"timing":[1191.7,92.5,2,1098.1,0.5,false],"cache":[81.3,0],"structure":["ready","ready",2,true,[null,null],true],"uiChecks":[[0,1,"unknown","unsupported-or-unproven"]],"firstProblem":{"stage":"transition","reason":"unsupported-or-unproven","lineIndex":0}}},
+    {"id":"decimal-comma","baseTaskId":"x-onepoint5-times2","split":"development","family":"decimal-comma","prompt":"x=1,5\\cdot2","expectedLines":["x=1,5\\cdot2","x=3"],"expectedGradeAccepted":true,"category":"unassessed","expectedOperations":[null,null],"initial":{"lines":["X = 1, 5 \\cdot 2","x = 3"],"grade":[false,"incorrect","invalid","prompt-mismatch","valid","solved-variable"],"transitions":[[0,1,null,"valid","equivalent-polynomial-equations",null,null]],"exact":[false,false,11,11,1,0.09090909090909091],"timing":[1285,80.1,2,1157.2,0.3,false],"cache":[95.9,0],"structure":["ready","ready",2,true,[null,null],true],"uiChecks":[[0,1,"correct","equivalent-polynomial-equations"]],"firstProblem":{"stage":"prompt","reason":"prompt-mismatch","lineIndex":0}},"final":{"lines":["X = 1, 5 \\cdot 2","x = 3"],"grade":[false,"incorrect","invalid","prompt-mismatch","incomplete","not-isolated"],"transitions":[[0,1,null,"unknown","unsupported-or-unproven",null,null]],"exact":[false,false,11,11,1,0.09090909090909091],"timing":[1260.7,129.5,2,1099.5,0.4,false],"cache":[122.6,0],"structure":["ready","ready",2,true,[null,null],true],"uiChecks":[[0,1,"unknown","unsupported-or-unproven"]],"firstProblem":{"stage":"prompt","reason":"prompt-mismatch","lineIndex":0}}},
+    {"id":"stacked-fraction","baseTaskId":"x-half-equals3","split":"development","family":"fraction-equation","prompt":"\\frac{x}{2}=3","expectedLines":["\\frac{x}{2}=3","x=6"],"expectedGradeAccepted":true,"category":"unassessed","expectedOperations":[null,null],"initial":{"lines":["\\frac { x } { 2 } = 3","x = 6"],"grade":[true,"correct","valid","prompt-match","valid","solved-variable"],"transitions":[[0,1,null,"valid","equivalent-linear-equations",null,null]],"exact":[false,true,13,13,0,0],"timing":[1224.3,27.8,2,1133.9,0.4,false],"cache":[51.7,0],"structure":["ready","ready",2,true,[null,null],true],"uiChecks":[[0,1,"correct","equivalent-linear-equations"]]},"final":{"lines":["\\frac { x } { 2 } = 3","x = 6"],"grade":[true,"correct","valid","prompt-match","valid","solved-variable"],"transitions":[[0,1,null,"valid","equivalent-linear-equations",null,null]],"exact":[false,true,13,13,0,0],"timing":[1219,62.8,2,1109.9,0.5,false],"cache":[75.5,0],"structure":["ready","ready",2,true,[null,null],true],"uiChecks":[[0,1,"correct","equivalent-linear-equations"]]}},
+    {"id":"square-root-indices","baseTaskId":"x-square-equals9","split":"development","family":"root-and-indices","prompt":"x^2=9","expectedLines":["x^{2}=9","x_{1,2}=\\pm\\sqrt{9}"],"expectedGradeAccepted":true,"category":"unassessed","expectedOperations":[null,null],"measurementGap":"Joint OCR of superscript, subscript, plus-minus and root is measured without assuming it succeeds.","initial":{"lines":["x ^ { 2 } = 9","X _ { 1, 2 } = \\pm \\sqrt { 9 }"],"grade":[false,"unknown","valid","prompt-match","incomplete","not-isolated"],"transitions":[[0,1,null,"unknown","unsupported-or-unproven",null,null]],"exact":[false,false,21,21,1,0.047619047619047616],"timing":[1277.7,82.9,2,1124.0,0.6,false],"cache":[80,0],"structure":["ready","ready",2,true,[null,null],true],"uiChecks":[[0,1,"unknown","unsupported-or-unproven"]],"firstProblem":{"stage":"transition","reason":"unsupported-or-unproven","lineIndex":0}},"final":{"lines":["x ^ { 2 } = 9","X _ { 1, 2 } = \\pm \\sqrt { 9 }"],"grade":[false,"unknown","valid","prompt-match","incomplete","not-isolated"],"transitions":[[0,1,null,"unknown","unsupported-or-unproven",null,null]],"exact":[false,false,21,21,1,0.047619047619047616],"timing":[1279.1,81.6,2,1141.5,0.8,false],"cache":[94.2,0],"structure":["ready","ready",2,true,[null,null],true],"uiChecks":[[0,1,"unknown","unsupported-or-unproven"]],"firstProblem":{"stage":"transition","reason":"unsupported-or-unproven","lineIndex":0}}},
+    {"id":"linear-system","baseTaskId":"system-sum5-difference1","split":"development","family":"linear-system","prompt":"\\begin{cases}x+y=5\\\\x-y=1\\end{cases}","expectedLines":["I. x+y=5","II. x-y=1","2x=6","x=3","y=2"],"expectedGradeAccepted":true,"category":"unassessed","expectedOperations":[null,null,null,null,null],"measurementGap":"Roman labels and separate system rows are an OCR coverage probe, not prevalidated handwriting recognition.","initial":{"lines":["I. X + Y = 5","\\mathrm { I I }. X - Y = 1","2 x = 6","x = 3","y = 2"],"grade":[false,"unknown","unknown","prompt-unproven","incomplete","not-isolated"],"transitions":[[0,1,null,"unknown","unsupported-or-unproven",null,null],[1,2,null,"unknown","unsupported-or-unproven",null,null],[2,3,null,"unknown","unsupported-or-unproven",null,null],[3,4,null,"unknown","unsupported-or-unproven",null,null]],"exact":[false,false,29,32,7,0.2413793103448276],"timing":[2839.2,0.7,5,2754.0,0.7,false],"cache":[62,0],"structure":["ready","ready",5,true,[null,null,null,null,null],true],"uiChecks":[[0,1,"unknown","unsupported-or-unproven"],[1,2,"unknown","unsupported-or-unproven"],[2,3,"unknown","unsupported-or-unproven"],[3,4,"unknown","unsupported-or-unproven"]],"firstProblem":{"stage":"prompt","reason":"prompt-unproven","lineIndex":0}},"final":{"lines":["I. X + Y = 5","\\mathrm { I I }. X - Y = 1","2 x = 6","x = 3","y = 2"],"grade":[false,"unknown","unknown","prompt-unproven","incomplete","not-isolated"],"transitions":[[0,1,null,"unknown","unsupported-or-unproven",null,null],[1,2,null,"unknown","unsupported-or-unproven",null,null],[2,3,null,"unknown","unsupported-or-unproven",null,null],[3,4,null,"unknown","unsupported-or-unproven",null,null]],"exact":[false,false,29,32,7,0.2413793103448276],"timing":[2851.4,0.9,5,2768.5,0.9,false],"cache":[61.1,0],"structure":["ready","ready",5,true,[null,null,null,null,null],true],"uiChecks":[[0,1,"unknown","unsupported-or-unproven"],[1,2,"unknown","unsupported-or-unproven"],[2,3,"unknown","unsupported-or-unproven"],[3,4,"unknown","unsupported-or-unproven"]],"firstProblem":{"stage":"prompt","reason":"prompt-unproven","lineIndex":0}}},
+    {"id":"long-equation","baseTaskId":"long-3x-plus30-equals30","split":"development","family":"long-equation","prompt":"3x+12+2\\cdot3+12 = 12+3+12+3","expectedLines":["3x+12+2\\cdot3+12 = 12+3+12+3","3x=0","x=0"],"expectedGradeAccepted":true,"category":"unassessed","expectedOperations":[null,null,null],"initial":{"lines":["3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3","3 x = 0","x = 0"],"grade":[true,"correct","valid","prompt-match","valid","solved-variable"],"transitions":[[0,1,null,"valid","equivalent-linear-equations",null,null],[1,2,null,"valid","equivalent-linear-equations",null,null]],"exact":[false,true,31,31,0,0],"timing":[2351.5,26.1,4,2224.8,0.7,false],"cache":[84.4,0],"structure":["ready","ready",3,true,[null,null,null],true],"uiChecks":[[0,1,"correct","equivalent-linear-equations"],[1,2,"correct","equivalent-linear-equations"]]},"final":{"lines":["3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3","3 x = 0","x = 0"],"grade":[true,"correct","valid","prompt-match","valid","solved-variable"],"transitions":[[0,1,null,"valid","equivalent-linear-equations",null,null],[1,2,null,"valid","equivalent-linear-equations",null,null]],"exact":[false,true,31,31,0,0],"timing":[2414.3,34.4,4,2259.6,0.9,false],"cache":[84.4,0],"structure":["ready","ready",3,true,[null,null,null],true],"uiChecks":[[0,1,"correct","equivalent-linear-equations"],[1,2,"correct","equivalent-linear-equations"]]}},
+    {"id":"holdout-linear","baseTaskId":"linear-5x-plus6-equals21","split":"holdout","family":"linear-path","prompt":"5x+6=21","expectedLines":["5x+6=21 \\mid -6","5x=15 \\mid :5","x=3"],"expectedGradeAccepted":true,"category":"unassessed","expectedOperations":["-6",":5",null],"initial":{"lines":["5 x + 6 = 2 1 \\mid - 6","5 x = 1 5 \\mid \\cdot 5","x = 3"],"grade":[false,"incorrect","valid","prompt-match","valid","solved-variable"],"transitions":[[0,1,null,"valid","operation-applied-both-sides","- 6",null],[1,2,null,"invalid","operation-mismatch-both","\\cdot 5","both"]],"exact":[false,false,23,23,1,0.043478260869565216],"timing":[2842.9,59.4,5,3863.4,0.7,false],"cache":[68.4,0],"structure":["ready","ready",3,true,["- 6","\\cdot 5",null],false],"uiChecks":[[0,1,"correct","operation-applied-both-sides"],[1,2,"incorrect","operation-mismatch-both"]],"firstProblem":{"stage":"transition","reason":"operation-mismatch-both","lineIndex":1}},"final":{"lines":["5 x + 6 = 2 1 \\mid - 6","5 x = 1 5 \\mid : 5","x = 3"],"grade":[true,"correct","valid","prompt-match","valid","solved-variable"],"transitions":[[0,1,null,"valid","operation-applied-both-sides","- 6",null],[1,2,null,"valid","operation-applied-both-sides",": 5",null]],"exact":[false,true,23,23,0,0],"timing":[2840.6,32.2,5,3844.3,0.6,false],"cache":[53.2,0],"structure":["ready","ready",3,true,["- 6",": 5",null],false],"uiChecks":[[0,1,"correct","operation-applied-both-sides"],[1,2,"correct","operation-applied-both-sides"]]}},
+    {"id":"holdout-completion","baseTaskId":"x-square-minus6x-equals7","split":"holdout","family":"completion-and-indices","prompt":"x^2-6x=7","expectedLines":["x^{2}-6x=7","x^{2}-6x+9=16","(x-3)^{2}=16","x_{1,2}=3\\pm4"],"expectedGradeAccepted":true,"category":"unassessed","expectedOperations":[null,null,null,null],"measurementGap":"Completion with indexed branches measures composition of multiple OCR structures.","initial":{"lines":["X ^ { 2 } - 6 X = 7","X ^ { 2 } - 6 X + 9 = 1 6","(X - 3)^ { 2 } { = } 1 6","X _ { 1, 2 } = 3 \\pm 4"],"grade":[false,"unknown","unknown","prompt-unproven","incomplete","not-isolated"],"transitions":[[0,1,null,"unknown","unsupported-or-unproven",null,null],[1,2,null,"unknown","unsupported-or-unproven",null,null],[2,3,null,"unknown","unsupported-or-unproven",null,null]],"exact":[false,false,49,51,8,0.16326530612244897],"timing":[3513.7,0.5,6,3962.0,1.3,false],"cache":[62.1,0],"structure":["ready","ready",4,true,[null,null,null,null],true],"uiChecks":[[0,1,"unknown","unsupported-or-unproven"],[1,2,"unknown","unsupported-or-unproven"],[2,3,"unknown","unsupported-or-unproven"]],"firstProblem":{"stage":"prompt","reason":"prompt-unproven","lineIndex":0}},"final":{"lines":["X ^ { 2 } - 6 X = 7","X ^ { 2 } - 6 X + 9 = 1 6","(X - 3)^ { 2 } { = } 1 6","X _ { 1, 2 } = 3 \\pm 4"],"grade":[false,"incorrect","invalid","prompt-mismatch","incomplete","not-isolated"],"transitions":[[0,1,null,"valid","equivalent-polynomial-equations",null,null],[1,2,null,"valid","equivalent-polynomial-equations",null,null],[2,3,null,"unknown","unsupported-or-unproven",null,null]],"exact":[false,false,49,51,8,0.16326530612244897],"timing":[3693.4,187.1,6,3936.0,1.1,false],"cache":[182.8,0],"structure":["ready","ready",4,true,[null,null,null,null],true],"uiChecks":[[0,1,"correct","equivalent-polynomial-equations"],[1,2,"correct","equivalent-polynomial-equations"],[2,3,"unknown","unsupported-or-unproven"]],"firstProblem":{"stage":"prompt","reason":"prompt-mismatch","lineIndex":0}}},
+    {"id":"holdout-verification","baseTaskId":"linear-2x-plus1-equals7","split":"holdout","family":"verification-label","prompt":"2x+1=7","expectedLines":["2x+1=7","2x=6","x=3","\\text{Probe: }2\\cdot3+1=7","7=7"],"expectedGradeAccepted":true,"category":"unassessed","expectedOperations":[null,null,null,null,null],"measurementGap":"The authored word Probe and its separate numeric check are an OCR coverage probe.","initial":{"lines":["2 x + 1 = 7","2 x = 6","x = 3","P r o b e : 2 \\cdot 3 + 1 = 7","7 { = } 7"],"grade":[false,"unknown","unknown","prompt-unproven","incomplete","not-isolated"],"transitions":[[0,1,null,"unknown","unsupported-or-unproven",null,null],[1,2,null,"unknown","unsupported-or-unproven",null,null],[2,3,null,"unknown","unsupported-or-unproven",null,null],[3,4,null,"unknown","unsupported-or-unproven",null,null]],"exact":[false,false,28,35,8,0.2857142857142857],"timing":[2900.4,0.6,5,2785.6,0.9,false],"cache":[62.5,0],"structure":["ready","ready",5,true,[null,null,null,null,null],true],"uiChecks":[[0,1,"unknown","unsupported-or-unproven"],[1,2,"unknown","unsupported-or-unproven"],[2,3,"unknown","unsupported-or-unproven"],[3,4,"unknown","unsupported-or-unproven"]],"firstProblem":{"stage":"prompt","reason":"prompt-unproven","lineIndex":0}},"final":{"lines":["2 x + 1 = 7","2 x = 6","x = 3","P r o b e : 2 \\cdot 3 + 1 = 7","7 { = } 7"],"grade":[false,"unknown","valid","prompt-match","incomplete","not-isolated"],"transitions":[[0,1,null,"valid","equivalent-linear-equations",null,null],[1,2,null,"valid","equivalent-linear-equations",null,null],[2,3,null,"unknown","unsupported-or-unproven",null,null],[3,4,null,"unknown","unsupported-or-unproven",null,null]],"exact":[false,false,28,35,8,0.2857142857142857],"timing":[2950.5,78.5,5,2764.9,1.2,false],"cache":[96.1,0],"structure":["ready","ready",5,true,[null,null,null,null,null],true],"uiChecks":[[0,1,"correct","equivalent-linear-equations"],[1,2,"correct","equivalent-linear-equations"],[2,3,"unknown","unsupported-or-unproven"],[3,4,"unknown","unsupported-or-unproven"]],"firstProblem":{"stage":"transition","reason":"unsupported-or-unproven","lineIndex":2}}},
+    {"id":"case-lower-x","baseTaskId":"case-2v-plus1-equals5","split":"development","family":"letter-case-x","prompt":"2\\cdot x+1=5","expectedLines":["2\\cdot x+1=5","2\\cdot x=4","x=2"],"expectedGradeAccepted":true,"category":"explicit","expectedOperations":[null,null,null],"expectedCaseSequenceByLine":["x","x","x"],"initial":{"lines":["2 \\cdot x + 1 = 5","2 \\cdot x = 4","x { = } 2"],"grade":[false,"unknown","unknown","prompt-unproven","incomplete","not-isolated"],"transitions":[[0,1,null,"unknown","unsupported-or-unproven",null,null],[1,2,null,"unknown","unsupported-or-unproven",null,null]],"exact":[false,false,17,19,2,0.11764705882352941],"timing":[1714.4,0.5,3,1656.4,0.6,false],"cache":[56.8,0],"structure":["ready","ready",3,true,[null,null,null],true],"uiChecks":[[0,1,"unknown","unsupported-or-unproven"],[1,2,"unknown","unsupported-or-unproven"]],"firstProblem":{"stage":"prompt","reason":"prompt-unproven","lineIndex":0},"caseSequence":[["x","x","x"],true]},"final":{"lines":["2 \\cdot x + 1 = 5","2 \\cdot x = 4","x { = } 2"],"grade":[true,"correct","valid","prompt-match","valid","solved-variable"],"transitions":[[0,1,null,"valid","equivalent-linear-equations",null,null],[1,2,null,"valid","equivalent-linear-equations",null,null]],"exact":[false,false,17,19,2,0.11764705882352941],"timing":[1785.6,58.7,3,1638.3,0.6,false],"cache":[99.3,0],"structure":["ready","ready",3,true,[null,null,null],true],"uiChecks":[[0,1,"correct","equivalent-linear-equations"],[1,2,"correct","equivalent-linear-equations"]],"caseSequence":[["x","x","x"],true]}},
+    {"id":"case-upper-X","baseTaskId":"case-2v-plus1-equals5","split":"development","family":"letter-case-x","prompt":"2\\cdot X+1=5","expectedLines":["2\\cdot X+1=5","2\\cdot X=4","X=2"],"expectedGradeAccepted":true,"category":"explicit","expectedOperations":[null,null,null],"expectedCaseSequenceByLine":["X","X","X"],"initial":{"lines":["2 \\cdot X + 1 = 5","2 \\cdot X = 4","X = 2"],"grade":[true,"correct","valid","prompt-match","valid","solved-variable"],"transitions":[[0,1,null,"valid","equivalent-linear-equations",null,null],[1,2,null,"valid","equivalent-linear-equations",null,null]],"exact":[false,true,17,17,0,0],"timing":[1767,48.5,3,1651.1,0.6,false],"cache":[79.2,0],"structure":["ready","ready",3,true,[null,null,null],true],"uiChecks":[[0,1,"correct","equivalent-linear-equations"],[1,2,"correct","equivalent-linear-equations"]],"caseSequence":[["X","X","X"],true]},"final":{"lines":["2 \\cdot X + 1 = 5","2 \\cdot X = 4","X = 2"],"grade":[true,"correct","valid","prompt-match","valid","solved-variable"],"transitions":[[0,1,null,"valid","equivalent-linear-equations",null,null],[1,2,null,"valid","equivalent-linear-equations",null,null]],"exact":[false,true,17,17,0,0],"timing":[1750.2,45.2,3,1637.4,0.7,false],"cache":[103.7,0],"structure":["ready","ready",3,true,[null,null,null],true],"uiChecks":[[0,1,"correct","equivalent-linear-equations"],[1,2,"correct","equivalent-linear-equations"]],"caseSequence":[["X","X","X"],true]}},
+    {"id":"case-lower-y","baseTaskId":"case-3v-minus1-equals5","split":"holdout","family":"letter-case-y","prompt":"3y-1=5","expectedLines":["3y-1=5","3y=6","y=2"],"expectedGradeAccepted":true,"category":"explicit","expectedOperations":[null,null,null],"expectedCaseSequenceByLine":["y","y","y"],"initial":{"lines":["3 y - 1 = 5","3 y = 6","y = 2"],"grade":[true,"correct","valid","prompt-match","valid","solved-variable"],"transitions":[[0,1,null,"valid","equivalent-linear-equations",null,null],[1,2,null,"valid","equivalent-linear-equations",null,null]],"exact":[false,true,15,15,0,0],"timing":[1772.9,55.3,3,1654.4,0.6,false],"cache":[87.9,0],"structure":["ready","ready",3,true,[null,null,null],true],"uiChecks":[[0,1,"correct","equivalent-linear-equations"],[1,2,"correct","equivalent-linear-equations"]],"caseSequence":[["y","y","y"],true]},"final":{"lines":["3 y - 1 = 5","3 y = 6","y = 2"],"grade":[true,"correct","valid","prompt-match","valid","solved-variable"],"transitions":[[0,1,null,"valid","equivalent-linear-equations",null,null],[1,2,null,"valid","equivalent-linear-equations",null,null]],"exact":[false,true,15,15,0,0],"timing":[1743.8,58.7,3,1629.3,0.7,false],"cache":[86.1,0],"structure":["ready","ready",3,true,[null,null,null],true],"uiChecks":[[0,1,"correct","equivalent-linear-equations"],[1,2,"correct","equivalent-linear-equations"]],"caseSequence":[["y","y","y"],true]}},
+    {"id":"case-upper-Y","baseTaskId":"case-3v-minus1-equals5","split":"holdout","family":"letter-case-y","prompt":"3Y-1=5","expectedLines":["3Y-1=5","3Y=6","Y=2"],"expectedGradeAccepted":true,"category":"explicit","expectedOperations":[null,null,null],"expectedCaseSequenceByLine":["Y","Y","Y"],"initial":{"lines":["3 Y - 1 = 5","3 Y = 6","Y { = } 2"],"grade":[false,"unknown","unknown","prompt-unproven","incomplete","not-isolated"],"transitions":[[0,1,null,"unknown","unsupported-or-unproven",null,null],[1,2,null,"unknown","unsupported-or-unproven",null,null]],"exact":[false,false,15,17,2,0.13333333333333333],"timing":[1701.2,0.3,3,1639.3,0.5,false],"cache":[63.8,0],"structure":["ready","ready",3,true,[null,null,null],true],"uiChecks":[[0,1,"unknown","unsupported-or-unproven"],[1,2,"unknown","unsupported-or-unproven"]],"firstProblem":{"stage":"prompt","reason":"prompt-unproven","lineIndex":0},"caseSequence":[["Y","Y","Y"],true]},"final":{"lines":["3 Y - 1 = 5","3 Y = 6","Y { = } 2"],"grade":[true,"correct","valid","prompt-match","valid","solved-variable"],"transitions":[[0,1,null,"valid","equivalent-linear-equations",null,null],[1,2,null,"valid","equivalent-linear-equations",null,null]],"exact":[false,false,15,17,2,0.13333333333333333],"timing":[1749.3,44.8,3,1641.2,0.5,false],"cache":[103.9,0],"structure":["ready","ready",3,true,[null,null,null],true],"uiChecks":[[0,1,"correct","equivalent-linear-equations"],[1,2,"correct","equivalent-linear-equations"]],"caseSequence":[["Y","Y","Y"],true]}},
+    {"id":"case-mixed-xX","baseTaskId":"case-two-variables-sum5-difference1","split":"development","family":"mixed-case-system","prompt":"\\begin{cases}x+X=5\\\\x-X=1\\end{cases}","expectedLines":["x+X=5","x-X=1","2x=6","x=3","X=2"],"expectedGradeAccepted":true,"category":"explicit","expectedOperations":[null,null,null,null,null],"expectedCaseSequenceByLine":["xX","xX","x","x","X"],"initial":{"lines":["x + x = 5","X - X = 1","2 x = 6","x = 3","X = 2"],"grade":[false,"incorrect","invalid","prompt-mismatch","incomplete","not-isolated"],"transitions":[[0,1,"given","invalid","incorrect-system-consequence",null,null],[1,2,"given","invalid","incorrect-system-consequence",null,null],[2,3,"given","invalid","incorrect-system-consequence",null,null],[3,4,"given","invalid","incorrect-system-consequence",null,null]],"exact":[false,false,24,24,2,0.08333333333333333],"timing":[3354.6,573.5,5,2718.6,0.8,false],"cache":[658.8,0],"structure":["ready","ready",5,true,[null,null,null,null,null],true],"uiChecks":[[0,1,"incorrect","incorrect-system-consequence"],[1,2,"incorrect","incorrect-system-consequence"],[2,3,"incorrect","incorrect-system-consequence"],[3,4,"incorrect","incorrect-system-consequence"]],"firstProblem":{"stage":"prompt","reason":"prompt-mismatch","lineIndex":0},"caseSequence":[["xx","XX","x","x","X"],false]},"final":{"lines":["x + x = 5","X - X = 1","2 x = 6","x = 3","X = 2"],"grade":[false,"incorrect","invalid","prompt-mismatch","incomplete","not-isolated"],"transitions":[[0,1,"given","invalid","incorrect-system-consequence",null,null],[1,2,"given","invalid","incorrect-system-consequence",null,null],[2,3,"given","invalid","incorrect-system-consequence",null,null],[3,4,"given","invalid","incorrect-system-consequence",null,null]],"exact":[false,false,24,24,2,0.08333333333333333],"timing":[3392.2,664.6,5,2705.7,0.7,false],"cache":[685.9,0],"structure":["ready","ready",5,true,[null,null,null,null,null],true],"uiChecks":[[0,1,"incorrect","incorrect-system-consequence"],[1,2,"incorrect","incorrect-system-consequence"],[2,3,"incorrect","incorrect-system-consequence"],[3,4,"incorrect","incorrect-system-consequence"]],"firstProblem":{"stage":"prompt","reason":"prompt-mismatch","lineIndex":0},"caseSequence":[["xx","XX","x","x","X"],false]}},
+    {"id":"case-wrong-xX-step","baseTaskId":"case-two-variables-sum5-difference1","split":"development","family":"wrong-case-system-step","prompt":"\\begin{cases}x+X=5\\\\x-X=1\\end{cases}","expectedLines":["x+X=5","x-X=1","2X=6","x=3","X=2"],"expectedGradeAccepted":false,"category":"explicit","expectedOperations":[null,null,null,null,null],"intentionalError":"The written middle row changes x to X. Correct final assignments do not justify this false step; OCR must retain the uppercase X.","expectedCaseSequenceByLine":["xX","xX","X","x","X"],"initial":{"lines":["x + x = 5","X - X = 1","2 X = 6","x = 3","X = 2"],"grade":[false,"incorrect","invalid","prompt-mismatch","incomplete","not-isolated"],"transitions":[[0,1,"given","invalid","incorrect-system-consequence",null,null],[1,2,"given","invalid","incorrect-system-consequence",null,null],[2,3,"given","invalid","incorrect-system-consequence",null,null],[3,4,"given","invalid","incorrect-system-consequence",null,null]],"exact":[false,false,24,24,2,0.08333333333333333],"timing":[3373.7,563.1,5,2713.8,0.6,false],"cache":[643.2,0],"structure":["ready","ready",5,true,[null,null,null,null,null],true],"uiChecks":[[0,1,"incorrect","incorrect-system-consequence"],[1,2,"incorrect","incorrect-system-consequence"],[2,3,"incorrect","incorrect-system-consequence"],[3,4,"incorrect","incorrect-system-consequence"]],"firstProblem":{"stage":"prompt","reason":"prompt-mismatch","lineIndex":0},"caseSequence":[["xx","XX","X","x","X"],false]},"final":{"lines":["x + x = 5","X - X = 1","2 X = 6","x = 3","X = 2"],"grade":[false,"incorrect","invalid","prompt-mismatch","incomplete","not-isolated"],"transitions":[[0,1,"given","invalid","incorrect-system-consequence",null,null],[1,2,"given","invalid","incorrect-system-consequence",null,null],[2,3,"given","invalid","incorrect-system-consequence",null,null],[3,4,"given","invalid","incorrect-system-consequence",null,null]],"exact":[false,false,24,24,2,0.08333333333333333],"timing":[3388.7,664.1,5,2720.9,1.0,false],"cache":[683.3,0],"structure":["ready","ready",5,true,[null,null,null,null,null],true],"uiChecks":[[0,1,"incorrect","incorrect-system-consequence"],[1,2,"incorrect","incorrect-system-consequence"],[2,3,"incorrect","incorrect-system-consequence"],[3,4,"incorrect","incorrect-system-consequence"]],"firstProblem":{"stage":"prompt","reason":"prompt-mismatch","lineIndex":0},"caseSequence":[["xx","XX","X","x","X"],false]}},
+    {"id":"case-mixed-yY","baseTaskId":"case-two-variables-sum4-difference2","split":"holdout","family":"mixed-case-system","prompt":"\\begin{cases}y+Y=4\\\\y-Y=2\\end{cases}","expectedLines":["y+Y=4","y-Y=2","2y=6","y=3","Y=1"],"expectedGradeAccepted":true,"category":"explicit","expectedOperations":[null,null,null,null,null],"expectedCaseSequenceByLine":["yY","yY","y","y","Y"],"initial":{"lines":["y + Y = 4","y - Y = 2","2 y = 6","y = 3","Y { = } 1"],"grade":[false,"unknown","unknown","prompt-unproven","incomplete","not-isolated"],"transitions":[[0,1,null,"unknown","unsupported-or-unproven",null,null],[1,2,null,"unknown","unsupported-or-unproven",null,null],[2,3,null,"unknown","unsupported-or-unproven",null,null],[3,4,null,"unknown","unsupported-or-unproven",null,null]],"exact":[false,false,24,26,2,0.08333333333333333],"timing":[2823.2,0.8,5,2767.5,1.0,false],"cache":[61.7,0],"structure":["ready","ready",5,true,[null,null,null,null,null],true],"uiChecks":[[0,1,"unknown","unsupported-or-unproven"],[1,2,"unknown","unsupported-or-unproven"],[2,3,"unknown","unsupported-or-unproven"],[3,4,"unknown","unsupported-or-unproven"]],"firstProblem":{"stage":"prompt","reason":"prompt-unproven","lineIndex":0},"caseSequence":[["yY","yY","y","y","Y"],true]},"final":{"lines":["y + Y = 4","y - Y = 2","2 y = 6","y = 3","Y { = } 1"],"grade":[true,"correct","valid","prompt-match","valid","solved-system"],"transitions":[[0,1,"given","valid","given-system-equation",null,null],[1,2,"system","valid","linear-system-consequence",null,null],[2,3,"system","valid","linear-system-consequence",null,null],[3,4,"system","valid","linear-system-consequence",null,null]],"exact":[false,false,24,26,2,0.08333333333333333],"timing":[2812.4,43.6,5,2715.8,1.0,false],"cache":[99.3,0],"structure":["ready","ready",5,true,[null,null,null,null,null],true],"uiChecks":[[0,1,"correct","given-system-equation"],[1,2,"correct","linear-system-consequence"],[2,3,"correct","linear-system-consequence"],[3,4,"correct","linear-system-consequence"]],"caseSequence":[["yY","yY","y","y","Y"],true]}},
+    {"id":"case-wrong-yY-step","baseTaskId":"case-two-variables-sum4-difference2","split":"holdout","family":"wrong-case-system-step","prompt":"\\begin{cases}y+Y=4\\\\y-Y=2\\end{cases}","expectedLines":["y+Y=4","y-Y=2","2Y=6","y=3","Y=1"],"expectedGradeAccepted":false,"category":"explicit","expectedOperations":[null,null,null,null,null],"intentionalError":"The written middle row changes y to Y. The uppercase Y must stay in the transcription despite the correct final assignments.","expectedCaseSequenceByLine":["yY","yY","Y","y","Y"],"initial":{"lines":["y + Y = 4","y - Y = 2","2 Y = 6","y = 3","Y { = } 1"],"grade":[false,"unknown","unknown","prompt-unproven","incomplete","not-isolated"],"transitions":[[0,1,null,"unknown","unsupported-or-unproven",null,null],[1,2,null,"unknown","unsupported-or-unproven",null,null],[2,3,null,"unknown","unsupported-or-unproven",null,null],[3,4,null,"unknown","unsupported-or-unproven",null,null]],"exact":[false,false,24,26,2,0.08333333333333333],"timing":[2842.3,0.7,5,2778.2,0.9,false],"cache":[63.4,0],"structure":["ready","ready",5,true,[null,null,null,null,null],true],"uiChecks":[[0,1,"unknown","unsupported-or-unproven"],[1,2,"unknown","unsupported-or-unproven"],[2,3,"unknown","unsupported-or-unproven"],[3,4,"unknown","unsupported-or-unproven"]],"firstProblem":{"stage":"prompt","reason":"prompt-unproven","lineIndex":0},"caseSequence":[["yY","yY","Y","y","Y"],true]},"final":{"lines":["y + Y = 4","y - Y = 2","2 Y = 6","y = 3","Y { = } 1"],"grade":[false,"incorrect","valid","prompt-match","valid","solved-system"],"transitions":[[0,1,"given","valid","given-system-equation",null,null],[1,2,"system","invalid","incorrect-system-consequence",null,null],[2,3,"system","valid","linear-system-consequence",null,null],[3,4,"system","valid","linear-system-consequence",null,null]],"exact":[false,false,24,26,2,0.08333333333333333],"timing":[2872.6,34,5,2773.9,0.8,false],"cache":[79.5,0],"structure":["ready","ready",5,true,[null,null,null,null,null],true],"uiChecks":[[0,1,"correct","given-system-equation"],[1,2,"incorrect","incorrect-system-consequence"],[2,3,"correct","linear-system-consequence"],[3,4,"correct","linear-system-consequence"]],"firstProblem":{"stage":"transition","reason":"incorrect-system-consequence","lineIndex":1},"caseSequence":[["yY","yY","Y","y","Y"],true]}},
+    {"id":"case-both-xy","baseTaskId":"case-two-variables-sum5-difference1","split":"development","family":"two-letter-system","prompt":"\\begin{cases}x+y=5\\\\x-y=1\\end{cases}","expectedLines":["x+y=5","x-y=1","2x=6","x=3","y=2"],"expectedGradeAccepted":true,"category":"explicit","expectedOperations":[null,null,null,null,null],"expectedCaseSequenceByLine":["xy","xy","x","x","y"],"initial":{"lines":["x + y = 5","x - y = 1","2 x = 6","x = 3","y = 2"],"grade":[true,"correct","valid","prompt-match","valid","solved-system"],"transitions":[[0,1,"given","valid","given-system-equation",null,null],[1,2,"system","valid","linear-system-consequence",null,null],[2,3,"system","valid","linear-system-consequence",null,null],[3,4,"system","valid","linear-system-consequence",null,null]],"exact":[false,true,24,24,0,0],"timing":[2938.8,26.5,5,2788.6,1.0,false],"cache":[41,0],"structure":["ready","ready",5,true,[null,null,null,null,null],true],"uiChecks":[[0,1,"correct","given-system-equation"],[1,2,"correct","linear-system-consequence"],[2,3,"correct","linear-system-consequence"],[3,4,"correct","linear-system-consequence"]],"caseSequence":[["xy","xy","x","x","y"],true]},"final":{"lines":["x + y = 5","x - y = 1","2 x = 6","x = 3","y = 2"],"grade":[true,"correct","valid","prompt-match","valid","solved-system"],"transitions":[[0,1,"given","valid","given-system-equation",null,null],[1,2,"system","valid","linear-system-consequence",null,null],[2,3,"system","valid","linear-system-consequence",null,null],[3,4,"system","valid","linear-system-consequence",null,null]],"exact":[false,true,24,24,0,0],"timing":[2917.2,25.4,5,2806.9,1.0,false],"cache":[46.8,0],"structure":["ready","ready",5,true,[null,null,null,null,null],true],"uiChecks":[[0,1,"correct","given-system-equation"],[1,2,"correct","linear-system-consequence"],[2,3,"correct","linear-system-consequence"],[3,4,"correct","linear-system-consequence"]],"caseSequence":[["xy","xy","x","x","y"],true]}},
+    {"id":"case-both-XY","baseTaskId":"case-two-variables-sum5-difference1","split":"development","family":"two-letter-system","prompt":"\\begin{cases}X+Y=5\\\\X-Y=1\\end{cases}","expectedLines":["X+Y=5","X-Y=1","2X=6","X=3","Y=2"],"expectedGradeAccepted":true,"category":"explicit","expectedOperations":[null,null,null,null,null],"expectedCaseSequenceByLine":["XY","XY","X","X","Y"],"initial":{"lines":["X + Y = 5","X - Y = 1","2 X = 6","X = 3","Y { = } 2"],"grade":[false,"unknown","unknown","prompt-unproven","incomplete","not-isolated"],"transitions":[[0,1,null,"unknown","unsupported-or-unproven",null,null],[1,2,null,"unknown","unsupported-or-unproven",null,null],[2,3,null,"unknown","unsupported-or-unproven",null,null],[3,4,null,"unknown","unsupported-or-unproven",null,null]],"exact":[false,false,24,26,2,0.08333333333333333],"timing":[2866.3,0.6,5,2787.0,1.0,false],"cache":[70,0],"structure":["ready","ready",5,true,[null,null,null,null,null],true],"uiChecks":[[0,1,"unknown","unsupported-or-unproven"],[1,2,"unknown","unsupported-or-unproven"],[2,3,"unknown","unsupported-or-unproven"],[3,4,"unknown","unsupported-or-unproven"]],"firstProblem":{"stage":"prompt","reason":"prompt-unproven","lineIndex":0},"caseSequence":[["XY","XY","X","X","Y"],true]},"final":{"lines":["X + Y = 5","X - Y = 1","2 X = 6","X = 3","Y { = } 2"],"grade":[true,"correct","valid","prompt-match","valid","solved-system"],"transitions":[[0,1,"given","valid","given-system-equation",null,null],[1,2,"system","valid","linear-system-consequence",null,null],[2,3,"system","valid","linear-system-consequence",null,null],[3,4,"system","valid","linear-system-consequence",null,null]],"exact":[false,false,24,26,2,0.08333333333333333],"timing":[2926.3,24.3,5,2832.5,1.0,false],"cache":[70.4,0],"structure":["ready","ready",5,true,[null,null,null,null,null],true],"uiChecks":[[0,1,"correct","given-system-equation"],[1,2,"correct","linear-system-consequence"],[2,3,"correct","linear-system-consequence"],[3,4,"correct","linear-system-consequence"]],"caseSequence":[["XY","XY","X","X","Y"],true]}},
+    {"id":"case-ambiguous-lower-intent","baseTaskId":"case-2v-plus1-equals5","split":"development","family":"ambiguous-case-control","prompt":"2\\cdot x+1=5","expectedLines":["2\\cdot x+1=5","2\\cdot x=4","x=2"],"expectedGradeAccepted":true,"category":"ambiguous","expectedOperations":[null,null,null],"measurementGap":"The target records author intent only. This case is not evidence that an ambiguous cross can be uniquely recognized.","ambiguity":{"groupId":"same-cross-pixels-opposite-case","alternativeLines":["2\\cdot X+1=5","2\\cdot X=4","X=2"],"policy":"no-silent-case-substitution","explanation":"The lowercase-intent and uppercase-intent twins have identical strokes and the same task prompt. Their exact authored targets differ. Pixels alone do not identify the intended case; report ambiguity and never equate x with X or repair the written answer using the task solution."},"initial":{"lines":["2 \\cdot X + 1 = 5","2 \\cdot \\! X = 4","X = 2"],"grade":[false,"incorrect","invalid","prompt-mismatch","incomplete","not-isolated"],"transitions":[[0,1,null,"invalid","different-polynomial-solutions",null,null],[1,2,null,"invalid","different-polynomial-solutions",null,null]],"exact":[false,false,17,18,4,0.23529411764705882],"timing":[1822.8,112.6,3,1659.8,0.7,false],"cache":[118.3,0],"structure":["ready","ready",3,true,[null,null,null],true],"uiChecks":[[0,1,"incorrect","different-polynomial-solutions"],[1,2,"incorrect","different-polynomial-solutions"]],"firstProblem":{"stage":"prompt","reason":"prompt-mismatch","lineIndex":0}},"final":{"lines":["2 \\cdot X + 1 = 5","2 \\cdot \\! X = 4","X = 2"],"grade":[false,"incorrect","invalid","prompt-mismatch","incomplete","not-isolated"],"transitions":[[0,1,null,"valid","equivalent-linear-equations",null,null],[1,2,null,"valid","equivalent-linear-equations",null,null]],"exact":[false,false,17,18,4,0.23529411764705882],"timing":[1866.8,116.3,3,1692.2,0.6,false],"cache":[115.8,0],"structure":["ready","ready",3,true,[null,null,null],true],"uiChecks":[[0,1,"correct","equivalent-linear-equations"],[1,2,"correct","equivalent-linear-equations"]],"firstProblem":{"stage":"prompt","reason":"prompt-mismatch","lineIndex":0}}},
+    {"id":"case-ambiguous-upper-intent","baseTaskId":"case-2v-plus1-equals5","split":"development","family":"ambiguous-case-control","prompt":"2\\cdot x+1=5","expectedLines":["2\\cdot X+1=5","2\\cdot X=4","X=2"],"expectedGradeAccepted":false,"category":"ambiguous","expectedOperations":[null,null,null],"intentionalError":"The author intended X throughout an answer to a task about x. The identical cross raster cannot establish that intent. Do not silently substitute x to obtain an accepted answer.","measurementGap":"An observationally identical pair with incompatible exact targets must be reported as an ambiguity control, not an attainable joint exactness target.","ambiguity":{"groupId":"same-cross-pixels-opposite-case","alternativeLines":["2\\cdot x+1=5","2\\cdot x=4","x=2"],"policy":"no-silent-case-substitution","explanation":"The lowercase-intent and uppercase-intent twins have identical strokes and the same task prompt. Their exact authored targets differ. Pixels alone do not identify the intended case; report ambiguity and never equate x with X or repair the written answer using the task solution."},"initial":{"lines":["2 \\cdot X + 1 = 5","2 \\cdot \\! X = 4","X = 2"],"grade":[false,"incorrect","invalid","prompt-mismatch","incomplete","not-isolated"],"transitions":[[0,1,null,"invalid","different-polynomial-solutions",null,null],[1,2,null,"invalid","different-polynomial-solutions",null,null]],"exact":[false,false,17,18,1,0.058823529411764705],"timing":[1942.4,225.8,3,1670.1,0.5,false],"cache":[220.5,0],"structure":["ready","ready",3,true,[null,null,null],true],"uiChecks":[[0,1,"incorrect","different-polynomial-solutions"],[1,2,"incorrect","different-polynomial-solutions"]],"firstProblem":{"stage":"prompt","reason":"prompt-mismatch","lineIndex":0}},"final":{"lines":["2 \\cdot X + 1 = 5","2 \\cdot \\! X = 4","X = 2"],"grade":[false,"incorrect","invalid","prompt-mismatch","incomplete","not-isolated"],"transitions":[[0,1,null,"valid","equivalent-linear-equations",null,null],[1,2,null,"valid","equivalent-linear-equations",null,null]],"exact":[false,false,17,18,1,0.058823529411764705],"timing":[1849,118.9,3,1700.0,0.5,false],"cache":[108.4,0],"structure":["ready","ready",3,true,[null,null,null],true],"uiChecks":[[0,1,"correct","equivalent-linear-equations"],[1,2,"correct","equivalent-linear-equations"]],"firstProblem":{"stage":"prompt","reason":"prompt-mismatch","lineIndex":0}}}
+  ],
+  "dpr2Cases": [
+    {"caseId":"linear-valid","result":{"lines":["3 x - 5 = 7 \\mid + 5","3 x = 1 2 \\mid : 3","X = 4"],"grade":[false,"incorrect","valid","prompt-match","incomplete","not-isolated"],"transitions":[[0,1,null,"valid","operation-applied-both-sides","+ 5",null],[1,2,null,"invalid","operation-missing-left",": 3","left"]],"exact":[false,false,22,22,1,0.045454545454545456],"timing":[3050.8,52.4,5,4076.2,1.5,true],"cache":[75.5,0],"structure":["ready","ready",3,true,["+ 5",": 3",null],false],"uiChecks":[[0,1,"correct","operation-applied-both-sides"],[1,2,"incorrect","operation-missing-left"]],"firstProblem":{"stage":"transition","reason":"operation-missing-left","lineIndex":1}}},
+    {"caseId":"linear-wrong-step","result":{"lines":["3 x - 5 = 7 \\mid + 5","3 x = 1 5 \\mid : 3","X = 4"],"grade":[false,"incorrect","valid","prompt-match","incomplete","not-isolated"],"transitions":[[0,1,null,"invalid","operation-missing-right","+ 5","right"],[1,2,null,"invalid","operation-mismatch-both",": 3","both"]],"exact":[false,false,22,22,1,0.045454545454545456],"timing":[2903.8,42.6,5,3874.5,1.7,false],"cache":[66.4,0],"structure":["ready","ready",3,true,["+ 5",": 3",null],false],"uiChecks":[[0,1,"incorrect","operation-missing-right"],[1,2,"incorrect","operation-mismatch-both"]],"firstProblem":{"stage":"transition","reason":"operation-missing-right","lineIndex":0}}},
+    {"caseId":"holdout-linear","result":{"lines":["5 x + 6 = 2 1 \\mid - 6","5 x = 1 5 \\mid : 5","X = 3"],"grade":[false,"incorrect","valid","prompt-match","incomplete","not-isolated"],"transitions":[[0,1,null,"valid","operation-applied-both-sides","- 6",null],[1,2,null,"invalid","operation-missing-left",": 5","left"]],"exact":[false,false,23,23,1,0.043478260869565216],"timing":[2940.5,89.6,5,3912.0,1.6,false],"cache":[93.2,0],"structure":["ready","ready",3,true,["- 6",": 5",null],false],"uiChecks":[[0,1,"correct","operation-applied-both-sides"],[1,2,"incorrect","operation-missing-left"]],"firstProblem":{"stage":"transition","reason":"operation-missing-left","lineIndex":1}}},
+    {"caseId":"case-mixed-xX","result":{"lines":["x + x = 5","X - X = 1","2 x = 6","x = 3","X = 2"],"grade":[false,"incorrect","invalid","prompt-mismatch","incomplete","not-isolated"],"transitions":[[0,1,"given","invalid","incorrect-system-consequence",null,null],[1,2,"given","invalid","incorrect-system-consequence",null,null],[2,3,"given","invalid","incorrect-system-consequence",null,null],[3,4,"given","invalid","incorrect-system-consequence",null,null]],"exact":[false,false,24,24,2,0.08333333333333333],"timing":[3379.8,594.1,5,2732.7,1.5,false],"cache":[604.6,0],"structure":["ready","ready",5,true,[null,null,null,null,null],true],"uiChecks":[[0,1,"incorrect","incorrect-system-consequence"],[1,2,"incorrect","incorrect-system-consequence"],[2,3,"incorrect","incorrect-system-consequence"],[3,4,"incorrect","incorrect-system-consequence"]],"firstProblem":{"stage":"prompt","reason":"prompt-mismatch","lineIndex":0},"caseSequence":[["xx","XX","x","x","X"],false]}},
+    {"caseId":"case-wrong-xX-step","result":{"lines":["x + x = 5","X - X = 1","2 X = 6","x = 3","X = 2"],"grade":[false,"incorrect","invalid","prompt-mismatch","incomplete","not-isolated"],"transitions":[[0,1,"given","invalid","incorrect-system-consequence",null,null],[1,2,"given","invalid","incorrect-system-consequence",null,null],[2,3,"given","invalid","incorrect-system-consequence",null,null],[3,4,"given","invalid","incorrect-system-consequence",null,null]],"exact":[false,false,24,24,2,0.08333333333333333],"timing":[3436.4,559.5,5,2734.2,1.6,false],"cache":[587.5,0],"structure":["ready","ready",5,true,[null,null,null,null,null],true],"uiChecks":[[0,1,"incorrect","incorrect-system-consequence"],[1,2,"incorrect","incorrect-system-consequence"],[2,3,"incorrect","incorrect-system-consequence"],[3,4,"incorrect","incorrect-system-consequence"]],"firstProblem":{"stage":"prompt","reason":"prompt-mismatch","lineIndex":0},"caseSequence":[["xx","XX","X","x","X"],false]}}
+  ]
+}

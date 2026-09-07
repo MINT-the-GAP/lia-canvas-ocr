@@ -319,8 +319,8 @@ test('calculation fixture creates exactly three native input quizzes with @Berec
 test('@BerechneOCR documents enabled row feedback by default and numeric option forms', () => {
   assert.match(
     readme,
-    /Without that argument every transition between adjacent calculation rows is\s+shown by default/u,
-    'README must document row-transition feedback as enabled by default',
+    /Without that argument feedback for every calculation row is shown by default/u,
+    'README must document calculation-row feedback as enabled by default',
   );
   assert.match(
     readme,

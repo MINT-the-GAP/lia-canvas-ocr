@@ -5,10 +5,10 @@ import {
     alignFirstTopLevelRelation,
     editableTextToLatex
 } from '../ocr/layout';
-import {
-    validateEquationTransition,
-    type TransitionCheck
-} from '../math/equivalence';
+import type { TransitionCheck } from '../math/equivalence';
+import { iterateCalculationPathChecks } from '../math/calculation-path';
+import { calculationMethodFallback, type CalculationCheckRole } from '../math/calculation-methods';
+import { calculationRoleLabel, calculationRoleCheckLabel } from './i18n';
 import type { WrittenArithmeticKind } from '../math/written-arithmetic';
 
 export type CalculationReviewSnapshot = {
@@ -44,6 +44,7 @@ type ReviewOptions = {
     summary: HTMLElement;
     translate: (key: string, fallback: string) => string;
     mode?: CalculationReviewMode;
+    promptEquation?: string;
     composeLatex?: (lines: readonly string[]) => string;
     onAnalysis?: (analysis: CalculationReviewAnalysis) => void;
 };
@@ -54,6 +55,8 @@ type TransitionDom = {
     icon: HTMLElement;
     label: HTMLElement;
     detail: HTMLElement;
+    arrowSvg: SVGSVGElement;
+    roleBadge: HTMLElement;
 };
 
 let reviewSequence = 0;
@@ -97,6 +100,8 @@ function replaceTokens(template: string, values: Record<string, string | number>
 }
 
 function fallbackForCheck(check: TransitionCheck): string {
+    const method = calculationMethodFallback(check.reason);
+    if (method) return method;
     switch (check.reason) {
         case 'quadratic-root-solutions':
             return 'The plus-minus square-root notation contains both real solutions.';
@@ -149,8 +154,11 @@ export function createCalculationReview(options: ReviewOptions): CalculationRevi
         status: TransitionCheck['status'] | 'pending',
         from: number,
         to: number,
-        isStale = false
+        isStale = false,
+        role?: CalculationCheckRole
     ): string {
+        const contextual = calculationRoleCheckLabel(role, from, to, status, isStale, tr);
+        if (contextual) return contextual;
         const positions = { from: from + 1, to: to + 1 };
         if (isStale) {
             return replaceTokens(
@@ -303,8 +311,13 @@ export function createCalculationReview(options: ReviewOptions): CalculationRevi
             return;
         }
         for (let index = 0; index < transitions.length; index++) {
-            const from = lineRows[index];
-            const to = lineRows[index + 1];
+            const check = currentChecks?.[index];
+            const fromIndex = check?.fromIndex ?? index;
+            const toIndex = check?.toIndex ?? index + 1;
+            // Keep one marker at each target row. A dependency that skips an
+            // auxiliary row is named in its label, without overlapping markers.
+            const from = lineRows[toIndex > fromIndex + 1 ? toIndex - 1 : fromIndex];
+            const to = lineRows[toIndex];
             const dom = transitions[index];
             if (!from || !to || !dom) continue;
             const fromRect = from.getBoundingClientRect();
@@ -382,6 +395,9 @@ export function createCalculationReview(options: ReviewOptions): CalculationRevi
         head.setAttribute('d', 'M14 50 L15 39 M14 50 L24 45');
         svg.append(curve, head);
         arrow.appendChild(svg);
+        const roleBadge = appendElement(arrow, 'span', 'lia-canvasplus-transition-role');
+        roleBadge.style.cssText = 'display:none;max-width:3rem;font-size:.65rem;font-weight:700;line-height:1.1;text-align:center;overflow-wrap:anywhere';
+        roleBadge.setAttribute('aria-hidden', 'true');
 
         const trigger = appendElement(
             container,
@@ -418,7 +434,7 @@ export function createCalculationReview(options: ReviewOptions): CalculationRevi
             container.dataset.expanded = expanded ? '0' : '1';
             detail.hidden = expanded;
         });
-        transitions.push({ container, trigger, icon, label, detail });
+        transitions.push({ container, trigger, icon, label, detail, arrowSvg: svg, roleBadge });
     }
 
     function renderRows(lines: string[]): void {
@@ -458,6 +474,17 @@ export function createCalculationReview(options: ReviewOptions): CalculationRevi
         installTransitionLayout(list);
     }
 
+    function setTransitionRole(dom: TransitionDom, role?: CalculationCheckRole, fromIndex?: number, toIndex?: number): void {
+        const contextual = role && role !== 'equivalence';
+        const skipped = fromIndex !== undefined && toIndex !== undefined && toIndex > fromIndex + 1;
+        if (role) dom.container.dataset.role = role;
+        else delete dom.container.dataset.role;
+        dom.arrowSvg.style.display = contextual || skipped ? 'none' : '';
+        dom.roleBadge.style.display = contextual || skipped ? 'block' : 'none';
+        dom.roleBadge.textContent = contextual ? calculationRoleLabel(role, tr)
+            : skipped ? `${fromIndex! + 1} \u2192 ${toIndex! + 1}` : '';
+    }
+
     function applyChecks(checks: TransitionCheck[]): void {
         for (const row of lineRows) delete row.dataset.errorSide;
         for (let index = 0; index < transitions.length; index++) {
@@ -471,10 +498,13 @@ export function createCalculationReview(options: ReviewOptions): CalculationRevi
                     : 'unknown';
             dom.container.dataset.verdict = verdict;
             dom.container.dataset.code = check.reason;
+            dom.container.dataset.fromIndex = String(check.fromIndex);
+            dom.container.dataset.toIndex = String(check.toIndex);
+            setTransitionRole(dom, check.role, check.fromIndex, check.toIndex);
             dom.trigger.disabled = false;
             dom.trigger.setAttribute(
                 'aria-label',
-                transitionLabel(check.status, check.fromIndex, check.toIndex)
+                transitionLabel(check.status, check.fromIndex, check.toIndex, false, check.role)
             );
             dom.icon.textContent = check.status === 'valid'
                 ? '✓'
@@ -488,12 +518,14 @@ export function createCalculationReview(options: ReviewOptions): CalculationRevi
                     : check.reason === 'cas-unavailable'
                         ? tr('ocr.plus.validation.casUnavailableLabel', 'CAS unavailable')
                         : tr('ocr.plus.validation.unknownLabel', 'Not checked');
-            dom.detail.textContent = tr(check.messageKey, fallbackForCheck(check));
+            dom.detail.textContent = (check.role && check.role !== 'equivalence'
+                ? calculationRoleLabel(check.role, tr) + ': ' : '') + tr(check.messageKey, fallbackForCheck(check));
             collapseTransition(dom);
             if (check.status === 'invalid' && lineRows[check.toIndex]) {
                 lineRows[check.toIndex].dataset.errorSide = check.side || 'whole';
             }
         }
+        scheduleTransitionLayout();
     }
 
     function applyAnalysisError(): void {
@@ -502,6 +534,9 @@ export function createCalculationReview(options: ReviewOptions): CalculationRevi
             const dom = transitions[index];
             dom.container.dataset.verdict = 'unknown';
             dom.container.dataset.code = 'analysis-error';
+            dom.container.dataset.fromIndex = String(index);
+            dom.container.dataset.toIndex = String(index + 1);
+            setTransitionRole(dom);
             dom.trigger.disabled = false;
             dom.trigger.setAttribute(
                 'aria-label',
@@ -569,15 +604,10 @@ export function createCalculationReview(options: ReviewOptions): CalculationRevi
                 if (destroyed || stale || requestGeneration !== generation) return;
                 try {
                     const checks: TransitionCheck[] = [];
-                    for (let index = 0; index + 1 < snapshot.lines.length; index++) {
-                        checks.push(validateEquationTransition(
-                            snapshot.lines[index],
-                            snapshot.lines[index + 1],
-                            index
-                        ));
-                        if (index + 2 < snapshot.lines.length) {
-                            await new Promise<void>(resolve => window.setTimeout(resolve, 0));
-                        }
+                    for (const check of iterateCalculationPathChecks(snapshot.lines, options.promptEquation)) {
+                        if (destroyed || stale || requestGeneration !== generation) return;
+                        checks.push(check);
+                        await new Promise<void>(resolve => window.setTimeout(resolve, 0));
                         if (destroyed || stale || requestGeneration !== generation) return;
                     }
                     currentChecks = checks;
@@ -647,9 +677,10 @@ export function createCalculationReview(options: ReviewOptions): CalculationRevi
             dom.container.dataset.stale = '1';
             dom.trigger.setAttribute('aria-label', transitionLabel(
                 currentChecks?.[index]?.status || 'pending',
-                index,
-                index + 1,
-                true
+                currentChecks?.[index]?.fromIndex ?? index,
+                currentChecks?.[index]?.toIndex ?? index + 1,
+                true,
+                currentChecks?.[index]?.role
             ));
         }
         setSummary(currentChecks, 'stale');
@@ -730,9 +761,10 @@ export function createCalculationReview(options: ReviewOptions): CalculationRevi
                 dom.container.dataset.stale = '1';
                 dom.trigger.setAttribute('aria-label', transitionLabel(
                     currentChecks?.[index]?.status || 'pending',
-                    index,
-                    index + 1,
-                    true
+                    currentChecks?.[index]?.fromIndex ?? index,
+                    currentChecks?.[index]?.toIndex ?? index + 1,
+                    true,
+                    currentChecks?.[index]?.role
                 ));
             }
             setSummary(currentChecks, 'stale');

@@ -6,8 +6,10 @@ import {
     type OcrDelimiterKind,
     type OcrSymbolBox
 } from './symbol-geometry.ts';
+import { mergeSpatialOcrLineBands } from './spatial-layout.ts';
+import { findTopLevelGroupedEqualities } from '../math/equality-groups.ts';
 
-export const OCR_LAYOUT_ALGORITHM_VERSION = 'lines-v21-multiplication-dot-clusters';
+export const OCR_LAYOUT_ALGORITHM_VERSION = 'lines-v24-geometric-division-head';
 
 export type OcrVerticalStrokeHint = {
     x0: number;
@@ -33,6 +35,8 @@ export type OcrStructuralDelimiter = {
 };
 
 export type OcrStructuralToken = '(' | ')' | '[' | ']' | '\\vert';
+
+export type OcrLineBandGapMode = 'canvas-height' | 'local-scale';
 
 export type OcrLineBand = {
     y0: number;
@@ -224,7 +228,8 @@ function shouldMergeBands(
 export function findOcrLineBands(
     rowInk: ArrayLike<number>,
     imageWidth: number,
-    pixelScale = 1
+    pixelScale = 1,
+    gapMode: OcrLineBandGapMode = 'canvas-height'
 ): OcrLineBand[] {
     const height = rowInk.length;
     if (!height) return [];
@@ -264,7 +269,9 @@ export function findOcrLineBands(
             ink = 0;
         }
     }
-    const baseGap = Math.max(
+    // Empty page margins must not alter equation line boundaries. The legacy
+    // mode remains available for the explicitly selected written algorithms.
+    const baseGap = gapMode === 'local-scale' ? Math.round(2 * scale) : Math.max(
         Math.round(2 * scale),
         Math.min(Math.round(6 * scale), Math.round(height * 0.018))
     );
@@ -779,7 +786,7 @@ export function selectOcrOperationSeparator(
         const strokeHeight = y1 - y0 + 1;
         const centerX = (x0 + x1) * 0.5;
         const relativeX = (centerX - lineBox.x0) / lineWidth;
-        if (relativeX < 0.48 || relativeX > 0.92) continue;
+        if (!explicitlyHookless && (relativeX < 0.48 || relativeX > 0.92)) continue;
         const requiredLineHeightRatio = explicitlyHookless ? 0.55 : 0.72;
         if (strokeHeight < Math.max(Math.round(12 * scale), lineHeight * requiredLineHeightRatio)) continue;
         if (strokeWidth > Math.max(Math.round(5 * scale), strokeHeight * 0.18)) continue;
@@ -886,7 +893,16 @@ export function selectOcrOperationSeparator(
         let rightInk = 0;
         for (let x = lineBox.x0; x < x0; x++) leftInk += Math.max(0, Number(columnInk[x]) || 0);
         for (let x = x1 + 1; x <= lineBox.x1; x++) rightInk += Math.max(0, Number(columnInk[x]) || 0);
-        if (leftInk < totalInk * 0.25 || rightInk < totalInk * 0.035) continue;
+        // A confirmed authored bar may follow a very long equation or precede
+        // a long operation. Use local ink evidence instead of page-width and
+        // total-ink percentages; weak candidates retain the stricter vetoes.
+        const minimumLeftInk = explicitlyHookless
+            ? Math.max(Math.round(8 * scale), strokeHeight * 0.75)
+            : totalInk * 0.25;
+        const minimumRightInk = explicitlyHookless
+            ? Math.max(Math.round(2 * scale), strokeHeight * 0.12)
+            : totalInk * 0.035;
+        if (leftInk < minimumLeftInk || rightInk < minimumRightInk) continue;
 
         const score = strokeHeight * 2 + leftGap + rightGap - strokeWidth * 2;
         if (score > bestScore) {
@@ -1396,7 +1412,16 @@ export function segmentOcrCanvas(
     }
 
     const scale = normalizePixelScale(pixelScale);
-    let bands = findOcrLineBands(rowInk, width, scale);
+    // Written arithmetic has explicit row/rule semantics of its own. Its
+    // historical projection distances stay unchanged; ordinary equations use
+    // a local scale and spatial evidence independently of empty page height.
+    const equationMode = !options.maskCalculationRules && !options.maskCarryOnes &&
+        !options.maskDivisionRules && !options.minimumColumnRowsAboveRule;
+    let bands = findOcrLineBands(rowInk, width, scale,
+        equationMode ? 'local-scale' : 'canvas-height');
+    if (equationMode) {
+        bands = mergeSpatialOcrLineBands(mask, width, bands, scale);
+    }
     if (options.maskCalculationRules && options.minimumColumnRowsAboveRule) {
         bands = splitOcrColumnLineBands(
             rowInk,
@@ -1544,6 +1569,7 @@ export function segmentOcrCanvas(
         const canvas = document.createElement('canvas');
         canvas.width = cropWidth;
         canvas.height = cropHeight;
+        (canvas as any).__liaOcrPixelScale = scale;
         const cropContext = canvas.getContext('2d', { willReadFrequently: true });
         if (!cropContext) continue;
         const output = cropContext.createImageData(cropWidth, cropHeight);
@@ -1678,6 +1704,7 @@ function hasRelationAt(value: string, index: number): boolean {
 export function alignFirstTopLevelRelation(value: string): string {
     const source = String(value || '');
     if (!source) return source;
+    const groupedEqualities = new Set(findTopLevelGroupedEqualities(source).map(range => range.start));
     let curly = 0;
     let round = 0;
     let square = 0;
@@ -1708,6 +1735,9 @@ export function alignFirstTopLevelRelation(value: string): string {
             }
             index = end;
             continue;
+        }
+        if (relationIndex < 0 && curly === 0 && round === 0 && square === 0 && groupedEqualities.has(index)) {
+            relationIndex = index;
         }
         if (ch === '{') curly++;
         else if (ch === '}') { curly--; if (curly < 0) malformed = true; }
@@ -1874,7 +1904,7 @@ export function findMissingPlusMinusRootLine(
             .split(/\\mid\b/u, 1)[0]
             .replace(/\s/gu, '');
         const equation = /^([A-Za-z])(?:\^\{2\}|\^2|²)=([\s\S]+)$/u.exec(previous);
-        if (!equation || equation[1].toLowerCase() !== target[1].toLowerCase()) continue;
+        if (!equation || equation[1] !== target[1]) continue;
         if (normalizeOcrRootComparison(equation[2]) !==
             normalizeOcrRootComparison(target[2])) continue;
         return index;
@@ -1908,87 +1938,23 @@ export function insertPlusMinusIntoIndexedRootSolution(
     return match[1] + '\\pm' + match[2];
 }
 
-const OCR_GREEK_VARIABLE_COMMANDS = new Set([
-    'alpha', 'beta', 'gamma', 'delta', 'epsilon', 'varepsilon', 'zeta', 'eta',
-    'theta', 'vartheta', 'iota', 'kappa', 'lambda', 'mu', 'nu', 'xi', 'pi',
-    'varpi', 'rho', 'varrho', 'sigma', 'varsigma', 'tau', 'upsilon', 'phi',
-    'varphi', 'chi', 'psi', 'omega'
-]);
-
-function hasBalancedOcrTexGroups(source: string): boolean {
-    let depth = 0;
-    for (let index = 0; index < source.length; index++) {
-        if (source[index] === '\\') {
-            index++;
-            continue;
-        }
-        if (source[index] === '{') depth++;
-        if (source[index] === '}' && --depth < 0) return false;
-    }
-    return depth === 0;
-}
-
 /**
- * Formula OCR sometimes capitalizes the only school-algebra variable. Prefer
- * lowercase x only when the entire block contains no competing variable or
- * explicit uppercase context. Manual edits do not pass through this helper.
- */
-function normalizeUncontextualizedUppercaseX(lines: readonly string[]): string[] {
-    const output = lines.slice();
-    const block = output.join('\n');
-    if (!hasBalancedOcrTexGroups(block)) return output;
-
-    const protectedUppercaseX = [
-        /\\(?:vec|mathbf|mathcal|mathrm|text|operatorname)\s*\{\s*X(?:\s|\})/,
-        /(?:^|[^A-Za-z])X\s*_/m,
-        /_\s*\{?\s*X(?:\s|\}|$)/m,
-        /(?:^|[^A-Za-z])X\s*'(?:\s|$)/m,
-        /(?:^|[^A-Za-z])X\s*\^\s*(?:T|\{\s*(?:T|\\top)\s*\})/m,
-        /(?:^|[^A-Za-z])X\s*\(/m,
-        /(?:^|[^A-Za-z])X\s*=\s*\(/m,
-        /\\Delta\s+X(?:\s|$)/m,
-        /(?:^|[^A-Za-z])X\s*\\sim\b/m,
-        /(?:^|[^A-Za-z])X\s*=.*\\(?:mathrm|text)\b/m
-    ];
-    if (protectedUppercaseX.some(pattern => pattern.test(block))) return output;
-
-    const variables = new Set<string>();
-    for (const source of output) {
-        for (let index = 0; index < source.length;) {
-            const character = source[index];
-            if (character === '\\') {
-                let end = index + 1;
-                while (end < source.length && /[A-Za-z]/.test(source[end])) end++;
-                const command = source.slice(index + 1, end);
-                if (OCR_GREEK_VARIABLE_COMMANDS.has(command)) variables.add('\\' + command);
-                index = Math.max(end, index + 2);
-                continue;
-            }
-            if (/[A-Za-z]/.test(character)) {
-                let end = index + 1;
-                while (end < source.length && /[A-Za-z]/.test(source[end])) end++;
-                const token = source.slice(index, end);
-                variables.add(token.length === 1 && /[xX]/.test(token) ? 'x' : token);
-                index = end;
-                continue;
-            }
-            index++;
-        }
-    }
-    if (variables.size !== 1 || !variables.has('x')) return output;
-
-    return output.map(source => source.replace(
-        /(^|[^A-Za-z\\])X(?=$|[^A-Za-z_])/g,
-        (_match, prefix: string) => prefix + 'x'
-    ));
-}
-
-/**
- * Repairs `exists x=...` as a misread leading `3` only when neighboring rows
- * prove the concrete school-algebra chain `3x... -> 3x=... -> x=...`.
+ * Repairs only an operandless coefficient-dot-relation from a neighboring
+ * variable, preserving letter case. Signed multiplication and quantifiers are
+ * meaningful source notation and cannot be rewritten from adjacent text alone.
  */
 export function normalizeCalculationLineSequence(lines: readonly string[]): string[] {
     const output = lines.map(line => String(line || '').trim());
+    // Competing upper/lowercase letters cannot identify the missing operand.
+    // Ignore TeX command names; letters in their arguments conservatively count.
+    const letters = new Set<string>();
+    for (const source of output) {
+        const plain = source.replace(/\\(?:[A-Za-z]+|[^A-Za-z])/g, '');
+        for (const letter of plain.match(/[A-Za-z]/g) || []) letters.add(letter);
+    }
+    if (Array.from(letters).some(letter =>
+        letters.has(letter.toLowerCase()) && letters.has(letter.toUpperCase())
+    )) return output;
 
     const solvedVariable = (source: string): string => {
         const match = String(source || '').match(
@@ -1997,12 +1963,9 @@ export function normalizeCalculationLineSequence(lines: readonly string[]): stri
         return match ? (match[1] || match[2] || '') : '';
     };
     const leadingCoefficientDot = (
-        source: string,
-        requireImmediateRelation: boolean
+        source: string
     ): { coefficient: string; prefix: string } | null => {
-        const suffix = requireImmediateRelation
-            ? '(?=\\s*(?:==|<=|>=|!=|=|<|>))'
-            : '(?=\\s*(?:[+\\-]|==|<=|>=|!=|=|<|>))';
+        const suffix = '(?=\\s*(?:==|<=|>=|!=|=|<|>))';
         const match = String(source || '').match(new RegExp(
             '^(\\s*[+\\-]?\\s*\\d+(?:[.,]\\d+)?\\s*(?:\\\\,)?\\s*)' +
             '\\\\cdot\\b' + suffix
@@ -2018,7 +1981,7 @@ export function normalizeCalculationLineSequence(lines: readonly string[]): stri
         variable: string,
         expectedCoefficient: string
     ): string => {
-        const candidate = leadingCoefficientDot(source, false);
+        const candidate = leadingCoefficientDot(source);
         if (!candidate || candidate.coefficient !== expectedCoefficient ||
             alignFirstTopLevelRelation(source) === source) return source;
         return source.replace(
@@ -2040,12 +2003,11 @@ export function normalizeCalculationLineSequence(lines: readonly string[]): stri
         };
     };
 
-    // A correctly recognized following row can disambiguate the same
-    // coefficient in the row above: 3\cdot-5=7 followed by 3x=12.
-    // Parenthesized and ordinary multiplication operands do not match the
-    // deliberately narrow leadingCoefficientDot shape.
+    // A following row may identify the missing operand in 3\cdot=12
+    // followed by 3x=12. A signed or parenthesized factor is already an operand
+    // and must remain intact, even when that numerical calculation is wrong.
     for (let index = 0; index + 1 < output.length; index++) {
-        const candidate = leadingCoefficientDot(output[index], false);
+        const candidate = leadingCoefficientDot(output[index]);
         const next = leadingCoefficientVariable(output[index + 1]);
         if (!candidate || !next || candidate.coefficient !== next.coefficient) continue;
         output[index] = repairLeadingCoefficientDot(
@@ -2061,7 +2023,7 @@ export function normalizeCalculationLineSequence(lines: readonly string[]): stri
     // variable from an immediately adjacent solved row such as `X=13/3`.
     // Only consecutive rows with the same leading coefficient are repaired.
     for (let index = 0; index < output.length; index++) {
-        const anchor = leadingCoefficientDot(output[index], true);
+        const anchor = leadingCoefficientDot(output[index]);
         if (!anchor) continue;
         const adjacentVariables = [
             index > 0 ? solvedVariable(output[index - 1]) : '',
@@ -2086,26 +2048,7 @@ export function normalizeCalculationLineSequence(lines: readonly string[]): stri
         }
     }
 
-    for (let index = 1; index + 1 < output.length; index++) {
-        const current = output[index];
-        const existsMatch = current.match(
-            /^(?:\u2203\s*|\\exists\s*)(?:\{([A-Za-z])\}|([A-Za-z]))\s*=/
-        );
-        if (!existsMatch) continue;
-        const variable = existsMatch[1] || existsMatch[2];
-        const previousSource = output[index - 1];
-        const previous = previousSource.replace(/\s+/g, '');
-        const next = output[index + 1].replace(/\s+/g, '');
-        const escapedVariable = variable.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const previousStartsWithThree = new RegExp(
-            '^3(?:\\\\,)?' + escapedVariable + '(?=[+\\-*/^_=<>])'
-        ).test(previous);
-        const nextSolvesVariable = new RegExp('^' + escapedVariable + '=').test(next);
-        const previousHasRelation = alignFirstTopLevelRelation(previousSource) !== previousSource;
-        if (!previousStartsWithThree || !previousHasRelation || !nextSolvesVariable) continue;
-        output[index] = '3' + variable + '=' + current.slice(existsMatch[0].length);
-    }
-    return normalizeUncontextualizedUppercaseX(output);
+    return output;
 }
 
 export function composeMultilineLatex(lines: readonly string[]): string {

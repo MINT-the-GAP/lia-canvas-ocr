@@ -1,0 +1,1124 @@
+{
+  "schema": 2,
+  "measuredAt": "2026-09-06T07:47:26.924Z",
+  "synthetic": true,
+  "rasterOnly": false,
+  "scope": "One authored long equation. Actual production stroke painter, world-crop prefix (including raster origin, padding, limits and alpha binarization), line segmenter, slice helper, ink bounds, geometry planner and output cleanup. Direct reference-model inference bypasses UI, operation/delimiter orchestration, automatic fallback and recognition caches; those are tested separately. No selection or eraser strokes exist in this fixture. This is not a handwriting accuracy study.",
+  "model": "alephpi/FormulaNet",
+  "revision": "63e04c86fc96c2324811114351eeea8118bf6b28",
+  "checksums": {
+    "config.json": "c3816c7ee90aa2815691d2ab376be704964b3735ebd238fb812ff7e0c0cbe336",
+    "tokenizer.json": "1240f9d178e1ad2a0076fe95ba62e332871c702accdd5ce3ae3ef33ffd6c3a1e",
+    "tokenizer_config.json": "714479320ce6dbd82ef3df74be4ef543f3535f96f074ea65056b962805f2ccf7",
+    "generation_config.json": "597241304b9611f729aa859405ee60934fed6c03b38db9dbc4ae86dbe3d2fd93",
+    "special_tokens_map.json": "358c249e2fb29060c6b73157d428853b0c48710deffc8ee670ab1013880946c9",
+    "onnx/encoder_model.onnx": "95cccef463e5ed3623282f1541c0011a00b8a5d0828ea2cd57d6953ad4310b5b",
+    "onnx/decoder_model_merged.onnx": "10be29b751f6de5f9900c3658551020dc865257eb2c3034bc4c1e016e4d0e35d"
+  },
+  "repeats": 3,
+  "bundleSha256": "9cd3599c8455dab255e25ed7d5753a0c892cbfcfb0f08025ba363dddacda21c6",
+  "sourceHashes": {
+    "src/ocr/equation-chunks.ts": "06a6eb81350f1006a0b97d1b56d38f78ae47816cf8ac603bd473e8219e5c4c30",
+    "src/ocr/layout.ts": "b33dffc9bd8d40961cf25dbb18b99b0469eece79ffa26aff6fcdb49b224aefa5",
+    "src/ocr/spatial-layout.ts": "190b5cc2f0a1155cc0ac964d5193663822c3786d82568aade1c344693cf5ecbd",
+    "src/ocr/symbol-geometry.ts": "ff0e2a83f613a76097ddfa6fe7fa3e76de6e6e2b0b07cbf222d4a200b7d14aca",
+    "src/ocr/math-notation.ts": "5434cef00c3815fa6e8fc381f4619144ee6daff64b89c4c2d53ad815f3ce1310",
+    "src/canvas/stroke-rendering.ts": "c4fa95fef42dcc1a082e485bd61d6293bbd2f8c1d2b47590a5077008fb8330fd",
+    "src/canvas/index.ts": "e6bf4c130c804cc3ac174cef6b9d4fdf0a105d51edeab884fbcfd0633c33dad7",
+    "src/ocr/equation-recognition.ts": "7ee8ddce1c02922fb40e887c8c439719ed24ae83d712bc388c61c1c974c8d52e"
+  },
+  "benchmarkSha256": "ebb536645d126c2210c4c8fea7250c5ae100e890acb6cc51937822ac4837b277",
+  "rendererSha256": "d7a05278cf07dc736ee459457974da899275f33a01f0e68eaae1d031cf058968",
+  "selectedMode": "chunks-right-context",
+  "sample": {
+    "id": "synthetic-wide-equation-v1",
+    "family": "long-equation",
+    "synthetic": true,
+    "width": 601,
+    "height": 64,
+    "lineWidth": 3,
+    "expectedLatex": "3x+12+2\\cdot3+12 = 12+3+12+3",
+    "expectedParts": [
+      "3x+12+2\\cdot3+12",
+      "12+3+12+3"
+    ],
+    "strokes": [
+      [
+        {
+          "x": 17.5872,
+          "y": 17.92
+        },
+        {
+          "x": 28.300800000000002,
+          "y": 16
+        },
+        {
+          "x": 34.2528,
+          "y": 22.4
+        },
+        {
+          "x": 30.284799999999997,
+          "y": 29.439999999999998
+        },
+        {
+          "x": 23.936,
+          "y": 32
+        },
+        {
+          "x": 30.4832,
+          "y": 33.6
+        },
+        {
+          "x": 35.443200000000004,
+          "y": 40.96
+        },
+        {
+          "x": 30.284799999999997,
+          "y": 47.36
+        },
+        {
+          "x": 17.5872,
+          "y": 46.08
+        }
+      ],
+      [
+        {
+          "x": 42.944,
+          "y": 19.2
+        },
+        {
+          "x": 58.816,
+          "y": 44.8
+        }
+      ],
+      [
+        {
+          "x": 58.816,
+          "y": 19.2
+        },
+        {
+          "x": 42.944,
+          "y": 44.8
+        }
+      ],
+      [
+        {
+          "x": 66.912,
+          "y": 32.64
+        },
+        {
+          "x": 84.768,
+          "y": 32.64
+        }
+      ],
+      [
+        {
+          "x": 75.84,
+          "y": 18.56
+        },
+        {
+          "x": 75.84,
+          "y": 46.08
+        }
+      ],
+      [
+        {
+          "x": 94.848,
+          "y": 22.4
+        },
+        {
+          "x": 101.792,
+          "y": 16
+        },
+        {
+          "x": 101.792,
+          "y": 48
+        }
+      ],
+      [
+        {
+          "x": 117.824,
+          "y": 22.4
+        },
+        {
+          "x": 121.792,
+          "y": 16
+        },
+        {
+          "x": 130.72,
+          "y": 16
+        },
+        {
+          "x": 134.688,
+          "y": 23.04
+        },
+        {
+          "x": 131.3152,
+          "y": 31.36
+        },
+        {
+          "x": 117.824,
+          "y": 48
+        },
+        {
+          "x": 134.688,
+          "y": 48
+        }
+      ],
+      [
+        {
+          "x": 141.792,
+          "y": 32.64
+        },
+        {
+          "x": 159.64800000000002,
+          "y": 32.64
+        }
+      ],
+      [
+        {
+          "x": 150.72,
+          "y": 18.56
+        },
+        {
+          "x": 150.72,
+          "y": 46.08
+        }
+      ],
+      [
+        {
+          "x": 167.74400000000003,
+          "y": 22.4
+        },
+        {
+          "x": 171.71200000000002,
+          "y": 16
+        },
+        {
+          "x": 180.64000000000001,
+          "y": 16
+        },
+        {
+          "x": 184.608,
+          "y": 23.04
+        },
+        {
+          "x": 181.23520000000002,
+          "y": 31.36
+        },
+        {
+          "x": 167.74400000000003,
+          "y": 48
+        },
+        {
+          "x": 184.608,
+          "y": 48
+        }
+      ],
+      [
+        {
+          "x": 194.56000000000003,
+          "y": 32.64
+        }
+      ],
+      [
+        {
+          "x": 205.10720000000003,
+          "y": 17.92
+        },
+        {
+          "x": 215.82080000000005,
+          "y": 16
+        },
+        {
+          "x": 221.77280000000005,
+          "y": 22.4
+        },
+        {
+          "x": 217.80480000000003,
+          "y": 29.439999999999998
+        },
+        {
+          "x": 211.45600000000005,
+          "y": 32
+        },
+        {
+          "x": 218.00320000000005,
+          "y": 33.6
+        },
+        {
+          "x": 222.96320000000003,
+          "y": 40.96
+        },
+        {
+          "x": 217.80480000000003,
+          "y": 47.36
+        },
+        {
+          "x": 205.10720000000003,
+          "y": 46.08
+        }
+      ],
+      [
+        {
+          "x": 229.47200000000004,
+          "y": 32.64
+        },
+        {
+          "x": 247.32800000000003,
+          "y": 32.64
+        }
+      ],
+      [
+        {
+          "x": 238.40000000000003,
+          "y": 18.56
+        },
+        {
+          "x": 238.40000000000003,
+          "y": 46.08
+        }
+      ],
+      [
+        {
+          "x": 257.4080000000001,
+          "y": 22.4
+        },
+        {
+          "x": 264.35200000000003,
+          "y": 16
+        },
+        {
+          "x": 264.35200000000003,
+          "y": 48
+        }
+      ],
+      [
+        {
+          "x": 280.384,
+          "y": 22.4
+        },
+        {
+          "x": 284.35200000000003,
+          "y": 16
+        },
+        {
+          "x": 293.28000000000003,
+          "y": 16
+        },
+        {
+          "x": 297.24800000000005,
+          "y": 23.04
+        },
+        {
+          "x": 293.87520000000006,
+          "y": 31.36
+        },
+        {
+          "x": 280.384,
+          "y": 48
+        },
+        {
+          "x": 297.24800000000005,
+          "y": 48
+        }
+      ],
+      [
+        {
+          "x": 320.35200000000003,
+          "y": 28.16
+        },
+        {
+          "x": 338.208,
+          "y": 28.16
+        }
+      ],
+      [
+        {
+          "x": 320.35200000000003,
+          "y": 37.120000000000005
+        },
+        {
+          "x": 338.208,
+          "y": 37.120000000000005
+        }
+      ],
+      [
+        {
+          "x": 364.288,
+          "y": 22.4
+        },
+        {
+          "x": 371.23199999999997,
+          "y": 16
+        },
+        {
+          "x": 371.23199999999997,
+          "y": 48
+        }
+      ],
+      [
+        {
+          "x": 387.26399999999995,
+          "y": 22.4
+        },
+        {
+          "x": 391.23199999999997,
+          "y": 16
+        },
+        {
+          "x": 400.15999999999997,
+          "y": 16
+        },
+        {
+          "x": 404.128,
+          "y": 23.04
+        },
+        {
+          "x": 400.75519999999995,
+          "y": 31.36
+        },
+        {
+          "x": 387.26399999999995,
+          "y": 48
+        },
+        {
+          "x": 404.128,
+          "y": 48
+        }
+      ],
+      [
+        {
+          "x": 411.23199999999997,
+          "y": 32.64
+        },
+        {
+          "x": 429.08799999999997,
+          "y": 32.64
+        }
+      ],
+      [
+        {
+          "x": 420.15999999999997,
+          "y": 18.56
+        },
+        {
+          "x": 420.15999999999997,
+          "y": 46.08
+        }
+      ],
+      [
+        {
+          "x": 436.7871999999999,
+          "y": 17.92
+        },
+        {
+          "x": 447.5007999999999,
+          "y": 16
+        },
+        {
+          "x": 453.4527999999999,
+          "y": 22.4
+        },
+        {
+          "x": 449.48479999999995,
+          "y": 29.439999999999998
+        },
+        {
+          "x": 443.1359999999999,
+          "y": 32
+        },
+        {
+          "x": 449.68319999999994,
+          "y": 33.6
+        },
+        {
+          "x": 454.6431999999999,
+          "y": 40.96
+        },
+        {
+          "x": 449.48479999999995,
+          "y": 47.36
+        },
+        {
+          "x": 436.7871999999999,
+          "y": 46.08
+        }
+      ],
+      [
+        {
+          "x": 461.15199999999993,
+          "y": 32.64
+        },
+        {
+          "x": 479.0079999999999,
+          "y": 32.64
+        }
+      ],
+      [
+        {
+          "x": 470.0799999999999,
+          "y": 18.56
+        },
+        {
+          "x": 470.0799999999999,
+          "y": 46.08
+        }
+      ],
+      [
+        {
+          "x": 489.0879999999999,
+          "y": 22.4
+        },
+        {
+          "x": 496.03199999999987,
+          "y": 16
+        },
+        {
+          "x": 496.03199999999987,
+          "y": 48
+        }
+      ],
+      [
+        {
+          "x": 512.0639999999999,
+          "y": 22.4
+        },
+        {
+          "x": 516.0319999999999,
+          "y": 16
+        },
+        {
+          "x": 524.9599999999999,
+          "y": 16
+        },
+        {
+          "x": 528.9279999999999,
+          "y": 23.04
+        },
+        {
+          "x": 525.5551999999999,
+          "y": 31.36
+        },
+        {
+          "x": 512.0639999999999,
+          "y": 48
+        },
+        {
+          "x": 528.9279999999999,
+          "y": 48
+        }
+      ],
+      [
+        {
+          "x": 536.0319999999998,
+          "y": 32.64
+        },
+        {
+          "x": 553.8879999999998,
+          "y": 32.64
+        }
+      ],
+      [
+        {
+          "x": 544.9599999999998,
+          "y": 18.56
+        },
+        {
+          "x": 544.9599999999998,
+          "y": 46.08
+        }
+      ],
+      [
+        {
+          "x": 561.5871999999999,
+          "y": 17.92
+        },
+        {
+          "x": 572.3007999999999,
+          "y": 16
+        },
+        {
+          "x": 578.2527999999999,
+          "y": 22.4
+        },
+        {
+          "x": 574.2847999999999,
+          "y": 29.439999999999998
+        },
+        {
+          "x": 567.9359999999999,
+          "y": 32
+        },
+        {
+          "x": 574.4831999999999,
+          "y": 33.6
+        },
+        {
+          "x": 579.4431999999999,
+          "y": 40.96
+        },
+        {
+          "x": 574.2847999999999,
+          "y": 47.36
+        },
+        {
+          "x": 561.5871999999999,
+          "y": 46.08
+        }
+      ]
+    ],
+    "layout": {
+      "originX": 16,
+      "originY": 16,
+      "glyphHeight": 32,
+      "operationX": 607.3599999999999,
+      "equalityStart": 319.36
+    }
+  },
+  "runs": [
+    {
+      "mode": "whole-64",
+      "rawParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3"
+      ],
+      "tokenBudgets": [
+        64
+      ],
+      "wallMs": 632.6999998092651,
+      "normalizedParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3"
+      ],
+      "repeat": 0,
+      "compositionParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3"
+      ],
+      "composed": "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3",
+      "exactIgnoringWhitespace": true
+    },
+    {
+      "mode": "whole-64",
+      "rawParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3"
+      ],
+      "tokenBudgets": [
+        64
+      ],
+      "wallMs": 639.1999998092651,
+      "normalizedParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3"
+      ],
+      "repeat": 1,
+      "compositionParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3"
+      ],
+      "composed": "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3",
+      "exactIgnoringWhitespace": true
+    },
+    {
+      "mode": "whole-64",
+      "rawParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3"
+      ],
+      "tokenBudgets": [
+        64
+      ],
+      "wallMs": 649,
+      "normalizedParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3"
+      ],
+      "repeat": 2,
+      "compositionParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3"
+      ],
+      "composed": "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3",
+      "exactIgnoringWhitespace": true
+    },
+    {
+      "mode": "whole-adaptive",
+      "rawParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3"
+      ],
+      "tokenBudgets": [
+        128
+      ],
+      "wallMs": 645.3999998569489,
+      "normalizedParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3"
+      ],
+      "repeat": 0,
+      "compositionParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3"
+      ],
+      "composed": "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3",
+      "exactIgnoringWhitespace": true
+    },
+    {
+      "mode": "whole-adaptive",
+      "rawParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3"
+      ],
+      "tokenBudgets": [
+        128
+      ],
+      "wallMs": 625.2000000476837,
+      "normalizedParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3"
+      ],
+      "repeat": 1,
+      "compositionParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3"
+      ],
+      "composed": "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3",
+      "exactIgnoringWhitespace": true
+    },
+    {
+      "mode": "whole-adaptive",
+      "rawParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3"
+      ],
+      "tokenBudgets": [
+        128
+      ],
+      "wallMs": 624.7000000476837,
+      "normalizedParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3"
+      ],
+      "repeat": 2,
+      "compositionParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3"
+      ],
+      "composed": "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3",
+      "exactIgnoringWhitespace": true
+    },
+    {
+      "mode": "chunks",
+      "rawParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2",
+        "^ { 1 2 + 3 + 1 2 + 3 }"
+      ],
+      "tokenBudgets": [
+        64,
+        64
+      ],
+      "wallMs": 1166,
+      "normalizedParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2",
+        "^ { 1 2 + 3 + 1 2 + 3 }"
+      ],
+      "repeat": 0,
+      "compositionParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2",
+        "^ { 1 2 + 3 + 1 2 + 3 }"
+      ],
+      "composed": null,
+      "exactIgnoringWhitespace": false
+    },
+    {
+      "mode": "chunks",
+      "rawParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2",
+        "^ { 1 2 + 3 + 1 2 + 3 }"
+      ],
+      "tokenBudgets": [
+        64,
+        64
+      ],
+      "wallMs": 1168.7000000476837,
+      "normalizedParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2",
+        "^ { 1 2 + 3 + 1 2 + 3 }"
+      ],
+      "repeat": 1,
+      "compositionParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2",
+        "^ { 1 2 + 3 + 1 2 + 3 }"
+      ],
+      "composed": null,
+      "exactIgnoringWhitespace": false
+    },
+    {
+      "mode": "chunks",
+      "rawParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2",
+        "^ { 1 2 + 3 + 1 2 + 3 }"
+      ],
+      "tokenBudgets": [
+        64,
+        64
+      ],
+      "wallMs": 1160,
+      "normalizedParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2",
+        "^ { 1 2 + 3 + 1 2 + 3 }"
+      ],
+      "repeat": 2,
+      "compositionParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2",
+        "^ { 1 2 + 3 + 1 2 + 3 }"
+      ],
+      "composed": null,
+      "exactIgnoringWhitespace": false
+    },
+    {
+      "mode": "chunks-right-context",
+      "rawParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2",
+        "= 1 2 + 3 + 1 2 + 3"
+      ],
+      "tokenBudgets": [
+        64,
+        64
+      ],
+      "wallMs": 1161.6999998092651,
+      "normalizedParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2",
+        "= 1 2 + 3 + 1 2 + 3"
+      ],
+      "repeat": 0,
+      "compositionParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2",
+        "= 1 2 + 3 + 1 2 + 3"
+      ],
+      "composed": "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3",
+      "exactIgnoringWhitespace": true
+    },
+    {
+      "mode": "chunks-right-context",
+      "rawParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2",
+        "= 1 2 + 3 + 1 2 + 3"
+      ],
+      "tokenBudgets": [
+        64,
+        64
+      ],
+      "wallMs": 1164.5,
+      "normalizedParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2",
+        "= 1 2 + 3 + 1 2 + 3"
+      ],
+      "repeat": 1,
+      "compositionParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2",
+        "= 1 2 + 3 + 1 2 + 3"
+      ],
+      "composed": "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3",
+      "exactIgnoringWhitespace": true
+    },
+    {
+      "mode": "chunks-right-context",
+      "rawParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2",
+        "= 1 2 + 3 + 1 2 + 3"
+      ],
+      "tokenBudgets": [
+        64,
+        64
+      ],
+      "wallMs": 1162.5999999046326,
+      "normalizedParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2",
+        "= 1 2 + 3 + 1 2 + 3"
+      ],
+      "repeat": 2,
+      "compositionParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2",
+        "= 1 2 + 3 + 1 2 + 3"
+      ],
+      "composed": "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3",
+      "exactIgnoringWhitespace": true
+    },
+    {
+      "mode": "chunks-both-context",
+      "rawParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2 =",
+        "= 1 2 + 3 + 1 2 + 3"
+      ],
+      "tokenBudgets": [
+        64,
+        64
+      ],
+      "wallMs": 1160.2000000476837,
+      "normalizedParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2 =",
+        "= 1 2 + 3 + 1 2 + 3"
+      ],
+      "repeat": 0,
+      "compositionParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2",
+        "= 1 2 + 3 + 1 2 + 3"
+      ],
+      "composed": "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3",
+      "exactIgnoringWhitespace": true
+    },
+    {
+      "mode": "chunks-both-context",
+      "rawParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2 =",
+        "= 1 2 + 3 + 1 2 + 3"
+      ],
+      "tokenBudgets": [
+        64,
+        64
+      ],
+      "wallMs": 1168.2999999523163,
+      "normalizedParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2 =",
+        "= 1 2 + 3 + 1 2 + 3"
+      ],
+      "repeat": 1,
+      "compositionParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2",
+        "= 1 2 + 3 + 1 2 + 3"
+      ],
+      "composed": "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3",
+      "exactIgnoringWhitespace": true
+    },
+    {
+      "mode": "chunks-both-context",
+      "rawParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2 =",
+        "= 1 2 + 3 + 1 2 + 3"
+      ],
+      "tokenBudgets": [
+        64,
+        64
+      ],
+      "wallMs": 1167.3999998569489,
+      "normalizedParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2 =",
+        "= 1 2 + 3 + 1 2 + 3"
+      ],
+      "repeat": 2,
+      "compositionParts": [
+        "3 x + 1 2 + 2 \\cdot 3 + 1 2",
+        "= 1 2 + 3 + 1 2 + 3"
+      ],
+      "composed": "3 x + 1 2 + 2 \\cdot 3 + 1 2 = 1 2 + 3 + 1 2 + 3",
+      "exactIgnoringWhitespace": true
+    }
+  ],
+  "status": "complete",
+  "loadMs": 3320.0999999046326,
+  "firstInferenceMs": 720.7999999523163,
+  "plan": {
+    "ranges": [
+      {
+        "x0": 12,
+        "x1": 314
+      },
+      {
+        "x0": 336,
+        "x1": 577
+      }
+    ],
+    "separators": [
+      {
+        "x0": 314,
+        "x1": 336,
+        "token": "="
+      }
+    ],
+    "maxNewTokens": 64
+  },
+  "wholeBudget": 128,
+  "modeInputs": {
+    "whole-64": [
+      {
+        "width": 589,
+        "height": 51,
+        "ink": {
+          "xMin": 12,
+          "yMin": 8,
+          "xMax": 576,
+          "yMax": 42,
+          "w": 565,
+          "h": 35,
+          "black": 4700
+        },
+        "rgbaSha256": "ad6853b2c601fa8255bae35d30636881aa03c4634851bbef6a36b193a8beccea",
+        "nonBinaryPixels": 0,
+        "maxNewTokens": 64
+      }
+    ],
+    "whole-adaptive": [
+      {
+        "width": 589,
+        "height": 51,
+        "ink": {
+          "xMin": 12,
+          "yMin": 8,
+          "xMax": 576,
+          "yMax": 42,
+          "w": 565,
+          "h": 35,
+          "black": 4700
+        },
+        "rgbaSha256": "ad6853b2c601fa8255bae35d30636881aa03c4634851bbef6a36b193a8beccea",
+        "nonBinaryPixels": 0,
+        "maxNewTokens": 128
+      }
+    ],
+    "chunks": [
+      {
+        "width": 302,
+        "height": 51,
+        "ink": {
+          "xMin": 0,
+          "yMin": 8,
+          "xMax": 282,
+          "yMax": 42,
+          "w": 283,
+          "h": 35,
+          "black": 2529
+        },
+        "rgbaSha256": "d55b79aa58f7fe00448c3a5874157c9abf88078ad5fa8857cedb2bd8cbc912cb",
+        "nonBinaryPixels": 0,
+        "maxNewTokens": 64
+      },
+      {
+        "width": 241,
+        "height": 51,
+        "ink": {
+          "xMin": 22,
+          "yMin": 8,
+          "xMax": 240,
+          "yMax": 42,
+          "w": 219,
+          "h": 35,
+          "black": 2022
+        },
+        "rgbaSha256": "9601436066e550f0ea50521113a6aa1ee2686e74144f7ecbac55ed111a268f90",
+        "nonBinaryPixels": 0,
+        "maxNewTokens": 64
+      }
+    ],
+    "chunks-right-context": [
+      {
+        "width": 302,
+        "height": 51,
+        "ink": {
+          "xMin": 0,
+          "yMin": 8,
+          "xMax": 282,
+          "yMax": 42,
+          "w": 283,
+          "h": 35,
+          "black": 2529
+        },
+        "rgbaSha256": "d55b79aa58f7fe00448c3a5874157c9abf88078ad5fa8857cedb2bd8cbc912cb",
+        "nonBinaryPixels": 0,
+        "maxNewTokens": 64
+      },
+      {
+        "width": 263,
+        "height": 51,
+        "ink": {
+          "xMin": 0,
+          "yMin": 8,
+          "xMax": 262,
+          "yMax": 42,
+          "w": 263,
+          "h": 35,
+          "black": 2171
+        },
+        "rgbaSha256": "64812aec83c0a7910720bb05785411b4e87229270c0977b15c53696a5355679b",
+        "nonBinaryPixels": 0,
+        "maxNewTokens": 64
+      }
+    ],
+    "chunks-both-context": [
+      {
+        "width": 324,
+        "height": 51,
+        "ink": {
+          "xMin": 0,
+          "yMin": 8,
+          "xMax": 323,
+          "yMax": 42,
+          "w": 324,
+          "h": 35,
+          "black": 2678
+        },
+        "rgbaSha256": "9fc6b3cde215cd79fcfcbefe3e891d4c74e33d42769aab45f134086b1353dd77",
+        "nonBinaryPixels": 0,
+        "maxNewTokens": 64
+      },
+      {
+        "width": 263,
+        "height": 51,
+        "ink": {
+          "xMin": 0,
+          "yMin": 8,
+          "xMax": 262,
+          "yMax": 42,
+          "w": 263,
+          "h": 35,
+          "black": 2171
+        },
+        "rgbaSha256": "64812aec83c0a7910720bb05785411b4e87229270c0977b15c53696a5355679b",
+        "nonBinaryPixels": 0,
+        "maxNewTokens": 64
+      }
+    ]
+  },
+  "raster": {
+    "documentCrop": {
+      "width": 589,
+      "height": 59,
+      "ink": {
+        "xMin": 12,
+        "yMin": 12,
+        "xMax": 576,
+        "yMax": 46,
+        "w": 565,
+        "h": 35,
+        "black": 4700
+      },
+      "rgbaSha256": "bc4564c253aeceadf293726b1ed560ab6e6afe3b8dc4e558b8d1203414833eb3",
+      "nonBinaryPixels": 0
+    },
+    "lineCrop": {
+      "width": 589,
+      "height": 51,
+      "ink": {
+        "xMin": 12,
+        "yMin": 8,
+        "xMax": 576,
+        "yMax": 42,
+        "w": 565,
+        "h": 35,
+        "black": 4700
+      },
+      "rgbaSha256": "ad6853b2c601fa8255bae35d30636881aa03c4634851bbef6a36b193a8beccea",
+      "nonBinaryPixels": 0
+    },
+    "worldBounds": {
+      "x": 4.087199999999999,
+      "y": 2.5
+    },
+    "pixelScale": 1,
+    "lineBbox": {
+      "x": 0,
+      "y": 4,
+      "width": 589,
+      "height": 51
+    },
+    "lineInkBox": {
+      "x": 12,
+      "y": 12,
+      "width": 565,
+      "height": 35
+    },
+    "layoutVersion": "lines-v22-priority3-spatial-equations"
+  },
+  "environment": {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+    "crossOriginIsolated": false,
+    "hardwareConcurrency": 16,
+    "devicePixelRatio": 1
+  },
+  "loadMeasurement": "Verified weights served locally; pinned runtime modules load from an external CDN.",
+  "pageErrors": []
+}

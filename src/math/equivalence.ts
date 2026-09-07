@@ -1,11 +1,16 @@
+import { normalizeTopLevelEqualityGroups } from './equality-groups.ts';
+import type { CalculationMethodReason, CalculationCheckRole } from './calculation-methods';
+
 export type TransitionStatus = 'valid' | 'invalid' | 'unknown';
 export type TransitionSide = 'left' | 'right' | 'both';
 
-type AlgebriteRuntime = {
+export type AlgebriteRuntime = {
     run(source: string): unknown;
 };
 
 export type TransitionValidationOptions = {
+    /** Optional bounded runtime supplied by the complete-path checker. */
+    runtime?: AlgebriteRuntime | null;
     /**
      * Symbols the caller can prove are non-zero in the exercise context.
      * No such assumption is made implicitly.
@@ -32,7 +37,7 @@ export type CalculationPromptCheck = {
 
 export type CalculationFinalCheck = {
     status: 'valid' | 'incomplete' | 'unknown';
-    reason: 'solved-variable' | 'solved-root-set' | 'not-isolated' | 'unsupported';
+    reason: 'solved-variable' | 'solved-root-set' | 'solved-system' | 'not-isolated' | 'unsupported';
 };
 
 export type CalculationQuizGrade = {
@@ -50,6 +55,7 @@ export type CalculationQuizGrade = {
 };
 
 export type TransitionReason =
+    | CalculationMethodReason
     | 'operation-applied-both-sides'
     | 'operation-missing-left'
     | 'operation-missing-right'
@@ -74,14 +80,16 @@ export type TransitionCheck = {
     messageKey: string;
     side?: TransitionSide;
     operation?: string;
+    role?: CalculationCheckRole;
+    dependencies?: readonly number[];
 };
 
-type NormalizedExpression = {
+export type NormalizedExpression = {
     cas: string;
     domainRisk: boolean;
 };
 
-type ParsedEquation = {
+export type ParsedEquation = {
     left: NormalizedExpression;
     right: NormalizedExpression;
 };
@@ -132,7 +140,7 @@ type QuarticSolutionTarget = {
     hasPlusMinus: boolean;
 };
 
-type Proof = boolean | null;
+export type Proof = boolean | null;
 
 type LinearEquation =
     | { kind: 'identity' }
@@ -463,21 +471,16 @@ function convertTexFragment(source: string, nesting = 0): NormalizedExpression |
             index++;
             continue;
         }
-        if (character === ',') {
-            const previous = source[index - 1] || '';
-            const following = source[index + 1] || '';
-            if (!/\d/u.test(previous) || !/\d/u.test(following)) return null;
-            output += '.';
-            index++;
-            continue;
-        }
         if (/[0-9.]/u.test(character)) {
-            let end = index + 1;
-            while (end < source.length && /[0-9.]/u.test(source[end])) end++;
-            const number = source.slice(index, end);
-            if (!/^\d+(?:\.\d+)?$/u.test(number) || number.length > 24) return null;
+            // Read the decimal comma as part of one scalar number. Ordinary
+            // TeX source whitespace around it does not change its value;
+            // commands, indices and structural list separators stay separate.
+            const literal = /^\d+(?:(?:\s*,\s*|\.)\d+)?/u.exec(source.slice(index));
+            if (!literal) return null;
+            const number = literal[0].replace(/\s/gu, '').replace(',', '.');
+            if (number.length > 24) return null;
             output += number;
-            index = end;
+            index += literal[0].length;
             continue;
         }
         if (/[A-Za-z]/u.test(character)) {
@@ -562,7 +565,7 @@ function findOperationSeparator(source: string): { start: number; end: number } 
 }
 
 function splitLine(value: string): { equation: string; operation: string | null } {
-    const source = stripMathDelimiters(value);
+    const source = normalizeTopLevelEqualityGroups(stripMathDelimiters(value));
     const separator = findOperationSeparator(source);
     if (!separator) return { equation: source, operation: null };
     return {
@@ -580,7 +583,7 @@ export function extractCalculationEquation(value: string): string {
 }
 
 function stripLeadingImplication(value: string): string {
-    let source = stripMathDelimiters(value);
+    let source = normalizeTopLevelEqualityGroups(stripMathDelimiters(value));
     for (;;) {
         // Formula OCR may render the learner's leading continuation marker as
         // a plain right arrow. Strip only a complete token at the beginning
@@ -622,7 +625,7 @@ function findSingleTopLevelEquality(source: string): number | null {
 }
 
 function hasAmbiguousInlineDivideNotation(value: string): boolean {
-    const source = stripMathDelimiters(value);
+    const source = normalizeTopLevelEqualityGroups(stripMathDelimiters(value));
     const equality = findSingleTopLevelEquality(source);
     if (equality === null) return false;
     let curly = 0;
@@ -1261,7 +1264,7 @@ export function validateEquationTransition(
         );
     }
 
-    const runtime = resolveAlgebriteRuntime();
+    const runtime = options.runtime === undefined ? resolveAlgebriteRuntime() : options.runtime;
     if (!runtime) {
         return transition(
             fromSource,
@@ -1586,7 +1589,7 @@ const SOLVED_ROOT_REASONS = new Set<TransitionReason>([
 ]);
 
 function splitAlignedCalculationRows(value: string): string[] | null {
-    const source = stripMathDelimiters(value);
+    const source = normalizeTopLevelEqualityGroups(stripMathDelimiters(value));
     const begin = '\\begin{aligned}';
     const end = '\\end{aligned}';
     if (!source.startsWith(begin) || !source.endsWith(end)) return null;
@@ -1809,7 +1812,7 @@ export function validateCalculationSubmission(
     if (lines.length > MAX_CALCULATION_QUIZ_LINES) {
         return baseCalculationGrade(lines, 'incomplete', 'final', 'too-many-lines');
     }
-    const runtime = resolveAlgebriteRuntime();
+    const runtime = options.runtime === undefined ? resolveAlgebriteRuntime() : options.runtime;
     if (!runtime) {
         return baseCalculationGrade(lines, 'unknown', 'prompt', 'cas-unavailable');
     }
@@ -1899,3 +1902,23 @@ export function validateCalculationSubmission(
         finalCheck
     };
 }
+
+
+// Shared, bounded primitives for context-aware calculation proofs. Expressions
+// reach the CAS only after the same restricted TeX parser used by legacy checks.
+export const calculationProofTools = Object.freeze({
+    convertTexFragment,
+    parseEquation,
+    splitLine,
+    variablesIn,
+    casRun,
+    proveExpressionIdentity,
+    numericCasValue,
+    resolveAlgebriteRuntime,
+    isBareCalculationVariable,
+    parseOperation,
+    applyOperation,
+    decodeCalculationSubmission,
+    checkCalculationPrompt,
+    checkCalculationFinal
+});

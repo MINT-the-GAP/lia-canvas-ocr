@@ -1,4 +1,5 @@
 // Versioned, data-only Freeze projection of a rendered calculation review.
+import { CALCULATION_METHOD_REASONS, type CalculationCheckRole } from '../math/calculation-methods.ts';
 
 export const CALCULATION_REVIEW_FREEZE_VERSION = 'cr1' as const;
 // Keep enough rows to freeze the largest supported written addition:
@@ -14,6 +15,9 @@ export type CalculationReviewFreezeCheck = {
     status: CalculationReviewFreezeCheckStatus;
     reason: string;
     side?: CalculationReviewFreezeSide;
+    fromIndex?: number;
+    toIndex?: number;
+    role?: CalculationCheckRole;
 };
 
 export type CalculationReviewFreezeState = {
@@ -43,7 +47,8 @@ const CHECK_SIDES = new Set<CalculationReviewFreezeSide>([
 ]);
 
 // Keep this whitelist synchronized with TransitionReason in math/equivalence.ts.
-const CHECK_REASONS = new Set([
+const CHECK_REASONS = new Set<string>([
+    ...CALCULATION_METHOD_REASONS,
     'operation-applied-both-sides',
     'operation-missing-left',
     'operation-missing-right',
@@ -83,7 +88,11 @@ function sanitizeLines(value: unknown): string[] | null {
     return lines;
 }
 
-function sanitizeCheck(value: unknown): CalculationReviewFreezeCheck | null {
+const CHECK_ROLES = new Set<CalculationCheckRole>([
+    'equivalence', 'given', 'auxiliary', 'definition', 'verification', 'system', 'branch', 'annotation'
+]);
+
+function sanitizeCheck(value: unknown, lineCount: number): CalculationReviewFreezeCheck | null {
     if (!isRecord(value) ||
         typeof value.status !== 'string' ||
         !CHECK_STATUSES.has(value.status as CalculationReviewFreezeCheckStatus) ||
@@ -95,6 +104,13 @@ function sanitizeCheck(value: unknown): CalculationReviewFreezeCheck | null {
         !CHECK_SIDES.has(value.side as CalculationReviewFreezeSide)
     )) return null;
 
+    if (value.fromIndex !== undefined || value.toIndex !== undefined) {
+        if (!Number.isInteger(value.fromIndex) || !Number.isInteger(value.toIndex) ||
+            Number(value.fromIndex) < 0 || Number(value.toIndex) >= lineCount ||
+            Number(value.fromIndex) >= Number(value.toIndex)) return null;
+    }
+    if (value.role !== undefined && !CHECK_ROLES.has(value.role as CalculationCheckRole)) return null;
+
     const check: CalculationReviewFreezeCheck = {
         status: value.status as CalculationReviewFreezeCheckStatus,
         reason: value.reason
@@ -102,6 +118,11 @@ function sanitizeCheck(value: unknown): CalculationReviewFreezeCheck | null {
     if (value.side !== undefined) {
         check.side = value.side as CalculationReviewFreezeSide;
     }
+    if (value.fromIndex !== undefined) {
+        check.fromIndex = value.fromIndex as number;
+        check.toIndex = value.toIndex as number;
+    }
+    if (value.role !== undefined) check.role = value.role as CalculationCheckRole;
     return check;
 }
 
@@ -127,7 +148,7 @@ export function sanitizeCalculationReviewFreezeState(
 
     const checks: CalculationReviewFreezeCheck[] = [];
     for (const rawCheck of value.checks) {
-        const check = sanitizeCheck(rawCheck);
+        const check = sanitizeCheck(rawCheck, lines.length);
         if (!check) return null;
         checks.push(check);
     }

@@ -1,5 +1,32 @@
 // LiaScript language-aware text helper for canvas OCR UI.
 
+import { CALCULATION_METHOD_GERMAN, type CalculationCheckRole } from '../math/calculation-methods';
+
+const CALCULATION_ROLE_LABELS: Record<CalculationCheckRole, string> = {
+    equivalence: 'Equation transformation', given: 'Given equation', auxiliary: 'Auxiliary calculation',
+    definition: 'Definition', verification: 'Verification', system: 'System step', branch: 'Solution branch', annotation: 'Annotation'
+};
+
+export function calculationRoleLabel(role: CalculationCheckRole, translate: (key: string, fallback: string) => string): string {
+    return translate('ocr.plus.validation.role.' + role, CALCULATION_ROLE_LABELS[role]);
+}
+
+export function calculationRoleCheckLabel(
+    role: CalculationCheckRole | undefined, from: number, to: number,
+    status: 'valid' | 'invalid' | 'unknown' | 'pending', stale: boolean,
+    translate: (key: string, fallback: string) => string
+): string | null {
+    if (!role || role === 'equivalence') return null;
+    const positions = translate('ocr.plus.validation.relatedLines', 'line {from} to line {to}')
+        .replace('{from}', String(from + 1)).replace('{to}', String(to + 1));
+    const verdict = stale ? translate('ocr.plus.validation.outdatedLabel', 'Outdated')
+        : status === 'valid' ? translate('ocr.plus.validation.correct', 'Correct')
+            : status === 'invalid' ? translate('ocr.plus.validation.incorrect', 'Incorrect')
+                : status === 'pending' ? translate('ocr.plus.validation.checking', 'Checking')
+                    : translate('ocr.plus.validation.unknownLabel', 'Not checked');
+    return calculationRoleLabel(role, translate) + ': ' + positions + ': ' + verdict + '.';
+}
+
 function currentLiaLang(): string {
     try {
         const fromDoc = document.documentElement && document.documentElement.lang;
@@ -46,6 +73,17 @@ const I18N_STATE: I18nState = (window as any).__LIA_CANVAS_I18N_STATE__ =
 
 const BUILTIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     de: {
+        ...CALCULATION_METHOD_GERMAN,
+        'ocr.plus.validation.role.equivalence': 'Gleichungsumformung',
+        'ocr.plus.validation.role.given': 'Gegebene Gleichung',
+        'ocr.plus.validation.role.auxiliary': 'Nebenrechnung',
+        'ocr.plus.validation.role.definition': 'Definition',
+        'ocr.plus.validation.role.verification': 'Probe',
+        'ocr.plus.validation.role.system': 'Systemschritt',
+        'ocr.plus.validation.role.branch': 'Lösungszweig',
+        'ocr.plus.validation.role.annotation': 'Beschriftung',
+        'ocr.plus.validation.relatedLines': 'Zeile {from} zu Zeile {to}',
+        'ocr.plus.validation.outdatedLabel': 'Veraltet',
         'ocr.quiz.tooFewLines': 'Schreibe die Ausgangsgleichung und mindestens einen L\u00f6sungsschritt.',
         'ocr.quiz.tooManyLines': 'Verwende h\u00f6chstens 32 Rechenzeilen.',
         'ocr.quiz.invalidFormat': 'Der \u00fcbergebene Rechenweg konnte nicht gelesen werden.',

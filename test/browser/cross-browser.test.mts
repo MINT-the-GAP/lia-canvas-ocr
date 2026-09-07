@@ -26,6 +26,11 @@ import {
 } from './support.mts';
 import { registerColumnAdditionBrowserRegression } from './column-addition-regression.mts';
 import { registerWrittenArithmeticBrowserRegression } from './written-arithmetic-regression.mts';
+import { registerPriorityOneBrowserRegression } from './priority-one-regression.mts';
+import { registerPriorityThreeBrowserRegression } from './priority-three-regression.mts';
+import { registerPriorityFourBrowserRegression } from './priority-four-regression.mts';
+import { registerFormulaNetProfileBrowserRegression } from './formulanet-profile-regression.mts';
+import { registerVariableCaseBrowserRegression } from './variable-case-regression.mts';
 
 const projects: Array<{ name: string; browserType: BrowserType }> = [
   { name: 'chromium', browserType: chromium },
@@ -651,6 +656,11 @@ async function navigateToSecondPageAndCaptureCleanup(page: Page) {
 
 registerColumnAdditionBrowserRegression();
 registerWrittenArithmeticBrowserRegression();
+registerPriorityOneBrowserRegression();
+registerPriorityThreeBrowserRegression();
+registerPriorityFourBrowserRegression();
+registerFormulaNetProfileBrowserRegression();
+registerVariableCaseBrowserRegression();
 
 for (const project of projects) {
   test(
@@ -1375,6 +1385,11 @@ for (const project of projects) {
             '.lia-canvas-pair[data-canvas-mode=plus] .lia-canvas-launch',
           );
           const page = plusHarness.page;
+          await page.waitForFunction(
+            () => Boolean(window.__LIA_CANVAS_OCR__),
+            undefined,
+            { timeout: 10_000 },
+          );
           const plusPairSelector =
             '.lia-canvas-pair[data-canvas-mode=plus][data-canvas-output=answer]';
           const plusPair = page.locator(plusPairSelector);
@@ -1425,6 +1440,10 @@ for (const project of projects) {
           await page.evaluate(selector => {
             const pair = document.querySelector(selector);
             if (!pair) throw new Error('Calculation pair not found.');
+            // This OCR/review harness deliberately switches between unrelated
+            // calculations. Give each recognized block its own first-line
+            // context; dedicated native-quiz harnesses retain the course prompt.
+            pair.removeAttribute('data-calculation-prompt');
             (window as any).katex = {
               render(tex: string, target: HTMLElement) {
                 target.textContent = 'rendered: ' + tex;
@@ -1475,19 +1494,22 @@ for (const project of projects) {
                   input.height,
                 ]);
                 const call = ++(window as any).__liaCanvasPlusRecognizeCalls;
-                if (call === 1) return '3\\cdot-5=7';
+                // This UI/cache harness supplies explicit lowercase variables.
+                // Case and signed-factor preservation have dedicated regressions;
+                // the deliberately wrong 15 below must remain wrong.
+                if (call === 1) return '3x-5=7';
                 if (call === 2) return '+5';
-                if (call === 3) return '3X=12';
+                if (call === 3) return '3x=12';
                 if (call === 4) return ':3';
-                if (call === 5) return 'X=4';
-                if (call === 6) return '3X=15';
+                if (call === 5) return 'x=4';
+                if (call === 6) return '3x=15';
                 // Regression: a tiny side crop can lose the ':' while the
                 // independently drawn hookless operation bar remains certain.
                 if (call === 7) return '3';
-                if (call === 8) return '3X=15:3';
-                if (call === 9) return '3\\cdot-5=7';
+                if (call === 8) return '3x=15:3';
+                if (call === 9) return '3x-5=7';
                 if (call === 10) return '5';
-                if (call === 11) return '3\\cdot-5=7+5';
+                if (call === 11) return '3x-5=7+5';
                 throw new Error('unexpected uncached canvasplus OCR call');
               },
             };
@@ -1710,7 +1732,7 @@ for (const project of projects) {
                 },
               ],
             },
-            'geometry, contextual x repair and Algebrite must validate the reported chain',
+            'geometry and Algebrite must validate the explicitly recognized lowercase-variable chain',
           );
           const resultToggle = output.locator(
             ':scope > summary.lia-canvasplus-result-toggle',
@@ -2888,7 +2910,7 @@ for (const project of projects) {
           assert.deepEqual(quadraticResult.codes, [
             'operation-applied-both-sides',
             'operation-applied-both-sides',
-            'quadratic-root-solutions',
+            'complete-real-solutions',
           ]);
           assert.equal((quadraticResult.latex.match(/\\mid/g) || []).length, 2);
           assert.equal(/-21|31|241\.4|;/.test(quadraticResult.latex), false);
@@ -2961,7 +2983,7 @@ for (const project of projects) {
             [
               'operation-applied-both-sides',
               'operation-applied-both-sides',
-              'quadratic-root-solutions',
+              'complete-real-solutions',
             ],
           );
           assert.equal(
@@ -3006,7 +3028,7 @@ for (const project of projects) {
             [
               'operation-applied-both-sides',
               'operation-applied-both-sides',
-              'quadratic-root-solutions',
+              'complete-real-solutions',
             ],
           );
           assert.equal(
@@ -3055,7 +3077,7 @@ for (const project of projects) {
             [
               'operation-applied-both-sides',
               'operation-applied-both-sides',
-              'quadratic-root-solutions',
+              'complete-real-solutions',
             ],
           );
           assert.equal(
@@ -3106,7 +3128,7 @@ for (const project of projects) {
           );
           assert.equal(
             await continuedTransitions.nth(2).getAttribute('data-code'),
-            'quadratic-root-solutions',
+            'complete-real-solutions',
           );
           assert.equal(
             await output.locator(
@@ -3551,6 +3573,12 @@ for (const project of projects) {
             '.lia-canvas-pair[data-canvas-mode=plus] .lia-canvas-launch',
           );
           const page = selectionHarness.page;
+          // Course markup can precede the asynchronously loaded template bundle.
+          await page.waitForFunction(
+            () => Boolean(window.__LIA_CANVAS_OCR__),
+            undefined,
+            { timeout: 10_000 },
+          );
           const pairSelector =
             '.lia-canvas-pair[data-canvas-mode=plus][data-canvas-output=answer]';
           const pair = page.locator(pairSelector);
@@ -3821,12 +3849,12 @@ for (const project of projects) {
           const fullBlockLatex = await output.getAttribute('data-latex');
           assert.equal(
             await page.evaluate(() => (window as any).__liaSelectionRecognizeCalls),
-            4,
-            'the first full-block render may use scope-specific line fingerprints',
+            2,
+            'both complete, unchanged strokes must reuse their selected-row recognition in the full block',
           );
           assert.deepEqual(
             await page.evaluate(() => (window as any).__liaSelectionSignatures),
-            ['down', 'up', 'down', 'up'],
+            ['down', 'up'],
           );
           assert.equal(
             await page.evaluate(() => (window as any).__liaSelectionRenderEvents),
@@ -3875,7 +3903,7 @@ for (const project of projects) {
           );
           assert.equal(
             await page.evaluate(() => (window as any).__liaSelectionRecognizeCalls),
-            4,
+            2,
           );
           assert.match((await status.innerText()).trim(), /selected area|Bereich/i);
           assert.equal(await submit.isDisabled(), true);
@@ -3900,12 +3928,12 @@ for (const project of projects) {
           );
           assert.equal(
             await page.evaluate(() => (window as any).__liaSelectionRecognizeCalls),
-            4,
+            2,
           );
           assert.equal(await output.getAttribute('data-latex'), fullBlockLatex);
           assert.deepEqual(
             await page.evaluate(() => (window as any).__liaSelectionSignatures),
-            ['down', 'up', 'down', 'up'],
+            ['down', 'up'],
           );
           assert.equal(
             await page.evaluate(() => (window as any).__liaSelectionRenderEvents),
@@ -3939,6 +3967,11 @@ for (const project of projects) {
             classicPairSelector + ' .lia-canvas-launch',
           );
           const page = mixedHarness.page;
+          await page.waitForFunction(
+            () => Boolean(window.__LIA_CANVAS_OCR__),
+            undefined,
+            { timeout: 10_000 },
+          );
           const classicPair = page.locator(classicPairSelector);
           const plusPair = page.locator(plusPairSelector);
           assert.equal(await classicPair.count(), 1);
@@ -4131,6 +4164,11 @@ for (const project of projects) {
             pairSelector + ' .lia-canvas-launch',
           );
           const page = calculationQuizHarness.page;
+          await page.waitForFunction(
+            () => Boolean(window.__LIA_CANVAS_OCR__),
+            undefined,
+            { timeout: 10_000 },
+          );
           const defaultPair = page.locator(pairSelector);
           assert.equal(
             new URL(page.url()).hash,
@@ -4919,6 +4957,11 @@ for (const project of projects) {
             pairSelector + ' .lia-canvas-launch',
           );
           const page = calculationResolveHarness.page;
+          await page.waitForFunction(
+            () => Boolean(window.__LIA_CANVAS_OCR__),
+            undefined,
+            { timeout: 10_000 },
+          );
           assert.equal(
             new URL(page.url()).hash,
             '#1',
@@ -5665,6 +5708,11 @@ for (const project of projects) {
             pairSelector + ' .lia-canvas-launch',
           );
           const page = missingCasHarness.page;
+          await page.waitForFunction(
+            () => Boolean(window.__LIA_CANVAS_OCR__),
+            undefined,
+            { timeout: 10_000 },
+          );
           const pair = page.locator(pairSelector);
           assert.equal(
             await page.evaluate(() => typeof (window as any).Algebrite),

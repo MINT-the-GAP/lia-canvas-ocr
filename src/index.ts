@@ -42,14 +42,15 @@ export const LIA: any = (window as any).__LIA_CANVAS_OCR__ = (window as any).__L
 
 import { ensureOcrBar } from './ocr/bar';
 import { ensureOcrEngine } from './ocr/engine';
+import { getReferenceFormulaOcrEngine } from './ocr/formulanet-engine';
+import { createProfiledFormulaOcrEngine } from './ocr/formulanet-profiled-engine';
+import type { FormulaOcrProfileId } from './ocr/formulanet-profiles';
 import { applyThemeVars, getThemeDocument } from './canvas/theme';
 import { ensureCanvasFreezeApi } from './canvas/freeze';
 import { initAll, canvasMarkup } from './canvas/index';
 import { liaT } from './lia/i18n';
-import {
-  validateCalculationSubmission,
-  type CalculationQuizGrade,
-} from './math/equivalence';
+import { validateCalculationPathSubmission as validateCalculationSubmission } from './math/calculation-path';
+import type { CalculationQuizGrade } from './math/equivalence';
 import {
   validateColumnAdditionSubmission
 } from './math/column-arithmetic';
@@ -62,6 +63,11 @@ import {
   type WrittenArithmeticKind,
   type WrittenArithmeticValidation
 } from './math/written-arithmetic';
+
+// Explicit opt-in factory for development measurements and pinned course profiles.
+// The reference path remains the production default until a profile is selected.
+LIA.createFormulaOcrEngine = (profileId: FormulaOcrProfileId | 'reference' = 'reference', options?: any) =>
+  profileId === 'reference' ? getReferenceFormulaOcrEngine() : createProfiledFormulaOcrEngine(profileId, options);
 
 const CANVAS_PAIR_SELECTOR = '.lia-canvas-pair';
 const THEME_ATTRIBUTES = ['class', 'style', 'data-theme', 'data-color-scheme'];
@@ -90,9 +96,10 @@ function calculationQuizMessage(grade: CalculationQuizGrade): string {
     return liaT('ocr.quiz.taskMismatch', 'The first line must match the given equation.');
   }
   if (grade.firstProblem?.stage === 'transition') {
+    const check = grade.transitionChecks.find(check => check.toIndex === (line ?? 0) + 1);
     return liaT('ocr.quiz.transitionProblem', 'Check the transition from line {from} to line {to}.')
-      .replace('{from}', String((line ?? 0) + 1))
-      .replace('{to}', String((line ?? 0) + 2));
+      .replace('{from}', String((check?.fromIndex ?? line ?? 0) + 1))
+      .replace('{to}', String(check ? check.toIndex + 1 : (line ?? 0) + 2));
   }
   if (grade.firstProblem?.stage === 'final') {
     return liaT('ocr.quiz.notSolved', 'Finish by isolating the variable or writing the complete root solution.');

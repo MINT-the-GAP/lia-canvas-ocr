@@ -107,3 +107,48 @@ test('enforces calculation review line and serialized-size limits', () => {
     null,
   );
 });
+
+
+test('retains explicit path dependencies and roles while keeping the cr1 format', () => {
+  const review = {
+    v: 'cr1', state: 'ready',
+    lines: ['3x-2=5x+4', '-2x=6', 'x=-3', String.raw`\text{Probe: }3\cdot(-3)-2=5\cdot(-3)+4`],
+    checks: [
+      { status: 'valid', reason: 'equivalent-linear-equations', fromIndex: 0, toIndex: 1, role: 'equivalence' },
+      { status: 'valid', reason: 'equivalent-linear-equations', fromIndex: 1, toIndex: 2 },
+      { status: 'valid', reason: 'verification-step', fromIndex: 0, toIndex: 3, role: 'verification' },
+    ],
+  };
+  assert.deepEqual(sanitizeCalculationReviewFreezeState(review), review);
+  const withUntrustedProse = { ...review, checks: review.checks.map(check => ({
+    ...check, message: '<b>invented verdict</b>', dependencies: ['not serialized'],
+  })) };
+  assert.deepEqual(sanitizeCalculationReviewFreezeState(withUntrustedProse), review,
+    'shared links retain data, not arbitrary rendered messages or HTML');
+});
+
+test('rejects incomplete, reversed, out-of-range and non-integer dependency indices', () => {
+  for (const fields of [
+    { fromIndex: 0 }, { toIndex: 2 }, { fromIndex: -1, toIndex: 1 },
+    { fromIndex: 0, toIndex: 3 }, { fromIndex: 1, toIndex: 1 },
+    { fromIndex: 2, toIndex: 1 }, { fromIndex: 0.5, toIndex: 1 },
+    { fromIndex: 0, toIndex: NaN }, { fromIndex: 0, toIndex: Infinity },
+    { fromIndex: '0', toIndex: 1 }, { role: 'invented-role' }, { role: null },
+  ]) {
+    assert.equal(sanitizeCalculationReviewFreezeState({
+      ...readyReview, checks: [{ ...readyReview.checks[0], ...fields }, readyReview.checks[1]],
+    }), null, JSON.stringify(fields));
+  }
+});
+
+test('accepts every supported procedure role without adding metadata to old checks', () => {
+  const roles = ['equivalence', 'given', 'auxiliary', 'definition', 'verification', 'system', 'branch', 'annotation'];
+  for (const role of roles) {
+    const review = { ...readyReview, checks: [
+      { ...readyReview.checks[0], role }, readyReview.checks[1],
+    ] };
+    assert.deepEqual(sanitizeCalculationReviewFreezeState(review), review);
+  }
+  assert.deepEqual(sanitizeCalculationReviewFreezeState(readyReview), readyReview,
+    'an old cr1 review must not gain new fields during migration');
+});

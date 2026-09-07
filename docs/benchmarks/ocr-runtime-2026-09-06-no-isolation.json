@@ -1,0 +1,3135 @@
+{
+  "schema": 1,
+  "measuredAt": "2026-09-06T06:35:07.523Z",
+  "corpus": {
+    "id": "berechneocr-synthetic-development-v1",
+    "synthetic": true,
+    "source": "Authored glyph paths from test/browser/real-formula-block.test.mts and authored layouts.",
+    "limitation": "Exact matches measure this synthetic development sample only, not general handwriting accuracy or solution-method validation.",
+    "caseIds": [
+      "linear-result",
+      "multiplication-tap"
+    ]
+  },
+  "environment": {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+    "crossOriginIsolated": false,
+    "hardwareConcurrency": 16,
+    "adapter": {
+      "vendor": "nvidia",
+      "architecture": "turing",
+      "device": "",
+      "description": "",
+      "isFallbackAdapter": false
+    },
+    "adapterFeatures": [
+      "bgra8unorm-storage",
+      "clip-distances",
+      "core-features-and-limits",
+      "depth-clip-control",
+      "depth32float-stencil8",
+      "dual-source-blending",
+      "float32-blendable",
+      "float32-filterable",
+      "indirect-first-instance",
+      "primitive-index",
+      "rg11b10ufloat-renderable",
+      "shader-f16",
+      "subgroups",
+      "texture-component-swizzle",
+      "texture-compression-bc",
+      "texture-compression-bc-sliced-3d",
+      "texture-formats-tier1",
+      "texture-formats-tier2",
+      "timestamp-query"
+    ],
+    "browserChannel": "chromium",
+    "headless": true,
+    "unsafeGpuFlags": false
+  },
+  "repeats": 2,
+  "tokenLimit": 64,
+  "loadMeasurement": "Fresh browser context per profile; verified pinned weights served locally. Runtime modules still load from their pinned external CDN. Load time mixes runtime transfer and initialization; it is not internet model download timing.",
+  "gpuMeasurement": "Session execution providers are confirmed, but ONNX may run unsupported operators on CPU. GPU-only execution is not claimed.",
+  "modelManifest": {
+    "schema": 1,
+    "model": "alephpi/FormulaNet",
+    "revision": "63e04c86fc96c2324811114351eeea8118bf6b28",
+    "created_utc": "2026-09-06T06:08:01.733896+00:00",
+    "python": "3.14.3",
+    "export_tools": {
+      "onnx": "1.22.0",
+      "onnxruntime": "1.29.0",
+      "onnxconverter-common": "1.16.0",
+      "numpy": "2.5.2",
+      "protobuf": "7.36.1"
+    },
+    "browser_target": {
+      "transformers_js": "3.8.1",
+      "onnxruntime_web": "1.22.0-dev.20250409-89f8206ba4"
+    },
+    "runtime_dtype_selector": "fp32",
+    "training": false,
+    "inference": "not_run",
+    "variants": {
+      "fp32": {
+        "status": "checked",
+        "weights_precision": "fp32",
+        "files": [
+          {
+            "path": "fp32/63e04c86fc96c2324811114351eeea8118bf6b28/config.json",
+            "bytes": 5014,
+            "sha256": "c3816c7ee90aa2815691d2ab376be704964b3735ebd238fb812ff7e0c0cbe336",
+            "source_url": "https://huggingface.co/alephpi/FormulaNet/resolve/63e04c86fc96c2324811114351eeea8118bf6b28/config.json"
+          },
+          {
+            "path": "fp32/63e04c86fc96c2324811114351eeea8118bf6b28/tokenizer.json",
+            "bytes": 17318,
+            "sha256": "1240f9d178e1ad2a0076fe95ba62e332871c702accdd5ce3ae3ef33ffd6c3a1e",
+            "source_url": "https://huggingface.co/alephpi/FormulaNet/resolve/63e04c86fc96c2324811114351eeea8118bf6b28/tokenizer.json"
+          },
+          {
+            "path": "fp32/63e04c86fc96c2324811114351eeea8118bf6b28/tokenizer_config.json",
+            "bytes": 936,
+            "sha256": "714479320ce6dbd82ef3df74be4ef543f3535f96f074ea65056b962805f2ccf7",
+            "source_url": "https://huggingface.co/alephpi/FormulaNet/resolve/63e04c86fc96c2324811114351eeea8118bf6b28/tokenizer_config.json"
+          },
+          {
+            "path": "fp32/63e04c86fc96c2324811114351eeea8118bf6b28/generation_config.json",
+            "bytes": 213,
+            "sha256": "597241304b9611f729aa859405ee60934fed6c03b38db9dbc4ae86dbe3d2fd93",
+            "source_url": "https://huggingface.co/alephpi/FormulaNet/resolve/63e04c86fc96c2324811114351eeea8118bf6b28/generation_config.json"
+          },
+          {
+            "path": "fp32/63e04c86fc96c2324811114351eeea8118bf6b28/special_tokens_map.json",
+            "bytes": 552,
+            "sha256": "358c249e2fb29060c6b73157d428853b0c48710deffc8ee670ab1013880946c9",
+            "source_url": "https://huggingface.co/alephpi/FormulaNet/resolve/63e04c86fc96c2324811114351eeea8118bf6b28/special_tokens_map.json"
+          },
+          {
+            "path": "fp32/63e04c86fc96c2324811114351eeea8118bf6b28/onnx/encoder_model.onnx",
+            "bytes": 54168533,
+            "sha256": "95cccef463e5ed3623282f1541c0011a00b8a5d0828ea2cd57d6953ad4310b5b",
+            "source_url": "https://huggingface.co/alephpi/FormulaNet/resolve/63e04c86fc96c2324811114351eeea8118bf6b28/onnx/encoder_model.onnx"
+          },
+          {
+            "path": "fp32/63e04c86fc96c2324811114351eeea8118bf6b28/onnx/decoder_model_merged.onnx",
+            "bytes": 25946296,
+            "sha256": "10be29b751f6de5f9900c3658551020dc865257eb2c3034bc4c1e016e4d0e35d",
+            "source_url": "https://huggingface.co/alephpi/FormulaNet/resolve/63e04c86fc96c2324811114351eeea8118bf6b28/onnx/decoder_model_merged.onnx"
+          }
+        ],
+        "model_bytes": 80114829,
+        "validation": {
+          "encoder_model.onnx": {
+            "ir_version": 8,
+            "opsets": {
+              "ai.onnx": 18
+            },
+            "inputs": [
+              {
+                "name": "pixel_values",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  "num_channels",
+                  "height",
+                  "width"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "name": "last_hidden_state",
+                "type": "FLOAT",
+                "shape": [
+                  "batch",
+                  4,
+                  2048
+                ]
+              }
+            ],
+            "operators_recursive": {
+              "ai.onnx::Add": 2,
+              "ai.onnx::Cast": 2,
+              "ai.onnx::Concat": 10,
+              "ai.onnx::Constant": 20,
+              "ai.onnx::ConstantOfShape": 2,
+              "ai.onnx::Conv": 80,
+              "ai.onnx::MaxPool": 1,
+              "ai.onnx::Pad": 2,
+              "ai.onnx::Relu": 53,
+              "ai.onnx::Reshape": 5,
+              "ai.onnx::Shape": 1,
+              "ai.onnx::Slice": 3,
+              "ai.onnx::Transpose": 3
+            },
+            "initializer_types_recursive": {
+              "FLOAT": 160
+            },
+            "onnx_checker": "passed",
+            "browser_validation": "not_run",
+            "python_cpu_session": {
+              "status": "loaded",
+              "providers": [
+                "CPUExecutionProvider"
+              ]
+            }
+          },
+          "decoder_model_merged.onnx": {
+            "ir_version": 9,
+            "opsets": {
+              "ai.onnx": 18
+            },
+            "inputs": [
+              {
+                "name": "input_ids",
+                "type": "INT64",
+                "shape": [
+                  "batch_size",
+                  "decoder_sequence_length"
+                ]
+              },
+              {
+                "name": "encoder_hidden_states",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  "encoder_sequence_length",
+                  2048
+                ]
+              },
+              {
+                "name": "past_key_values.0.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.0.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.0.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.0.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "use_cache_branch",
+                "type": "BOOL",
+                "shape": [
+                  1
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "name": "logits",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  "decoder_sequence_length",
+                  687
+                ]
+              },
+              {
+                "name": "present.0.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.0.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.0.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.0.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              }
+            ],
+            "operators_recursive": {
+              "ai.onnx::Add": 62,
+              "ai.onnx::Cast": 8,
+              "ai.onnx::Concat": 75,
+              "ai.onnx::Constant": 320,
+              "ai.onnx::ConstantOfShape": 4,
+              "ai.onnx::Div": 4,
+              "ai.onnx::Equal": 3,
+              "ai.onnx::Erf": 4,
+              "ai.onnx::Expand": 3,
+              "ai.onnx::Gather": 27,
+              "ai.onnx::If": 1,
+              "ai.onnx::LayerNormalization": 16,
+              "ai.onnx::Less": 1,
+              "ai.onnx::MatMul": 55,
+              "ai.onnx::Mul": 29,
+              "ai.onnx::Range": 3,
+              "ai.onnx::Reshape": 70,
+              "ai.onnx::Shape": 28,
+              "ai.onnx::Slice": 2,
+              "ai.onnx::Softmax": 8,
+              "ai.onnx::Squeeze": 2,
+              "ai.onnx::Sub": 1,
+              "ai.onnx::Transpose": 36,
+              "ai.onnx::Unsqueeze": 108,
+              "ai.onnx::Where": 4
+            },
+            "initializer_types_recursive": {
+              "FLOAT": 61
+            },
+            "onnx_checker": "passed",
+            "browser_validation": "not_run",
+            "python_cpu_session": {
+              "status": "loaded",
+              "providers": [
+                "CPUExecutionProvider"
+              ]
+            }
+          }
+        }
+      },
+      "fp16": {
+        "status": "failed",
+        "weights_precision": "fp16",
+        "public_float_io": "float32",
+        "files": [
+          {
+            "path": "fp16/63e04c86fc96c2324811114351eeea8118bf6b28/onnx/encoder_model.onnx",
+            "bytes": 27124603,
+            "sha256": "4336f55a67c1be297d991e017a09d574c8775d5bc007933fa9e72e292c32dd26"
+          },
+          {
+            "path": "fp16/63e04c86fc96c2324811114351eeea8118bf6b28/onnx/decoder_model_merged.onnx",
+            "bytes": 13123016,
+            "sha256": "2b550e0706ec5905be88c4e661cc171fb03d55ebd969cbda4de29209f9e53292"
+          },
+          {
+            "path": "fp16/63e04c86fc96c2324811114351eeea8118bf6b28/config.json",
+            "bytes": 5014,
+            "sha256": "c3816c7ee90aa2815691d2ab376be704964b3735ebd238fb812ff7e0c0cbe336"
+          },
+          {
+            "path": "fp16/63e04c86fc96c2324811114351eeea8118bf6b28/tokenizer.json",
+            "bytes": 17318,
+            "sha256": "1240f9d178e1ad2a0076fe95ba62e332871c702accdd5ce3ae3ef33ffd6c3a1e"
+          },
+          {
+            "path": "fp16/63e04c86fc96c2324811114351eeea8118bf6b28/tokenizer_config.json",
+            "bytes": 936,
+            "sha256": "714479320ce6dbd82ef3df74be4ef543f3535f96f074ea65056b962805f2ccf7"
+          },
+          {
+            "path": "fp16/63e04c86fc96c2324811114351eeea8118bf6b28/generation_config.json",
+            "bytes": 213,
+            "sha256": "597241304b9611f729aa859405ee60934fed6c03b38db9dbc4ae86dbe3d2fd93"
+          },
+          {
+            "path": "fp16/63e04c86fc96c2324811114351eeea8118bf6b28/special_tokens_map.json",
+            "bytes": 552,
+            "sha256": "358c249e2fb29060c6b73157d428853b0c48710deffc8ee670ab1013880946c9"
+          }
+        ],
+        "validation": {
+          "encoder_model.onnx": {
+            "ir_version": 8,
+            "opsets": {
+              "ai.onnx": 18
+            },
+            "inputs": [
+              {
+                "name": "pixel_values",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  "num_channels",
+                  "height",
+                  "width"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "name": "last_hidden_state",
+                "type": "FLOAT",
+                "shape": [
+                  "batch",
+                  4,
+                  2048
+                ]
+              }
+            ],
+            "operators_recursive": {
+              "ai.onnx::Add": 2,
+              "ai.onnx::Cast": 4,
+              "ai.onnx::Concat": 10,
+              "ai.onnx::Constant": 20,
+              "ai.onnx::ConstantOfShape": 2,
+              "ai.onnx::Conv": 80,
+              "ai.onnx::MaxPool": 1,
+              "ai.onnx::Pad": 2,
+              "ai.onnx::Relu": 53,
+              "ai.onnx::Reshape": 5,
+              "ai.onnx::Shape": 1,
+              "ai.onnx::Slice": 3,
+              "ai.onnx::Transpose": 3
+            },
+            "initializer_types_recursive": {
+              "FLOAT16": 160
+            },
+            "onnx_checker": "passed",
+            "public_io_preserved": true,
+            "browser_validation": "not_run",
+            "python_cpu_session": {
+              "status": "loaded",
+              "providers": [
+                "CPUExecutionProvider"
+              ]
+            },
+            "elapsed_seconds": 0.953
+          },
+          "decoder_model_merged.onnx": {
+            "status": "failed",
+            "error": "[ShapeInferenceError] Inference error(s): (op_type:If, node name: optimum::if): [ShapeInferenceError] (op_type:Concat, node name: /decoder/decoder/layers.0/self_attn/Concat_2): inputs has inconsistent type tensor(float16)\n",
+            "traceback": "Traceback (most recent call last):\n  File \"Z:\\Drive\\BBF\\Projekte Martin\\Software\\OCR\\lia-canvas-ocr\\scripts\\prepare-ocr-precision.py\", line 190, in main\n    entry[\"validation\"][name] = validate(\n                                ~~~~~~~~^\n        destination, checks[name], not args.skip_session_load)\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"Z:\\Drive\\BBF\\Projekte Martin\\Software\\OCR\\lia-canvas-ocr\\scripts\\prepare-ocr-precision.py\", line 88, in validate\n    onnx.checker.check_model(model, full_check=True)\n    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\MaSaLo\\AppData\\Local\\Temp\\lia-ocr-priority2-venv\\Lib\\site-packages\\onnx\\checker.py\", line 163, in check_model\n    C.check_model(\n    ~~~~~~~~~~~~~^\n        protobuf_string,\n        ^^^^^^^^^^^^^^^^\n    ...<2 lines>...\n        check_custom_domain,\n        ^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\nonnx.onnx_cpp2py_export.shape_inference.InferenceError: [ShapeInferenceError] Inference error(s): (op_type:If, node name: optimum::if): [ShapeInferenceError] (op_type:Concat, node name: /decoder/decoder/layers.0/self_attn/Concat_2): inputs has inconsistent type tensor(float16)\n\n"
+          }
+        },
+        "conversion": {
+          "method": "convert_float_to_float16",
+          "keep_io_types": true
+        },
+        "model_bytes": 40247619
+      },
+      "q8": {
+        "status": "checked",
+        "weights_precision": "q8",
+        "public_float_io": "float32",
+        "files": [
+          {
+            "path": "q8/63e04c86fc96c2324811114351eeea8118bf6b28/onnx/encoder_model.onnx",
+            "bytes": 54185519,
+            "sha256": "1726c3393d747bdfc4d345f62a6079a9fd6917d6a1354f59ba653b7b838c756f"
+          },
+          {
+            "path": "q8/63e04c86fc96c2324811114351eeea8118bf6b28/onnx/decoder_model_merged.onnx",
+            "bytes": 8752648,
+            "sha256": "5a98f6b3252df5746e7102db48298712ebe114bb2c5859fee8958d6f95128c35"
+          },
+          {
+            "path": "q8/63e04c86fc96c2324811114351eeea8118bf6b28/config.json",
+            "bytes": 5014,
+            "sha256": "c3816c7ee90aa2815691d2ab376be704964b3735ebd238fb812ff7e0c0cbe336"
+          },
+          {
+            "path": "q8/63e04c86fc96c2324811114351eeea8118bf6b28/tokenizer.json",
+            "bytes": 17318,
+            "sha256": "1240f9d178e1ad2a0076fe95ba62e332871c702accdd5ce3ae3ef33ffd6c3a1e"
+          },
+          {
+            "path": "q8/63e04c86fc96c2324811114351eeea8118bf6b28/tokenizer_config.json",
+            "bytes": 936,
+            "sha256": "714479320ce6dbd82ef3df74be4ef543f3535f96f074ea65056b962805f2ccf7"
+          },
+          {
+            "path": "q8/63e04c86fc96c2324811114351eeea8118bf6b28/generation_config.json",
+            "bytes": 213,
+            "sha256": "597241304b9611f729aa859405ee60934fed6c03b38db9dbc4ae86dbe3d2fd93"
+          },
+          {
+            "path": "q8/63e04c86fc96c2324811114351eeea8118bf6b28/special_tokens_map.json",
+            "bytes": 552,
+            "sha256": "358c249e2fb29060c6b73157d428853b0c48710deffc8ee670ab1013880946c9"
+          }
+        ],
+        "validation": {
+          "encoder_model.onnx": {
+            "ir_version": 8,
+            "opsets": {
+              "ai.onnx": 18
+            },
+            "inputs": [
+              {
+                "name": "pixel_values",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  "num_channels",
+                  "height",
+                  "width"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "name": "last_hidden_state",
+                "type": "FLOAT",
+                "shape": [
+                  "batch",
+                  4,
+                  2048
+                ]
+              }
+            ],
+            "operators_recursive": {
+              "ai.onnx::Add": 2,
+              "ai.onnx::Cast": 2,
+              "ai.onnx::Concat": 10,
+              "ai.onnx::Constant": 20,
+              "ai.onnx::ConstantOfShape": 2,
+              "ai.onnx::Conv": 80,
+              "ai.onnx::MaxPool": 1,
+              "ai.onnx::Pad": 2,
+              "ai.onnx::Relu": 53,
+              "ai.onnx::Reshape": 5,
+              "ai.onnx::Shape": 1,
+              "ai.onnx::Slice": 3,
+              "ai.onnx::Transpose": 3
+            },
+            "initializer_types_recursive": {
+              "FLOAT": 160
+            },
+            "onnx_checker": "passed",
+            "public_io_preserved": true,
+            "browser_validation": "not_run",
+            "python_cpu_session": {
+              "status": "loaded",
+              "providers": [
+                "CPUExecutionProvider"
+              ]
+            },
+            "elapsed_seconds": 1.089
+          },
+          "decoder_model_merged.onnx": {
+            "ir_version": 9,
+            "opsets": {
+              "ai.onnx": 18
+            },
+            "inputs": [
+              {
+                "name": "input_ids",
+                "type": "INT64",
+                "shape": [
+                  "batch_size",
+                  "decoder_sequence_length"
+                ]
+              },
+              {
+                "name": "encoder_hidden_states",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  "encoder_sequence_length",
+                  2048
+                ]
+              },
+              {
+                "name": "past_key_values.0.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.0.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.0.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.0.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "use_cache_branch",
+                "type": "BOOL",
+                "shape": [
+                  1
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "name": "logits",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  "decoder_sequence_length",
+                  687
+                ]
+              },
+              {
+                "name": "present.0.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.0.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.0.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.0.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              }
+            ],
+            "operators_recursive": {
+              "ai.onnx::Add": 62,
+              "ai.onnx::Cast": 47,
+              "ai.onnx::Concat": 75,
+              "ai.onnx::Constant": 320,
+              "ai.onnx::ConstantOfShape": 4,
+              "ai.onnx::Div": 4,
+              "ai.onnx::DynamicQuantizeLinear": 28,
+              "ai.onnx::Equal": 3,
+              "ai.onnx::Erf": 4,
+              "ai.onnx::Expand": 3,
+              "ai.onnx::Gather": 27,
+              "ai.onnx::If": 1,
+              "ai.onnx::LayerNormalization": 16,
+              "ai.onnx::Less": 1,
+              "ai.onnx::MatMul": 16,
+              "ai.onnx::MatMulInteger": 39,
+              "ai.onnx::Mul": 107,
+              "ai.onnx::Range": 3,
+              "ai.onnx::Reshape": 70,
+              "ai.onnx::Shape": 28,
+              "ai.onnx::Slice": 2,
+              "ai.onnx::Softmax": 8,
+              "ai.onnx::Squeeze": 2,
+              "ai.onnx::Sub": 1,
+              "ai.onnx::Transpose": 36,
+              "ai.onnx::Unsqueeze": 108,
+              "ai.onnx::Where": 4
+            },
+            "initializer_types_recursive": {
+              "FLOAT": 61,
+              "INT8": 44
+            },
+            "onnx_checker": "passed",
+            "public_io_preserved": true,
+            "browser_validation": "not_run",
+            "python_cpu_session": {
+              "status": "loaded",
+              "providers": [
+                "CPUExecutionProvider"
+              ]
+            },
+            "elapsed_seconds": 0.657
+          }
+        },
+        "conversion": {
+          "method": "quantize_dynamic",
+          "weight_type": "QInt8",
+          "op_types_to_quantize": [
+            "MatMul",
+            "Gemm"
+          ],
+          "per_channel": false,
+          "reduce_range": false,
+          "extra_options": {
+            "EnableSubgraph": true
+          }
+        },
+        "model_bytes": 62938167
+      },
+      "fp16-encoder": {
+        "status": "checked",
+        "weights_precision": {
+          "encoder_model": "fp16",
+          "decoder_model_merged": "fp32"
+        },
+        "public_float_io": "float32",
+        "derived_from": {
+          "encoder_model.onnx": "fp16",
+          "decoder_model_merged.onnx": "fp32"
+        },
+        "files": [
+          {
+            "path": "fp16-encoder/63e04c86fc96c2324811114351eeea8118bf6b28/config.json",
+            "bytes": 5014,
+            "sha256": "c3816c7ee90aa2815691d2ab376be704964b3735ebd238fb812ff7e0c0cbe336"
+          },
+          {
+            "path": "fp16-encoder/63e04c86fc96c2324811114351eeea8118bf6b28/tokenizer.json",
+            "bytes": 17318,
+            "sha256": "1240f9d178e1ad2a0076fe95ba62e332871c702accdd5ce3ae3ef33ffd6c3a1e"
+          },
+          {
+            "path": "fp16-encoder/63e04c86fc96c2324811114351eeea8118bf6b28/tokenizer_config.json",
+            "bytes": 936,
+            "sha256": "714479320ce6dbd82ef3df74be4ef543f3535f96f074ea65056b962805f2ccf7"
+          },
+          {
+            "path": "fp16-encoder/63e04c86fc96c2324811114351eeea8118bf6b28/generation_config.json",
+            "bytes": 213,
+            "sha256": "597241304b9611f729aa859405ee60934fed6c03b38db9dbc4ae86dbe3d2fd93"
+          },
+          {
+            "path": "fp16-encoder/63e04c86fc96c2324811114351eeea8118bf6b28/special_tokens_map.json",
+            "bytes": 552,
+            "sha256": "358c249e2fb29060c6b73157d428853b0c48710deffc8ee670ab1013880946c9"
+          },
+          {
+            "path": "fp16-encoder/63e04c86fc96c2324811114351eeea8118bf6b28/onnx/encoder_model.onnx",
+            "bytes": 27124603,
+            "sha256": "4336f55a67c1be297d991e017a09d574c8775d5bc007933fa9e72e292c32dd26"
+          },
+          {
+            "path": "fp16-encoder/63e04c86fc96c2324811114351eeea8118bf6b28/onnx/decoder_model_merged.onnx",
+            "bytes": 25946296,
+            "sha256": "10be29b751f6de5f9900c3658551020dc865257eb2c3034bc4c1e016e4d0e35d"
+          }
+        ],
+        "validation": {
+          "encoder_model.onnx": {
+            "ir_version": 8,
+            "opsets": {
+              "ai.onnx": 18
+            },
+            "inputs": [
+              {
+                "name": "pixel_values",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  "num_channels",
+                  "height",
+                  "width"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "name": "last_hidden_state",
+                "type": "FLOAT",
+                "shape": [
+                  "batch",
+                  4,
+                  2048
+                ]
+              }
+            ],
+            "operators_recursive": {
+              "ai.onnx::Add": 2,
+              "ai.onnx::Cast": 4,
+              "ai.onnx::Concat": 10,
+              "ai.onnx::Constant": 20,
+              "ai.onnx::ConstantOfShape": 2,
+              "ai.onnx::Conv": 80,
+              "ai.onnx::MaxPool": 1,
+              "ai.onnx::Pad": 2,
+              "ai.onnx::Relu": 53,
+              "ai.onnx::Reshape": 5,
+              "ai.onnx::Shape": 1,
+              "ai.onnx::Slice": 3,
+              "ai.onnx::Transpose": 3
+            },
+            "initializer_types_recursive": {
+              "FLOAT16": 160
+            },
+            "onnx_checker": "passed",
+            "public_io_preserved": true,
+            "browser_validation": "not_run",
+            "python_cpu_session": {
+              "status": "loaded",
+              "providers": [
+                "CPUExecutionProvider"
+              ]
+            },
+            "elapsed_seconds": 0.953
+          },
+          "decoder_model_merged.onnx": {
+            "ir_version": 9,
+            "opsets": {
+              "ai.onnx": 18
+            },
+            "inputs": [
+              {
+                "name": "input_ids",
+                "type": "INT64",
+                "shape": [
+                  "batch_size",
+                  "decoder_sequence_length"
+                ]
+              },
+              {
+                "name": "encoder_hidden_states",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  "encoder_sequence_length",
+                  2048
+                ]
+              },
+              {
+                "name": "past_key_values.0.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.0.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.0.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.0.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "use_cache_branch",
+                "type": "BOOL",
+                "shape": [
+                  1
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "name": "logits",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  "decoder_sequence_length",
+                  687
+                ]
+              },
+              {
+                "name": "present.0.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.0.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.0.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.0.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              }
+            ],
+            "operators_recursive": {
+              "ai.onnx::Add": 62,
+              "ai.onnx::Cast": 8,
+              "ai.onnx::Concat": 75,
+              "ai.onnx::Constant": 320,
+              "ai.onnx::ConstantOfShape": 4,
+              "ai.onnx::Div": 4,
+              "ai.onnx::Equal": 3,
+              "ai.onnx::Erf": 4,
+              "ai.onnx::Expand": 3,
+              "ai.onnx::Gather": 27,
+              "ai.onnx::If": 1,
+              "ai.onnx::LayerNormalization": 16,
+              "ai.onnx::Less": 1,
+              "ai.onnx::MatMul": 55,
+              "ai.onnx::Mul": 29,
+              "ai.onnx::Range": 3,
+              "ai.onnx::Reshape": 70,
+              "ai.onnx::Shape": 28,
+              "ai.onnx::Slice": 2,
+              "ai.onnx::Softmax": 8,
+              "ai.onnx::Squeeze": 2,
+              "ai.onnx::Sub": 1,
+              "ai.onnx::Transpose": 36,
+              "ai.onnx::Unsqueeze": 108,
+              "ai.onnx::Where": 4
+            },
+            "initializer_types_recursive": {
+              "FLOAT": 61
+            },
+            "onnx_checker": "passed",
+            "browser_validation": "not_run",
+            "python_cpu_session": {
+              "status": "loaded",
+              "providers": [
+                "CPUExecutionProvider"
+              ]
+            }
+          }
+        },
+        "model_bytes": 53070899
+      },
+      "q8-decoder": {
+        "status": "checked",
+        "weights_precision": {
+          "encoder_model": "fp32",
+          "decoder_model_merged": "dynamic-q8-matmul"
+        },
+        "public_float_io": "float32",
+        "derived_from": {
+          "encoder_model.onnx": "fp32",
+          "decoder_model_merged.onnx": "q8"
+        },
+        "files": [
+          {
+            "path": "q8-decoder/63e04c86fc96c2324811114351eeea8118bf6b28/config.json",
+            "bytes": 5014,
+            "sha256": "c3816c7ee90aa2815691d2ab376be704964b3735ebd238fb812ff7e0c0cbe336"
+          },
+          {
+            "path": "q8-decoder/63e04c86fc96c2324811114351eeea8118bf6b28/tokenizer.json",
+            "bytes": 17318,
+            "sha256": "1240f9d178e1ad2a0076fe95ba62e332871c702accdd5ce3ae3ef33ffd6c3a1e"
+          },
+          {
+            "path": "q8-decoder/63e04c86fc96c2324811114351eeea8118bf6b28/tokenizer_config.json",
+            "bytes": 936,
+            "sha256": "714479320ce6dbd82ef3df74be4ef543f3535f96f074ea65056b962805f2ccf7"
+          },
+          {
+            "path": "q8-decoder/63e04c86fc96c2324811114351eeea8118bf6b28/generation_config.json",
+            "bytes": 213,
+            "sha256": "597241304b9611f729aa859405ee60934fed6c03b38db9dbc4ae86dbe3d2fd93"
+          },
+          {
+            "path": "q8-decoder/63e04c86fc96c2324811114351eeea8118bf6b28/special_tokens_map.json",
+            "bytes": 552,
+            "sha256": "358c249e2fb29060c6b73157d428853b0c48710deffc8ee670ab1013880946c9"
+          },
+          {
+            "path": "q8-decoder/63e04c86fc96c2324811114351eeea8118bf6b28/onnx/encoder_model.onnx",
+            "bytes": 54168533,
+            "sha256": "95cccef463e5ed3623282f1541c0011a00b8a5d0828ea2cd57d6953ad4310b5b"
+          },
+          {
+            "path": "q8-decoder/63e04c86fc96c2324811114351eeea8118bf6b28/onnx/decoder_model_merged.onnx",
+            "bytes": 8752648,
+            "sha256": "5a98f6b3252df5746e7102db48298712ebe114bb2c5859fee8958d6f95128c35"
+          }
+        ],
+        "validation": {
+          "encoder_model.onnx": {
+            "ir_version": 8,
+            "opsets": {
+              "ai.onnx": 18
+            },
+            "inputs": [
+              {
+                "name": "pixel_values",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  "num_channels",
+                  "height",
+                  "width"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "name": "last_hidden_state",
+                "type": "FLOAT",
+                "shape": [
+                  "batch",
+                  4,
+                  2048
+                ]
+              }
+            ],
+            "operators_recursive": {
+              "ai.onnx::Add": 2,
+              "ai.onnx::Cast": 2,
+              "ai.onnx::Concat": 10,
+              "ai.onnx::Constant": 20,
+              "ai.onnx::ConstantOfShape": 2,
+              "ai.onnx::Conv": 80,
+              "ai.onnx::MaxPool": 1,
+              "ai.onnx::Pad": 2,
+              "ai.onnx::Relu": 53,
+              "ai.onnx::Reshape": 5,
+              "ai.onnx::Shape": 1,
+              "ai.onnx::Slice": 3,
+              "ai.onnx::Transpose": 3
+            },
+            "initializer_types_recursive": {
+              "FLOAT": 160
+            },
+            "onnx_checker": "passed",
+            "browser_validation": "not_run",
+            "python_cpu_session": {
+              "status": "loaded",
+              "providers": [
+                "CPUExecutionProvider"
+              ]
+            }
+          },
+          "decoder_model_merged.onnx": {
+            "ir_version": 9,
+            "opsets": {
+              "ai.onnx": 18
+            },
+            "inputs": [
+              {
+                "name": "input_ids",
+                "type": "INT64",
+                "shape": [
+                  "batch_size",
+                  "decoder_sequence_length"
+                ]
+              },
+              {
+                "name": "encoder_hidden_states",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  "encoder_sequence_length",
+                  2048
+                ]
+              },
+              {
+                "name": "past_key_values.0.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.0.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.0.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.0.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "use_cache_branch",
+                "type": "BOOL",
+                "shape": [
+                  1
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "name": "logits",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  "decoder_sequence_length",
+                  687
+                ]
+              },
+              {
+                "name": "present.0.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.0.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.0.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.0.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              }
+            ],
+            "operators_recursive": {
+              "ai.onnx::Add": 62,
+              "ai.onnx::Cast": 47,
+              "ai.onnx::Concat": 75,
+              "ai.onnx::Constant": 320,
+              "ai.onnx::ConstantOfShape": 4,
+              "ai.onnx::Div": 4,
+              "ai.onnx::DynamicQuantizeLinear": 28,
+              "ai.onnx::Equal": 3,
+              "ai.onnx::Erf": 4,
+              "ai.onnx::Expand": 3,
+              "ai.onnx::Gather": 27,
+              "ai.onnx::If": 1,
+              "ai.onnx::LayerNormalization": 16,
+              "ai.onnx::Less": 1,
+              "ai.onnx::MatMul": 16,
+              "ai.onnx::MatMulInteger": 39,
+              "ai.onnx::Mul": 107,
+              "ai.onnx::Range": 3,
+              "ai.onnx::Reshape": 70,
+              "ai.onnx::Shape": 28,
+              "ai.onnx::Slice": 2,
+              "ai.onnx::Softmax": 8,
+              "ai.onnx::Squeeze": 2,
+              "ai.onnx::Sub": 1,
+              "ai.onnx::Transpose": 36,
+              "ai.onnx::Unsqueeze": 108,
+              "ai.onnx::Where": 4
+            },
+            "initializer_types_recursive": {
+              "FLOAT": 61,
+              "INT8": 44
+            },
+            "onnx_checker": "passed",
+            "public_io_preserved": true,
+            "browser_validation": "not_run",
+            "python_cpu_session": {
+              "status": "loaded",
+              "providers": [
+                "CPUExecutionProvider"
+              ]
+            },
+            "elapsed_seconds": 0.657
+          }
+        },
+        "model_bytes": 62921181
+      },
+      "fp32-floorpool": {
+        "status": "checked",
+        "weights_precision": "fp32",
+        "derived_from": "fp32",
+        "public_float_io": "float32",
+        "files": [
+          {
+            "path": "fp32-floorpool/63e04c86fc96c2324811114351eeea8118bf6b28/config.json",
+            "bytes": 5014,
+            "sha256": "c3816c7ee90aa2815691d2ab376be704964b3735ebd238fb812ff7e0c0cbe336"
+          },
+          {
+            "path": "fp32-floorpool/63e04c86fc96c2324811114351eeea8118bf6b28/tokenizer.json",
+            "bytes": 17318,
+            "sha256": "1240f9d178e1ad2a0076fe95ba62e332871c702accdd5ce3ae3ef33ffd6c3a1e"
+          },
+          {
+            "path": "fp32-floorpool/63e04c86fc96c2324811114351eeea8118bf6b28/tokenizer_config.json",
+            "bytes": 936,
+            "sha256": "714479320ce6dbd82ef3df74be4ef543f3535f96f074ea65056b962805f2ccf7"
+          },
+          {
+            "path": "fp32-floorpool/63e04c86fc96c2324811114351eeea8118bf6b28/generation_config.json",
+            "bytes": 213,
+            "sha256": "597241304b9611f729aa859405ee60934fed6c03b38db9dbc4ae86dbe3d2fd93"
+          },
+          {
+            "path": "fp32-floorpool/63e04c86fc96c2324811114351eeea8118bf6b28/special_tokens_map.json",
+            "bytes": 552,
+            "sha256": "358c249e2fb29060c6b73157d428853b0c48710deffc8ee670ab1013880946c9"
+          },
+          {
+            "path": "fp32-floorpool/63e04c86fc96c2324811114351eeea8118bf6b28/onnx/encoder_model.onnx",
+            "bytes": 54168533,
+            "sha256": "e34d6efd6857f278d3fb288199bc4f5f0d029ca473c16a2262e788af85bc951a"
+          },
+          {
+            "path": "fp32-floorpool/63e04c86fc96c2324811114351eeea8118bf6b28/onnx/decoder_model_merged.onnx",
+            "bytes": 25946296,
+            "sha256": "10be29b751f6de5f9900c3658551020dc865257eb2c3034bc4c1e016e4d0e35d"
+          }
+        ],
+        "validation": {
+          "encoder_model.onnx": {
+            "ir_version": 8,
+            "opsets": {
+              "ai.onnx": 18
+            },
+            "inputs": [
+              {
+                "name": "pixel_values",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  "num_channels",
+                  "height",
+                  "width"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "name": "last_hidden_state",
+                "type": "FLOAT",
+                "shape": [
+                  "batch",
+                  4,
+                  2048
+                ]
+              }
+            ],
+            "operators_recursive": {
+              "ai.onnx::Add": 2,
+              "ai.onnx::Cast": 2,
+              "ai.onnx::Concat": 10,
+              "ai.onnx::Constant": 20,
+              "ai.onnx::ConstantOfShape": 2,
+              "ai.onnx::Conv": 80,
+              "ai.onnx::MaxPool": 1,
+              "ai.onnx::Pad": 2,
+              "ai.onnx::Relu": 53,
+              "ai.onnx::Reshape": 5,
+              "ai.onnx::Shape": 1,
+              "ai.onnx::Slice": 3,
+              "ai.onnx::Transpose": 3
+            },
+            "initializer_types_recursive": {
+              "FLOAT": 160
+            },
+            "onnx_checker": "passed",
+            "public_io_preserved": true,
+            "browser_validation": "not_run",
+            "python_cpu_session": {
+              "status": "loaded",
+              "providers": [
+                "CPUExecutionProvider"
+              ]
+            }
+          },
+          "decoder_model_merged.onnx": {
+            "ir_version": 9,
+            "opsets": {
+              "ai.onnx": 18
+            },
+            "inputs": [
+              {
+                "name": "input_ids",
+                "type": "INT64",
+                "shape": [
+                  "batch_size",
+                  "decoder_sequence_length"
+                ]
+              },
+              {
+                "name": "encoder_hidden_states",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  "encoder_sequence_length",
+                  2048
+                ]
+              },
+              {
+                "name": "past_key_values.0.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.0.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.0.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.0.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "use_cache_branch",
+                "type": "BOOL",
+                "shape": [
+                  1
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "name": "logits",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  "decoder_sequence_length",
+                  687
+                ]
+              },
+              {
+                "name": "present.0.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.0.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.0.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.0.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              }
+            ],
+            "operators_recursive": {
+              "ai.onnx::Add": 62,
+              "ai.onnx::Cast": 8,
+              "ai.onnx::Concat": 75,
+              "ai.onnx::Constant": 320,
+              "ai.onnx::ConstantOfShape": 4,
+              "ai.onnx::Div": 4,
+              "ai.onnx::Equal": 3,
+              "ai.onnx::Erf": 4,
+              "ai.onnx::Expand": 3,
+              "ai.onnx::Gather": 27,
+              "ai.onnx::If": 1,
+              "ai.onnx::LayerNormalization": 16,
+              "ai.onnx::Less": 1,
+              "ai.onnx::MatMul": 55,
+              "ai.onnx::Mul": 29,
+              "ai.onnx::Range": 3,
+              "ai.onnx::Reshape": 70,
+              "ai.onnx::Shape": 28,
+              "ai.onnx::Slice": 2,
+              "ai.onnx::Softmax": 8,
+              "ai.onnx::Squeeze": 2,
+              "ai.onnx::Sub": 1,
+              "ai.onnx::Transpose": 36,
+              "ai.onnx::Unsqueeze": 108,
+              "ai.onnx::Where": 4
+            },
+            "initializer_types_recursive": {
+              "FLOAT": 61
+            },
+            "onnx_checker": "passed",
+            "public_io_preserved": true,
+            "browser_validation": "not_run",
+            "python_cpu_session": {
+              "status": "loaded",
+              "providers": [
+                "CPUExecutionProvider"
+              ]
+            }
+          }
+        },
+        "graph_transformation": {
+          "node": "/stem/pool/MaxPool",
+          "attribute": "ceil_mode",
+          "before": 1,
+          "after": 0,
+          "guard": {
+            "ceil_mode": 1,
+            "dilations": [
+              1,
+              1
+            ],
+            "kernel_shape": [
+              2,
+              2
+            ],
+            "pads": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "strides": [
+              1,
+              1
+            ]
+          },
+          "other_graph_bytes_preserved": true,
+          "proof": "For every valid integer spatial size N: floor((N-2)/1+1) = ceil((N-2)/1+1) = N-1. Stride 1, dilation 1, kernel 2, no pool padding give the same complete windows; no added padding or fixed-input-shape assumption is needed.",
+          "spec": "https://onnx.ai/onnx/operators/onnx__MaxPool.html#maxpool-12"
+        },
+        "model_bytes": 80114829
+      },
+      "fp16-encoder-floorpool": {
+        "status": "checked",
+        "weights_precision": {
+          "encoder_model": "fp16",
+          "decoder_model_merged": "fp32"
+        },
+        "derived_from": "fp16-encoder",
+        "public_float_io": "float32",
+        "files": [
+          {
+            "path": "fp16-encoder-floorpool/63e04c86fc96c2324811114351eeea8118bf6b28/config.json",
+            "bytes": 5014,
+            "sha256": "c3816c7ee90aa2815691d2ab376be704964b3735ebd238fb812ff7e0c0cbe336"
+          },
+          {
+            "path": "fp16-encoder-floorpool/63e04c86fc96c2324811114351eeea8118bf6b28/tokenizer.json",
+            "bytes": 17318,
+            "sha256": "1240f9d178e1ad2a0076fe95ba62e332871c702accdd5ce3ae3ef33ffd6c3a1e"
+          },
+          {
+            "path": "fp16-encoder-floorpool/63e04c86fc96c2324811114351eeea8118bf6b28/tokenizer_config.json",
+            "bytes": 936,
+            "sha256": "714479320ce6dbd82ef3df74be4ef543f3535f96f074ea65056b962805f2ccf7"
+          },
+          {
+            "path": "fp16-encoder-floorpool/63e04c86fc96c2324811114351eeea8118bf6b28/generation_config.json",
+            "bytes": 213,
+            "sha256": "597241304b9611f729aa859405ee60934fed6c03b38db9dbc4ae86dbe3d2fd93"
+          },
+          {
+            "path": "fp16-encoder-floorpool/63e04c86fc96c2324811114351eeea8118bf6b28/special_tokens_map.json",
+            "bytes": 552,
+            "sha256": "358c249e2fb29060c6b73157d428853b0c48710deffc8ee670ab1013880946c9"
+          },
+          {
+            "path": "fp16-encoder-floorpool/63e04c86fc96c2324811114351eeea8118bf6b28/onnx/encoder_model.onnx",
+            "bytes": 27124603,
+            "sha256": "58f1ae76850b73eabdca1aa3e7166afa2ce695a7b2da141d8335f6ea48ebf2dc"
+          },
+          {
+            "path": "fp16-encoder-floorpool/63e04c86fc96c2324811114351eeea8118bf6b28/onnx/decoder_model_merged.onnx",
+            "bytes": 25946296,
+            "sha256": "10be29b751f6de5f9900c3658551020dc865257eb2c3034bc4c1e016e4d0e35d"
+          }
+        ],
+        "validation": {
+          "encoder_model.onnx": {
+            "ir_version": 8,
+            "opsets": {
+              "ai.onnx": 18
+            },
+            "inputs": [
+              {
+                "name": "pixel_values",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  "num_channels",
+                  "height",
+                  "width"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "name": "last_hidden_state",
+                "type": "FLOAT",
+                "shape": [
+                  "batch",
+                  4,
+                  2048
+                ]
+              }
+            ],
+            "operators_recursive": {
+              "ai.onnx::Add": 2,
+              "ai.onnx::Cast": 4,
+              "ai.onnx::Concat": 10,
+              "ai.onnx::Constant": 20,
+              "ai.onnx::ConstantOfShape": 2,
+              "ai.onnx::Conv": 80,
+              "ai.onnx::MaxPool": 1,
+              "ai.onnx::Pad": 2,
+              "ai.onnx::Relu": 53,
+              "ai.onnx::Reshape": 5,
+              "ai.onnx::Shape": 1,
+              "ai.onnx::Slice": 3,
+              "ai.onnx::Transpose": 3
+            },
+            "initializer_types_recursive": {
+              "FLOAT16": 160
+            },
+            "onnx_checker": "passed",
+            "public_io_preserved": true,
+            "browser_validation": "not_run",
+            "python_cpu_session": {
+              "status": "loaded",
+              "providers": [
+                "CPUExecutionProvider"
+              ]
+            }
+          },
+          "decoder_model_merged.onnx": {
+            "ir_version": 9,
+            "opsets": {
+              "ai.onnx": 18
+            },
+            "inputs": [
+              {
+                "name": "input_ids",
+                "type": "INT64",
+                "shape": [
+                  "batch_size",
+                  "decoder_sequence_length"
+                ]
+              },
+              {
+                "name": "encoder_hidden_states",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  "encoder_sequence_length",
+                  2048
+                ]
+              },
+              {
+                "name": "past_key_values.0.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.0.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.0.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.0.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "use_cache_branch",
+                "type": "BOOL",
+                "shape": [
+                  1
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "name": "logits",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  "decoder_sequence_length",
+                  687
+                ]
+              },
+              {
+                "name": "present.0.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.0.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.0.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.0.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              }
+            ],
+            "operators_recursive": {
+              "ai.onnx::Add": 62,
+              "ai.onnx::Cast": 8,
+              "ai.onnx::Concat": 75,
+              "ai.onnx::Constant": 320,
+              "ai.onnx::ConstantOfShape": 4,
+              "ai.onnx::Div": 4,
+              "ai.onnx::Equal": 3,
+              "ai.onnx::Erf": 4,
+              "ai.onnx::Expand": 3,
+              "ai.onnx::Gather": 27,
+              "ai.onnx::If": 1,
+              "ai.onnx::LayerNormalization": 16,
+              "ai.onnx::Less": 1,
+              "ai.onnx::MatMul": 55,
+              "ai.onnx::Mul": 29,
+              "ai.onnx::Range": 3,
+              "ai.onnx::Reshape": 70,
+              "ai.onnx::Shape": 28,
+              "ai.onnx::Slice": 2,
+              "ai.onnx::Softmax": 8,
+              "ai.onnx::Squeeze": 2,
+              "ai.onnx::Sub": 1,
+              "ai.onnx::Transpose": 36,
+              "ai.onnx::Unsqueeze": 108,
+              "ai.onnx::Where": 4
+            },
+            "initializer_types_recursive": {
+              "FLOAT": 61
+            },
+            "onnx_checker": "passed",
+            "public_io_preserved": true,
+            "browser_validation": "not_run",
+            "python_cpu_session": {
+              "status": "loaded",
+              "providers": [
+                "CPUExecutionProvider"
+              ]
+            }
+          }
+        },
+        "graph_transformation": {
+          "node": "/stem/pool/MaxPool",
+          "attribute": "ceil_mode",
+          "before": 1,
+          "after": 0,
+          "guard": {
+            "ceil_mode": 1,
+            "dilations": [
+              1,
+              1
+            ],
+            "kernel_shape": [
+              2,
+              2
+            ],
+            "pads": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "strides": [
+              1,
+              1
+            ]
+          },
+          "other_graph_bytes_preserved": true,
+          "proof": "For every valid integer spatial size N: floor((N-2)/1+1) = ceil((N-2)/1+1) = N-1. Stride 1, dilation 1, kernel 2, no pool padding give the same complete windows; no added padding or fixed-input-shape assumption is needed.",
+          "spec": "https://onnx.ai/onnx/operators/onnx__MaxPool.html#maxpool-12"
+        },
+        "model_bytes": 53070899
+      },
+      "q8-decoder-floorpool": {
+        "status": "checked",
+        "weights_precision": {
+          "encoder_model": "fp32",
+          "decoder_model_merged": "dynamic-q8-matmul"
+        },
+        "derived_from": "q8-decoder",
+        "public_float_io": "float32",
+        "files": [
+          {
+            "path": "q8-decoder-floorpool/63e04c86fc96c2324811114351eeea8118bf6b28/config.json",
+            "bytes": 5014,
+            "sha256": "c3816c7ee90aa2815691d2ab376be704964b3735ebd238fb812ff7e0c0cbe336"
+          },
+          {
+            "path": "q8-decoder-floorpool/63e04c86fc96c2324811114351eeea8118bf6b28/tokenizer.json",
+            "bytes": 17318,
+            "sha256": "1240f9d178e1ad2a0076fe95ba62e332871c702accdd5ce3ae3ef33ffd6c3a1e"
+          },
+          {
+            "path": "q8-decoder-floorpool/63e04c86fc96c2324811114351eeea8118bf6b28/tokenizer_config.json",
+            "bytes": 936,
+            "sha256": "714479320ce6dbd82ef3df74be4ef543f3535f96f074ea65056b962805f2ccf7"
+          },
+          {
+            "path": "q8-decoder-floorpool/63e04c86fc96c2324811114351eeea8118bf6b28/generation_config.json",
+            "bytes": 213,
+            "sha256": "597241304b9611f729aa859405ee60934fed6c03b38db9dbc4ae86dbe3d2fd93"
+          },
+          {
+            "path": "q8-decoder-floorpool/63e04c86fc96c2324811114351eeea8118bf6b28/special_tokens_map.json",
+            "bytes": 552,
+            "sha256": "358c249e2fb29060c6b73157d428853b0c48710deffc8ee670ab1013880946c9"
+          },
+          {
+            "path": "q8-decoder-floorpool/63e04c86fc96c2324811114351eeea8118bf6b28/onnx/encoder_model.onnx",
+            "bytes": 54168533,
+            "sha256": "e34d6efd6857f278d3fb288199bc4f5f0d029ca473c16a2262e788af85bc951a"
+          },
+          {
+            "path": "q8-decoder-floorpool/63e04c86fc96c2324811114351eeea8118bf6b28/onnx/decoder_model_merged.onnx",
+            "bytes": 8752648,
+            "sha256": "5a98f6b3252df5746e7102db48298712ebe114bb2c5859fee8958d6f95128c35"
+          }
+        ],
+        "validation": {
+          "encoder_model.onnx": {
+            "ir_version": 8,
+            "opsets": {
+              "ai.onnx": 18
+            },
+            "inputs": [
+              {
+                "name": "pixel_values",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  "num_channels",
+                  "height",
+                  "width"
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "name": "last_hidden_state",
+                "type": "FLOAT",
+                "shape": [
+                  "batch",
+                  4,
+                  2048
+                ]
+              }
+            ],
+            "operators_recursive": {
+              "ai.onnx::Add": 2,
+              "ai.onnx::Cast": 2,
+              "ai.onnx::Concat": 10,
+              "ai.onnx::Constant": 20,
+              "ai.onnx::ConstantOfShape": 2,
+              "ai.onnx::Conv": 80,
+              "ai.onnx::MaxPool": 1,
+              "ai.onnx::Pad": 2,
+              "ai.onnx::Relu": 53,
+              "ai.onnx::Reshape": 5,
+              "ai.onnx::Shape": 1,
+              "ai.onnx::Slice": 3,
+              "ai.onnx::Transpose": 3
+            },
+            "initializer_types_recursive": {
+              "FLOAT": 160
+            },
+            "onnx_checker": "passed",
+            "public_io_preserved": true,
+            "browser_validation": "not_run",
+            "python_cpu_session": {
+              "status": "loaded",
+              "providers": [
+                "CPUExecutionProvider"
+              ]
+            }
+          },
+          "decoder_model_merged.onnx": {
+            "ir_version": 9,
+            "opsets": {
+              "ai.onnx": 18
+            },
+            "inputs": [
+              {
+                "name": "input_ids",
+                "type": "INT64",
+                "shape": [
+                  "batch_size",
+                  "decoder_sequence_length"
+                ]
+              },
+              {
+                "name": "encoder_hidden_states",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  "encoder_sequence_length",
+                  2048
+                ]
+              },
+              {
+                "name": "past_key_values.0.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.0.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.0.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.0.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "past_key_values.1.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "use_cache_branch",
+                "type": "BOOL",
+                "shape": [
+                  1
+                ]
+              }
+            ],
+            "outputs": [
+              {
+                "name": "logits",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  "decoder_sequence_length",
+                  687
+                ]
+              },
+              {
+                "name": "present.0.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.0.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.0.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.0.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.decoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.decoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "past_decoder_sequence_length + decoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.encoder.key",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              },
+              {
+                "name": "present.1.encoder.value",
+                "type": "FLOAT",
+                "shape": [
+                  "batch_size",
+                  16,
+                  "encoder_sequence_length",
+                  24
+                ]
+              }
+            ],
+            "operators_recursive": {
+              "ai.onnx::Add": 62,
+              "ai.onnx::Cast": 47,
+              "ai.onnx::Concat": 75,
+              "ai.onnx::Constant": 320,
+              "ai.onnx::ConstantOfShape": 4,
+              "ai.onnx::Div": 4,
+              "ai.onnx::DynamicQuantizeLinear": 28,
+              "ai.onnx::Equal": 3,
+              "ai.onnx::Erf": 4,
+              "ai.onnx::Expand": 3,
+              "ai.onnx::Gather": 27,
+              "ai.onnx::If": 1,
+              "ai.onnx::LayerNormalization": 16,
+              "ai.onnx::Less": 1,
+              "ai.onnx::MatMul": 16,
+              "ai.onnx::MatMulInteger": 39,
+              "ai.onnx::Mul": 107,
+              "ai.onnx::Range": 3,
+              "ai.onnx::Reshape": 70,
+              "ai.onnx::Shape": 28,
+              "ai.onnx::Slice": 2,
+              "ai.onnx::Softmax": 8,
+              "ai.onnx::Squeeze": 2,
+              "ai.onnx::Sub": 1,
+              "ai.onnx::Transpose": 36,
+              "ai.onnx::Unsqueeze": 108,
+              "ai.onnx::Where": 4
+            },
+            "initializer_types_recursive": {
+              "FLOAT": 61,
+              "INT8": 44
+            },
+            "onnx_checker": "passed",
+            "public_io_preserved": true,
+            "browser_validation": "not_run",
+            "python_cpu_session": {
+              "status": "loaded",
+              "providers": [
+                "CPUExecutionProvider"
+              ]
+            }
+          }
+        },
+        "graph_transformation": {
+          "node": "/stem/pool/MaxPool",
+          "attribute": "ceil_mode",
+          "before": 1,
+          "after": 0,
+          "guard": {
+            "ceil_mode": 1,
+            "dilations": [
+              1,
+              1
+            ],
+            "kernel_shape": [
+              2,
+              2
+            ],
+            "pads": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "strides": [
+              1,
+              1
+            ]
+          },
+          "other_graph_bytes_preserved": true,
+          "proof": "For every valid integer spatial size N: floor((N-2)/1+1) = ceil((N-2)/1+1) = N-1. Stride 1, dilation 1, kernel 2, no pool padding give the same complete windows; no added padding or fixed-input-shape assumption is needed.",
+          "spec": "https://onnx.ai/onnx/operators/onnx__MaxPool.html#maxpool-12"
+        },
+        "model_bytes": 62921181
+      }
+    },
+    "failures": [
+      {
+        "variant": "fp16",
+        "file": "decoder_model_merged.onnx",
+        "error": "[ShapeInferenceError] Inference error(s): (op_type:If, node name: optimum::if): [ShapeInferenceError] (op_type:Concat, node name: /decoder/decoder/layers.0/self_attn/Concat_2): inputs has inconsistent type tensor(float16)\n"
+      }
+    ]
+  },
+  "results": [
+    {
+      "profile": "reference",
+      "artifact": "fp32",
+      "runtime": "reference",
+      "weightPrecision": "fp32",
+      "status": "complete",
+      "runs": [
+        {
+          "caseId": "linear-result",
+          "expectedLatex": "x=4",
+          "text": "X = 4",
+          "wallMs": 585,
+          "maxEventLoopDelayMs": 22.700000047683716
+        },
+        {
+          "caseId": "linear-result",
+          "expectedLatex": "x=4",
+          "text": "X = 4",
+          "wallMs": 599.7000000476837,
+          "maxEventLoopDelayMs": 39
+        },
+        {
+          "caseId": "multiplication-tap",
+          "expectedLatex": "23\\cdot4=92",
+          "text": "2 3 \\cdot 4 = 9 2",
+          "wallMs": 604.7999999523163,
+          "maxEventLoopDelayMs": 8.099999904632568
+        },
+        {
+          "caseId": "multiplication-tap",
+          "expectedLatex": "23\\cdot4=92",
+          "text": "2 3 \\cdot 4 = 9 2",
+          "wallMs": 584.3999998569489,
+          "maxEventLoopDelayMs": 18
+        }
+      ],
+      "pageErrors": [],
+      "loadMs": 3566.100000143051,
+      "cacheKey": "alephpi/FormulaNet@63e04c86fc96c2324811114351eeea8118bf6b28|formulanet-v1",
+      "runtimeInfo": {
+        "backend": "wasm",
+        "precision": "fp32",
+        "numThreads": 1,
+        "proxy": true,
+        "runtimeUrl": "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/+esm"
+      },
+      "firstRun": {
+        "caseId": "linear-result",
+        "expectedLatex": "x=4",
+        "text": "X = 4",
+        "wallMs": 677.2999999523163,
+        "maxEventLoopDelayMs": 47
+      },
+      "summary": {
+        "runCount": 4,
+        "caseCount": 2,
+        "wallMs": {
+          "count": 4,
+          "invalidCount": 0,
+          "missingCount": 0,
+          "median": 592.3500000238419,
+          "p95": 604.7999999523163
+        },
+        "inferenceMs": {
+          "count": 0,
+          "invalidCount": 0,
+          "missingCount": 4,
+          "median": null,
+          "p95": null
+        },
+        "tokenCount": {
+          "count": 0,
+          "invalidCount": 0,
+          "missingCount": 4,
+          "min": null,
+          "median": null,
+          "max": null
+        },
+        "exact": {
+          "matches": 0,
+          "total": 4,
+          "rate": 0
+        },
+        "cases": [
+          {
+            "caseId": "linear-result",
+            "runCount": 2,
+            "exactMatches": 0,
+            "textVariants": 1,
+            "errorTypes": [
+              "raw-text-mismatch"
+            ],
+            "wallMs": {
+              "count": 2,
+              "invalidCount": 0,
+              "missingCount": 0,
+              "median": 592.3500000238419,
+              "p95": 599.7000000476837
+            },
+            "inferenceMs": {
+              "count": 0,
+              "invalidCount": 0,
+              "missingCount": 2,
+              "median": null,
+              "p95": null
+            },
+            "tokenCount": {
+              "count": 0,
+              "invalidCount": 0,
+              "missingCount": 2,
+              "min": null,
+              "median": null,
+              "max": null
+            }
+          },
+          {
+            "caseId": "multiplication-tap",
+            "runCount": 2,
+            "exactMatches": 0,
+            "textVariants": 1,
+            "errorTypes": [
+              "raw-text-mismatch"
+            ],
+            "wallMs": {
+              "count": 2,
+              "invalidCount": 0,
+              "missingCount": 0,
+              "median": 594.5999999046326,
+              "p95": 604.7999999523163
+            },
+            "inferenceMs": {
+              "count": 0,
+              "invalidCount": 0,
+              "missingCount": 2,
+              "median": null,
+              "p95": null
+            },
+            "tokenCount": {
+              "count": 0,
+              "invalidCount": 0,
+              "missingCount": 2,
+              "min": null,
+              "median": null,
+              "max": null
+            }
+          }
+        ],
+        "coverage": {
+          "referenceCaseCount": 2,
+          "matchedCaseCount": 2,
+          "completeCaseCount": 2,
+          "missingCaseIds": [],
+          "extraCaseIds": [],
+          "repetitionMismatchCaseIds": [],
+          "expectedMismatchCaseIds": [],
+          "invalidTimingCaseIds": [],
+          "complete": true
+        },
+        "baselineAgreement": {
+          "matches": 8,
+          "comparisons": 8,
+          "rate": 1,
+          "unstableCaseIds": []
+        },
+        "speedupRatio": 1,
+        "qualitySafeSpeedup": true
+      }
+    },
+    {
+      "profile": "wasm-4",
+      "artifact": "fp32",
+      "runtime": "wasm-4",
+      "weightPrecision": "fp32",
+      "status": "failed",
+      "runs": [],
+      "pageErrors": [],
+      "error": "Error: page.evaluate: Error: FormulaNet profile wasm-4 requires cross-origin isolation.\n    at i (http://127.0.0.1:50720/dist/index.js:2027:135012)\n    at c (http://127.0.0.1:50720/dist/index.js:2027:130745)\n    at y.createFormulaOcrEngine (http://127.0.0.1:50720/dist/index.js:1:3134)\n    at eval (eval at evaluate (:311:30), <anonymous>:3:41)\n    at UtilityScript.evaluate (<anonymous>:313:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)"
+    },
+    {
+      "profile": "webgpu-encoder-floorpool",
+      "artifact": "fp32-floorpool",
+      "runtime": "webgpu-encoder",
+      "weightPrecision": "fp32",
+      "status": "complete",
+      "runs": [
+        {
+          "caseId": "linear-result",
+          "expectedLatex": "x=4",
+          "text": "X = 4",
+          "wallMs": 62.59999990463257,
+          "inferenceMs": 51.299999952316284,
+          "tokenCount": 5,
+          "maxEventLoopDelayMs": 1.0999999046325684
+        },
+        {
+          "caseId": "linear-result",
+          "expectedLatex": "x=4",
+          "text": "X = 4",
+          "wallMs": 48.90000009536743,
+          "inferenceMs": 43.59999990463257,
+          "tokenCount": 5,
+          "maxEventLoopDelayMs": 1.0999999046325684
+        },
+        {
+          "caseId": "multiplication-tap",
+          "expectedLatex": "23\\cdot4=92",
+          "text": "2 3 \\cdot 4 = 9 2",
+          "wallMs": 62.90000009536743,
+          "inferenceMs": 57.299999952316284,
+          "tokenCount": 9,
+          "maxEventLoopDelayMs": 0.5999999046325684
+        },
+        {
+          "caseId": "multiplication-tap",
+          "expectedLatex": "23\\cdot4=92",
+          "text": "2 3 \\cdot 4 = 9 2",
+          "wallMs": 65.79999995231628,
+          "inferenceMs": 60.10000014305115,
+          "tokenCount": 9,
+          "maxEventLoopDelayMs": 0.7000000476837158
+        }
+      ],
+      "pageErrors": [],
+      "loadMs": 2818.2000000476837,
+      "cacheKey": "fp32-floorpool@63e04c86fc96c2324811114351eeea8118bf6b28|formulanet-input-v1|transformers-3.8.1|transformers-3.8.1|worker-v1|encoder=webgpu|decoder=wasm|dtype=fp32|wasmThreads=1|fp32|http://127.0.0.1:50720/models/",
+      "runtimeInfo": {
+        "runtimeUrl": "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/+esm",
+        "backend": "webgpu-encoder",
+        "profileId": "webgpu-encoder",
+        "precision": "fp32",
+        "numThreads": 1,
+        "devices": {
+          "encoder_model": "webgpu",
+          "decoder_model_merged": "wasm"
+        },
+        "sessionPrecisions": {
+          "encoder_model": "fp32",
+          "decoder_model_merged": "fp32"
+        },
+        "capabilities": {
+          "crossOriginIsolated": false,
+          "hardwareConcurrency": 16,
+          "webgpu": true,
+          "adapterInfo": {
+            "vendor": "nvidia",
+            "architecture": "turing",
+            "device": "",
+            "description": ""
+          },
+          "adapterFeatures": [
+            "bgra8unorm-storage",
+            "clip-distances",
+            "core-features-and-limits",
+            "depth-clip-control",
+            "depth32float-stencil8",
+            "dual-source-blending",
+            "float32-blendable",
+            "float32-filterable",
+            "indirect-first-instance",
+            "primitive-index",
+            "rg11b10ufloat-renderable",
+            "shader-f16",
+            "subgroups",
+            "texture-component-swizzle",
+            "texture-compression-bc",
+            "texture-compression-bc-sliced-3d",
+            "texture-formats-tier1",
+            "texture-formats-tier2",
+            "timestamp-query"
+          ]
+        }
+      },
+      "firstRun": {
+        "caseId": "linear-result",
+        "expectedLatex": "x=4",
+        "text": "X = 4",
+        "wallMs": 568.7999999523163,
+        "inferenceMs": 541.0999999046326,
+        "tokenCount": 5,
+        "maxEventLoopDelayMs": 17.399999856948853
+      },
+      "summary": {
+        "runCount": 4,
+        "caseCount": 2,
+        "wallMs": {
+          "count": 4,
+          "invalidCount": 0,
+          "missingCount": 0,
+          "median": 62.75,
+          "p95": 65.79999995231628
+        },
+        "inferenceMs": {
+          "count": 4,
+          "invalidCount": 0,
+          "missingCount": 0,
+          "median": 54.299999952316284,
+          "p95": 60.10000014305115
+        },
+        "tokenCount": {
+          "count": 4,
+          "invalidCount": 0,
+          "missingCount": 0,
+          "min": 5,
+          "median": 7,
+          "max": 9
+        },
+        "exact": {
+          "matches": 0,
+          "total": 4,
+          "rate": 0
+        },
+        "cases": [
+          {
+            "caseId": "linear-result",
+            "runCount": 2,
+            "exactMatches": 0,
+            "textVariants": 1,
+            "errorTypes": [
+              "raw-text-mismatch"
+            ],
+            "wallMs": {
+              "count": 2,
+              "invalidCount": 0,
+              "missingCount": 0,
+              "median": 55.75,
+              "p95": 62.59999990463257
+            },
+            "inferenceMs": {
+              "count": 2,
+              "invalidCount": 0,
+              "missingCount": 0,
+              "median": 47.449999928474426,
+              "p95": 51.299999952316284
+            },
+            "tokenCount": {
+              "count": 2,
+              "invalidCount": 0,
+              "missingCount": 0,
+              "min": 5,
+              "median": 5,
+              "max": 5
+            }
+          },
+          {
+            "caseId": "multiplication-tap",
+            "runCount": 2,
+            "exactMatches": 0,
+            "textVariants": 1,
+            "errorTypes": [
+              "raw-text-mismatch"
+            ],
+            "wallMs": {
+              "count": 2,
+              "invalidCount": 0,
+              "missingCount": 0,
+              "median": 64.35000002384186,
+              "p95": 65.79999995231628
+            },
+            "inferenceMs": {
+              "count": 2,
+              "invalidCount": 0,
+              "missingCount": 0,
+              "median": 58.700000047683716,
+              "p95": 60.10000014305115
+            },
+            "tokenCount": {
+              "count": 2,
+              "invalidCount": 0,
+              "missingCount": 0,
+              "min": 9,
+              "median": 9,
+              "max": 9
+            }
+          }
+        ],
+        "coverage": {
+          "referenceCaseCount": 2,
+          "matchedCaseCount": 2,
+          "completeCaseCount": 2,
+          "missingCaseIds": [],
+          "extraCaseIds": [],
+          "repetitionMismatchCaseIds": [],
+          "expectedMismatchCaseIds": [],
+          "invalidTimingCaseIds": [],
+          "complete": true
+        },
+        "baselineAgreement": {
+          "matches": 8,
+          "comparisons": 8,
+          "rate": 1,
+          "unstableCaseIds": []
+        },
+        "speedupRatio": 9.883014152313446,
+        "qualitySafeSpeedup": true
+      }
+    }
+  ]
+}

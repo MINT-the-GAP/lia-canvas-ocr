@@ -131,8 +131,8 @@ Pass the task equation to `@BerechneOCR`. The macro creates exactly one native
 LiaScript text quiz, its semantic calculation validator, and a multi-line
 handwriting calculation block. The optional second argument controls row feedback
 for ordinary equation paths.
-Without that argument every transition between adjacent calculation rows is
-shown by default. A second argument of `1` explicitly keeps row feedback
+Without that argument feedback for every calculation row is shown by default.
+Auxiliary work and verification refer to their actual source equation. A second argument of `1` explicitly keeps row feedback
 enabled, while `0` disables it. Enabled row feedback is also shown when the
 course state is opened through a Freeze link. Wrap the equation in backticks,
 especially when it contains commas or parentheses, so LiaScript treats it as
@@ -158,13 +158,26 @@ feedback option do not apply to these four modes.
 On **Submit to render**, the complete recognized or manually corrected path is
 validated and retained in the native answer field. The field's TeX preview
 shows all calculation rows. For an equation path, **Check** compares the first
-row semantically with the task equation, validates every transition, and
-requires a solved final row; equivalent TeX spellings such as `x^2` and
+row semantically with the task equation (or all given system equations), checks
+each step in context, and requires a complete solution; equivalent TeX spellings such as `x^2` and
 `x^{2}` therefore agree. For written arithmetic it checks the operands, result,
 and every required carry, borrow, contribution, or division step. An invalid,
 incomplete, or task-unrelated calculation is not accepted.
 Drawing again marks the rendered path as stale but keeps the last submitted
 field content until the learner submits the canvas again.
+Confirmed corrections of equation rows stay attached to their original strokes
+while other rows are added or edited. A changed or newly written row is recognized
+again; a correction is never copied merely because two rows look alike. If an
+editor change splits or merges rows, it is reused only while the complete original
+row group remains together. These associations exist only in the open canvas
+session, are cleared by **Clear all**, and add no persistent handwriting records
+or telemetry. Written arithmetic continues to use its structural step validation.
+A stationary pen tap is retained in the drawing, OCR image, undo/redo, and Freeze
+rendering, including multiplication and decimal dots. Ordinary recognized
+multiplication uses `\cdot`; the variable `x` stays a variable. Explicit adjacent
+vector notation conservatively retains a cross. This notation cleanup does not
+repair incorrect calculations.
+
 The native **Resolve** button keeps LiaScript's normal resolved state and fills
 the answer with a complete expected calculation for supported equations. The
 serialized calculation is rendered in the same TeX preview above the canvas;
@@ -336,9 +349,15 @@ experimental until the licensing and target-handwriting evaluation are accepted
 for a release.
 
 `@canvas` uses one canonical recognition pass for the marked expression.
-`@BerechneOCR` uses one canonical recognition pass per ordinary calculation
-line. A
-structurally detected transformation marker causes the main equation and its
+`@BerechneOCR` uses one canonical recognition pass per short ordinary calculation
+line. Very wide equations can be split at geometrically confirmed, freestanding
+equality signs, with at most four complete parts. Each part after the first keeps
+its visible leading equality as recognition context. Fractions, radicals and
+enclosing brackets veto unsafe cuts; incomplete part results fall back to the
+whole line.
+Ordinary equation crops receive 64, 128 or 256 output tokens according to their
+ink aspect ratio. Written arithmetic keeps its established row recognition.
+A structurally detected transformation marker causes the main equation and its
 side operation to be recognized separately. `@canvas` writes one recognized
 expression to an existing answer field; `@BerechneOCR` serializes the complete
 recognized calculation into its generated native quiz. FormulaNet's published ONNX handwriting split reports a
@@ -358,6 +377,82 @@ The bundle must stay in sync with `src/`. `Alt+L` starts the LiaScript developme
 bundle, so run `npm run dev` alongside it (or `npm run build` once). Then use
 `Ctrl+F5` in the external preview browser after JavaScript changes to reload the
 locally served asset with the development server's JavaScript MIME type.
+
+### BerechneOCR runtime comparison (priority 2)
+
+Explicit development profiles compare one, two or four WASM threads, WebGPU
+encoder/decoder placement, and locally derived FP16/Q8 weights. The normal
+`@BerechneOCR` default stays on its existing pinned FP32 WASM engine. No student
+handwriting is recorded or collected for this comparison.
+
+The [measurement report and reproduction instructions](docs/berechneocr-priority-2.md)
+explain the checked GPU export, measured speed and output differences, artifact
+requirements, and the limits of the twelve synthetic examples. Run
+`npm run benchmark:ocr` after preparing the local model artifacts as documented.
+Deploy the generated `dist/formulanet-worker.<hash>.js` alongside `dist/index.js`
+when using an explicit worker profile.
+
+### BerechneOCR equation layout (priority 3)
+
+Spatial checks keep clearly associated superscripts, subscripts and separated
+fraction components with their equation. Confirmed transformation bars also
+remain candidates beside very long equations with short side operations.
+The [priority 3 report](docs/berechneocr-priority-3.md) connects these changes to
+the Repetitorium and TeX material structures and documents their limits.
+All development examples are authored synthetic strokes; no student handwriting
+is collected. Independent side calculations receive the context checks described below.
+
+### BerechneOCR solution procedures (priority 4)
+
+The calculation reviewer now retains the original equation or linear system
+while checking labelled auxiliary work, definitions, solution branches and
+verification. Supported paths include completing the square, complete real
+quadratic solutions, rational linear systems with two or three unknowns,
+polynomial substitution and selected rational equations with original
+denominator exclusions. Explicit row operations and referenced combinations
+such as `I+II` must agree with the actual calculation. A correct final answer
+cannot repair an incorrect intermediate step or a missing solution branch.
+
+Role labels and actual source-row references also survive Freeze links. The
+four written arithmetic procedures keep their established structural checks.
+This adds mathematical interpretation without additional OCR model calls or
+student handwriting collection. It does not establish a higher visual OCR
+accuracy or universal coverage of the TeX materials. See the
+[priority 4 report](docs/berechneocr-priority-4.md) for examples, precise bounds,
+unsupported methods and validation. The existing automatic expected-path
+generator retains its documented equation classes.
+
+### BerechneOCR material coverage and pipeline measurement (priority 5)
+
+The opt-in material audit indexes local TeX sources and checks curated correct
+and deliberately incorrect calculation paths against their source references.
+The pipeline benchmark draws authored synthetic strokes through the real
+BerechneOCR canvas and measures transcription, symbols, line structure, grading
+and elapsed time separately. It uses no learner handwriting or production
+telemetry. Task variants stay in one development or holdout split.
+
+Run `npm run audit:materials -- --materials "PATH_TO_MATERIALS"` for the local
+audit. With the checked model assets from priority 2 available, run
+`npm run benchmark:ocr-pipeline -- --validate-only` and then
+`npm run benchmark:ocr-pipeline -- --repeats 2`.
+See the [priority 5 report](docs/berechneocr-priority-5.md) for measured results,
+source limitations and explicit coverage gaps. The scalar number parser also
+accepts ordinary OCR whitespace around decimal commas while preserving lists,
+solution sets and indices. Benchmark PNGs are written only with the optional
+`--save-images` flag; their `*.json.assets` directories are ignored by Git.
+These checks establish a
+repeatable baseline; they do not imply universal recognition of the materials.
+
+### BerechneOCR integration and letter case
+
+Variable case is preserved through OCR review, correction, grading and Freeze:
+`x` and `X` (and `y`/`Y`) remain distinct mathematical variables.
+The [integration report](docs/berechneocr-integration-test.md) separates browser
+regressions, actual model recognition and unresolved handwriting ambiguity.
+The pipeline benchmark also accepts `--corpus letter-case` or `--corpus combined`;
+`--device-scale 2` repeats the same authored geometry at higher pixel density.
+Use `npm run build -- --no-cache` followed by the benchmark script directly
+when no Parcel cache is wanted. Reports default to the temporary directory.
 
 ### Browser stability regression
 

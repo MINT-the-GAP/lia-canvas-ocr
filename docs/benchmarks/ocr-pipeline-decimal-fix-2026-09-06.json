@@ -1,0 +1,5891 @@
+{
+  "schema": 1,
+  "measuredAt": "2026-09-06T14:52:32.502Z",
+  "status": "complete",
+  "synthetic": true,
+  "corpus": {
+    "id": "berechneocr-authored-pipeline-v1",
+    "synthetic": true,
+    "source": "Authored normalized glyphs and layouts. No pupil records, screenshots, telemetry or captured handwriting.",
+    "splitPolicy": "All variants of one baseTaskId share a fixed split. Holdout means excluded from development tuning; reporting a holdout result consumes that evaluation.",
+    "limitation": "This small synthetic development/holdout sample measures specific pipeline behavior, not general handwriting accuracy. Deliberately wrong calculations have deliberately wrong transcription targets.",
+    "cases": [
+      {
+        "id": "decimal-comma",
+        "baseTaskId": "x-onepoint5-times2",
+        "split": "development",
+        "family": "decimal-comma",
+        "prompt": "x=1,5\\cdot2",
+        "expectedLines": [
+          "x=1,5\\cdot2",
+          "x=3"
+        ],
+        "expectedGradeAccepted": true,
+        "synthetic": true,
+        "lineWidth": 3,
+        "width": 197,
+        "height": 154,
+        "strokes": [
+          [
+            {
+              "x": 18,
+              "y": 21.6
+            },
+            {
+              "x": 35.856,
+              "y": 50.4
+            }
+          ],
+          [
+            {
+              "x": 35.856,
+              "y": 21.6
+            },
+            {
+              "x": 18,
+              "y": 50.4
+            }
+          ],
+          [
+            {
+              "x": 44.964,
+              "y": 31.68
+            },
+            {
+              "x": 65.052,
+              "y": 31.68
+            }
+          ],
+          [
+            {
+              "x": 44.964,
+              "y": 41.76
+            },
+            {
+              "x": 65.052,
+              "y": 41.76
+            }
+          ],
+          [
+            {
+              "x": 76.392,
+              "y": 25.2
+            },
+            {
+              "x": 84.204,
+              "y": 18
+            },
+            {
+              "x": 84.204,
+              "y": 54
+            }
+          ],
+          [
+            {
+              "x": 105.624,
+              "y": 49.68
+            },
+            {
+              "x": 105.192,
+              "y": 53.64
+            },
+            {
+              "x": 101.736,
+              "y": 58.32
+            }
+          ],
+          [
+            {
+              "x": 135.612,
+              "y": 18.72
+            },
+            {
+              "x": 117.756,
+              "y": 18.72
+            },
+            {
+              "x": 116.64,
+              "y": 34.2
+            },
+            {
+              "x": 128.47,
+              "y": 32.76
+            },
+            {
+              "x": 135.389,
+              "y": 38.88
+            },
+            {
+              "x": 133.157,
+              "y": 49.68
+            },
+            {
+              "x": 116.64,
+              "y": 53.28
+            }
+          ],
+          [
+            {
+              "x": 146.808,
+              "y": 36.72
+            }
+          ],
+          [
+            {
+              "x": 159.12,
+              "y": 25.2
+            },
+            {
+              "x": 163.584,
+              "y": 18
+            },
+            {
+              "x": 173.628,
+              "y": 18
+            },
+            {
+              "x": 178.092,
+              "y": 25.92
+            },
+            {
+              "x": 174.298,
+              "y": 35.28
+            },
+            {
+              "x": 159.12,
+              "y": 54
+            },
+            {
+              "x": 178.092,
+              "y": 54
+            }
+          ],
+          [
+            {
+              "x": 18,
+              "y": 103.6
+            },
+            {
+              "x": 35.856,
+              "y": 132.4
+            }
+          ],
+          [
+            {
+              "x": 35.856,
+              "y": 103.6
+            },
+            {
+              "x": 18,
+              "y": 132.4
+            }
+          ],
+          [
+            {
+              "x": 44.964,
+              "y": 113.68
+            },
+            {
+              "x": 65.052,
+              "y": 113.68
+            }
+          ],
+          [
+            {
+              "x": 44.964,
+              "y": 123.76
+            },
+            {
+              "x": 65.052,
+              "y": 123.76
+            }
+          ],
+          [
+            {
+              "x": 73.714,
+              "y": 102.16
+            },
+            {
+              "x": 85.766,
+              "y": 100
+            },
+            {
+              "x": 92.462,
+              "y": 107.2
+            },
+            {
+              "x": 87.998,
+              "y": 115.12
+            },
+            {
+              "x": 80.856,
+              "y": 118
+            },
+            {
+              "x": 88.222,
+              "y": 119.8
+            },
+            {
+              "x": 93.802,
+              "y": 128.08
+            },
+            {
+              "x": 87.998,
+              "y": 135.28
+            },
+            {
+              "x": 73.714,
+              "y": 133.84
+            }
+          ]
+        ]
+      }
+    ]
+  },
+  "repeats": 2,
+  "validationOnly": false,
+  "model": {
+    "model": "alephpi/FormulaNet",
+    "revision": "63e04c86fc96c2324811114351eeea8118bf6b28",
+    "precision": "fp32",
+    "profile": "reference",
+    "verifiedFiles": [
+      {
+        "path": "fp32/63e04c86fc96c2324811114351eeea8118bf6b28/config.json",
+        "sha256": "c3816c7ee90aa2815691d2ab376be704964b3735ebd238fb812ff7e0c0cbe336"
+      },
+      {
+        "path": "fp32/63e04c86fc96c2324811114351eeea8118bf6b28/tokenizer.json",
+        "sha256": "1240f9d178e1ad2a0076fe95ba62e332871c702accdd5ce3ae3ef33ffd6c3a1e"
+      },
+      {
+        "path": "fp32/63e04c86fc96c2324811114351eeea8118bf6b28/tokenizer_config.json",
+        "sha256": "714479320ce6dbd82ef3df74be4ef543f3535f96f074ea65056b962805f2ccf7"
+      },
+      {
+        "path": "fp32/63e04c86fc96c2324811114351eeea8118bf6b28/generation_config.json",
+        "sha256": "597241304b9611f729aa859405ee60934fed6c03b38db9dbc4ae86dbe3d2fd93"
+      },
+      {
+        "path": "fp32/63e04c86fc96c2324811114351eeea8118bf6b28/special_tokens_map.json",
+        "sha256": "358c249e2fb29060c6b73157d428853b0c48710deffc8ee670ab1013880946c9"
+      },
+      {
+        "path": "fp32/63e04c86fc96c2324811114351eeea8118bf6b28/onnx/encoder_model.onnx",
+        "sha256": "95cccef463e5ed3623282f1541c0011a00b8a5d0828ea2cd57d6953ad4310b5b"
+      },
+      {
+        "path": "fp32/63e04c86fc96c2324811114351eeea8118bf6b28/onnx/decoder_model_merged.onnx",
+        "sha256": "10be29b751f6de5f9900c3658551020dc865257eb2c3034bc4c1e016e4d0e35d"
+      }
+    ],
+    "manifestSha256": "248e007d4641ef5c0096058e055a6cdbeee5cdef65a3be200becb9870e08fcf2"
+  },
+  "inputs": {
+    "Z:\\Drive\\BBF\\Projekte Martin\\Software\\OCR\\lia-canvas-ocr\\scripts\\benchmark-ocr-pipeline.mts": "7cc25dad2079c5d0880b0fda3e594d883697c8b12a89aa1aadaa07d6a649c999",
+    "Z:\\Drive\\BBF\\Projekte Martin\\Software\\OCR\\lia-canvas-ocr\\dist\\index.js": "15faddc25fdc3eab7c953900c8acfe6332d2a6b21602d526f68c670a7bbbb4d8",
+    "Z:\\Drive\\BBF\\Projekte Martin\\Software\\OCR\\lia-canvas-ocr\\test\\fixtures\\ocr-pipeline-corpus.mts": "cfebca47941ea1399cb6bef068db2227dac869c12971fa11130cf2d78ecd9b4c",
+    "Z:\\Drive\\BBF\\Projekte Martin\\Software\\OCR\\lia-canvas-ocr\\scripts\\ocr-quality-metrics.mts": "b74e75e84aa6f4ed5865020257fada85a892703fd637b4f598e38f693ed60b43"
+  },
+  "scope": "Real authored mouse strokes, production crop/segmentation/symbol repair/chunking/fallback/cache, real FP32 model, real KaTeX preview, native answer transport and public native grading APIs. No expected equation is injected into OCR.",
+  "limitations": [
+    "This small synthetic development/holdout sample measures specific pipeline behavior, not general handwriting accuracy. Deliberately wrong calculations have deliberately wrong transcription targets.",
+    "Model weights are served locally. LiaScript, KaTeX, Transformers.js and ONNX runtime resources may still load from their normal external URLs; this is not an offline browser benchmark.",
+    "Browser replay, diagnostic observers and PNG capture are benchmark overhead. Input drawing and model loading are outside submit-to-review timing; model-call timings exclude PNG capture but include any production inference-queue wait; pipeline wall time includes capture. Extra public API grading is timed separately.",
+    "One fresh canvas per planned case/repeat, one resident model per browser page. No inference warmup; the first actual model call is marked separately. Repeated Submit on the same canvas is a separate cache observation, never a recognition-speed sample.",
+    "A mathematically accepted grade is not transcription accuracy. Line count, operation text, raw OCR calls and TeX comparisons are reported independently."
+  ],
+  "load": {
+    "wallMs": 4340.700000047684,
+    "runtimeUrl": "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/+esm",
+    "model": "alephpi/FormulaNet",
+    "revision": "63e04c86fc96c2324811114351eeea8118bf6b28",
+    "precision": "fp32",
+    "backend": "wasm",
+    "cacheKey": "alephpi/FormulaNet@63e04c86fc96c2324811114351eeea8118bf6b28|formulanet-v1"
+  },
+  "environment": {
+    "browser": "151.0.7922.34",
+    "host": "https://liascript.github.io/course/",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+    "hardwareConcurrency": 16,
+    "crossOriginIsolated": false,
+    "devicePixelRatio": 1,
+    "viewport": {
+      "width": 1920,
+      "height": 1200
+    }
+  },
+  "runtimeResources": [
+    {
+      "url": "https://liascript.github.io/course/?https://lia-canvas-ocr.invalid/courses/pipeline-2452770d56ebbbbd.md",
+      "status": 200,
+      "sha256": "d75e448f1a5436059093ab1ade5e3f7d2ef0274b88e14bbe9c15a2051136e697",
+      "bytes": 3957
+    },
+    {
+      "url": "https://liascript.github.io/course/index.f0592a20.js",
+      "status": 200,
+      "sha256": "fd05f7e73a4bda8354f40c852f7b50c9712de241eb81853dad00c484e89b0359",
+      "bytes": 110441
+    },
+    {
+      "url": "https://liascript.github.io/course/index.4fa9e2a8.js",
+      "status": 200,
+      "sha256": "63d76ce45d26deaafcfc6b3ac4abe52fceed575199c3f8c407fcf60ded2c0f63",
+      "bytes": 127990
+    },
+    {
+      "url": "https://liascript.github.io/course/index.40df2935.js",
+      "status": 200,
+      "sha256": "0ad34d8a43a2504120932a52c6fb157d30fb1fc2c0983023e57ed623e7af1bfb",
+      "bytes": 34097
+    },
+    {
+      "url": "https://liascript.github.io/course/index.616e5487.js",
+      "status": 200,
+      "sha256": "145cd36a39b4fd0058a721968d3c981fc4bc2f6af8b65c50c18e16f033d0ab39",
+      "bytes": 8952
+    },
+    {
+      "url": "https://liascript.github.io/course/index.1df2912f.js",
+      "status": 200,
+      "sha256": "fc02ba6517bfaef22ea7e5e6522c378822b04a344bc69d4fbc7f81b9feeeca1b",
+      "bytes": 3687
+    },
+    {
+      "url": "https://liascript.github.io/course/index.c497fc87.js",
+      "status": 200,
+      "sha256": "32c21129f32f9bf0ec99d76dff64f281531b374fad41ccd5a85976fe886a35c9",
+      "bytes": 1763
+    },
+    {
+      "url": "https://code.responsivevoice.org/responsivevoice.js?key=blVZszUw",
+      "status": 200,
+      "sha256": "c9f5ae3d6496a1bb32ceac6b6fe7a99c22df7a8395c75ca04249b5cb3f45b00e",
+      "bytes": 113477
+    },
+    {
+      "url": "https://liascript.github.io/course/index.aca4b632.js",
+      "status": 200,
+      "sha256": "5a9561189a61be8125f415b342f35394ce2c116b2c6dcdacfeb33dcf342f18ad",
+      "bytes": 756775
+    },
+    {
+      "url": "https://liascript.github.io/course/index.44f3494f.js",
+      "status": 200,
+      "sha256": "f5d841c9e14083853d047f15c525620b2b4d9300031cefc1f9c15288a94808b2",
+      "bytes": 306831
+    },
+    {
+      "url": "https://liascript.github.io/course/index.0b19dc34.js",
+      "status": 200,
+      "sha256": "953791244d2acb5f4c15f0747cd47c8b491ff459511a2c689dc6ee08acda5218",
+      "bytes": 968496
+    },
+    {
+      "url": "https://liascript.github.io/course/Worker.c8f61b6b.js",
+      "status": 200,
+      "sha256": "1024120b73a44533c83e07925d40476e3348965d0fadb183ce7769c6fd909f07",
+      "bytes": 1746
+    },
+    {
+      "url": "https://liascript.github.io/course/index.2e1efa5b.js",
+      "status": 200,
+      "sha256": "89f6a768822eadc44d7a26daf2fac6e9275706dcecc49fad1bf2264347e3f9c1",
+      "bytes": 1352304
+    },
+    {
+      "url": "https://liascript.github.io/course/Browser.a6d9d9c2.js",
+      "status": 200,
+      "sha256": "524efba74f7cab0735b31dd0ffa8dcaeefcd35fcd27f60d783e299ff9b0aa026",
+      "bytes": 105824
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/gh/LiaTemplates/algebrite@0.6.3/dist/index.js",
+      "status": 200,
+      "sha256": "4c5d57e3263883d6b0f32a406d158695f4f8267e89ca2cdaced160f8c4f3b275",
+      "bytes": 850597
+    },
+    {
+      "url": "https://lia-canvas-ocr.invalid/dist/index.js",
+      "status": 200,
+      "sha256": "15faddc25fdc3eab7c953900c8acfe6332d2a6b21602d526f68c670a7bbbb4d8",
+      "bytes": 471406
+    },
+    {
+      "url": "https://liascript.github.io/course/theme-dreamweaver.js",
+      "status": 200,
+      "sha256": "e9ff91b1d768d3cce4bd9bd875c586085a8d7f3c7e7037f9a1bf965635794081",
+      "bytes": 4186
+    },
+    {
+      "url": "https://liascript.github.io/course/mode-markdown.js",
+      "status": 200,
+      "sha256": "3da0190995adf97a2bde70668971c2958baceeb308b6f38e794494756b92ca88",
+      "bytes": 74891
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/+esm",
+      "status": 200,
+      "sha256": "72bd2255af0cb33ee0167d439b78b1010b232c6cc2bc5e8c607167c5c8b84565",
+      "bytes": 502025
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/npm/onnxruntime-common/+esm",
+      "status": 200,
+      "sha256": "ffbc8214008f4ff0fcee5d3e236c7639672a7faf3d9986a55624619164601cfb",
+      "bytes": 19672
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0-dev.20250409-89f8206ba4/+esm",
+      "status": 200,
+      "sha256": "c223b5a5deb30887e53777e26afd160da06d5f45c7a54b22388b97c8bbb8241d",
+      "bytes": 395093
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/ort-wasm-simd-threaded.jsep.mjs",
+      "status": 200,
+      "sha256": "08fb86ec433c78bfb032c5d84a68b8e8e5a8d81268fa39e24314179a5767a5b9",
+      "bytes": 44484
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.mjs",
+      "status": 200,
+      "sha256": "3de582c88577c17a667658525d0387138a02467d822fda25cc00e5886ca496ef",
+      "bytes": 606245
+    }
+  ],
+  "errors": [],
+  "records": [
+    {
+      "caseId": "decimal-comma",
+      "split": "development",
+      "expected": "x=1,5\\cdot2\\\\x=3",
+      "actual": "x = 1, 5 \\cdot 2\\\\x = 3",
+      "wallMs": 1327.5999999046326,
+      "gradeAccepted": true,
+      "expectedGradeAccepted": true,
+      "status": "ok"
+    },
+    {
+      "caseId": "decimal-comma",
+      "split": "development",
+      "expected": "x=1,5\\cdot2\\\\x=3",
+      "actual": "x = 1, 5 \\cdot 2\\\\x = 3",
+      "wallMs": 1303.4000000953674,
+      "gradeAccepted": true,
+      "expectedGradeAccepted": true,
+      "status": "ok"
+    }
+  ],
+  "runs": [
+    {
+      "caseId": "decimal-comma",
+      "repeat": 1,
+      "split": "development",
+      "status": "ok",
+      "expectedLines": [
+        "x=1,5\\cdot2",
+        "x=3"
+      ],
+      "expectedLineCount": 2,
+      "expectedOperations": [
+        null,
+        null
+      ],
+      "expectedGradeAccepted": true,
+      "intentionalError": null,
+      "modelCalls": [
+        {
+          "index": 0,
+          "firstInference": true,
+          "width": 179,
+          "height": 64,
+          "options": {
+            "max_new_tokens": 64,
+            "do_sample": false
+          },
+          "worldBounds": null,
+          "pixelScale": 1,
+          "captureMs": 0.2999999523162842,
+          "startedAt": 8886.5,
+          "text": "X = 1, 5 \\cdot 2",
+          "wallMs": 612.5,
+          "phase": "recognition",
+          "cropSha256": "2ea8d9887c21d2738131fde34d63a3b46e20cf3a25ceac641bb2c8b274475325",
+          "cropPng": "Z:\\Drive\\BBF\\Projekte Martin\\Software\\OCR\\lia-canvas-ocr\\docs\\benchmarks\\ocr-pipeline-decimal-fix-2026-09-06.json.assets\\decimal-comma-r1-call0.png"
+        },
+        {
+          "index": 1,
+          "firstInference": false,
+          "width": 95,
+          "height": 57,
+          "options": {
+            "max_new_tokens": 64,
+            "do_sample": false
+          },
+          "worldBounds": null,
+          "pixelScale": 1,
+          "captureMs": 0.2999999523162842,
+          "startedAt": 9499.799999952316,
+          "text": "x = 3",
+          "wallMs": 558.4000000953674,
+          "phase": "recognition",
+          "cropSha256": "db86375a809541865d27f44b73c01fd9f8e69590d150ba2a1d1510c5ed5263d2",
+          "cropPng": "Z:\\Drive\\BBF\\Projekte Martin\\Software\\OCR\\lia-canvas-ocr\\docs\\benchmarks\\ocr-pipeline-decimal-fix-2026-09-06.json.assets\\decimal-comma-r1-call1.png"
+        }
+      ],
+      "freezeInput": {
+        "v": "cvf1",
+        "u": "0_0",
+        "w": 180,
+        "h": 137,
+        "bg": {
+          "m": "none"
+        },
+        "it": [
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                10,
+                13.6
+              ],
+              [
+                10.64,
+                14.63
+              ],
+              [
+                11.28,
+                15.66
+              ],
+              [
+                11.91,
+                16.69
+              ],
+              [
+                12.55,
+                17.71
+              ],
+              [
+                13.19,
+                18.74
+              ],
+              [
+                13.83,
+                19.77
+              ],
+              [
+                14.46,
+                20.8
+              ],
+              [
+                15.1,
+                21.83
+              ],
+              [
+                15.74,
+                22.86
+              ],
+              [
+                16.38,
+                23.89
+              ],
+              [
+                17.01,
+                24.91
+              ],
+              [
+                17.65,
+                25.94
+              ],
+              [
+                18.29,
+                26.97
+              ],
+              [
+                18.93,
+                28
+              ],
+              [
+                19.57,
+                29.03
+              ],
+              [
+                20.2,
+                30.06
+              ],
+              [
+                20.84,
+                31.09
+              ],
+              [
+                21.48,
+                32.11
+              ],
+              [
+                22.12,
+                33.14
+              ],
+              [
+                22.75,
+                34.17
+              ],
+              [
+                23.39,
+                35.2
+              ],
+              [
+                24.03,
+                36.23
+              ],
+              [
+                24.67,
+                37.26
+              ],
+              [
+                25.31,
+                38.29
+              ],
+              [
+                25.94,
+                39.31
+              ],
+              [
+                26.58,
+                40.34
+              ],
+              [
+                27.22,
+                41.37
+              ],
+              [
+                27.86,
+                42.4
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                27.86,
+                13.6
+              ],
+              [
+                27.22,
+                14.63
+              ],
+              [
+                26.58,
+                15.66
+              ],
+              [
+                25.94,
+                16.69
+              ],
+              [
+                25.31,
+                17.71
+              ],
+              [
+                24.67,
+                18.74
+              ],
+              [
+                24.03,
+                19.77
+              ],
+              [
+                23.39,
+                20.8
+              ],
+              [
+                22.75,
+                21.83
+              ],
+              [
+                22.12,
+                22.86
+              ],
+              [
+                21.48,
+                23.89
+              ],
+              [
+                20.84,
+                24.91
+              ],
+              [
+                20.2,
+                25.94
+              ],
+              [
+                19.57,
+                26.97
+              ],
+              [
+                18.93,
+                28
+              ],
+              [
+                18.29,
+                29.03
+              ],
+              [
+                17.65,
+                30.06
+              ],
+              [
+                17.01,
+                31.09
+              ],
+              [
+                16.38,
+                32.11
+              ],
+              [
+                15.74,
+                33.14
+              ],
+              [
+                15.1,
+                34.17
+              ],
+              [
+                14.46,
+                35.2
+              ],
+              [
+                13.83,
+                36.23
+              ],
+              [
+                13.19,
+                37.26
+              ],
+              [
+                12.55,
+                38.29
+              ],
+              [
+                11.91,
+                39.31
+              ],
+              [
+                11.28,
+                40.34
+              ],
+              [
+                10.64,
+                41.37
+              ],
+              [
+                10,
+                42.4
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                36.96,
+                23.68
+              ],
+              [
+                38.22,
+                23.68
+              ],
+              [
+                39.48,
+                23.68
+              ],
+              [
+                40.73,
+                23.68
+              ],
+              [
+                41.99,
+                23.68
+              ],
+              [
+                43.24,
+                23.68
+              ],
+              [
+                44.5,
+                23.68
+              ],
+              [
+                45.75,
+                23.68
+              ],
+              [
+                47.01,
+                23.68
+              ],
+              [
+                48.26,
+                23.68
+              ],
+              [
+                49.52,
+                23.68
+              ],
+              [
+                50.77,
+                23.68
+              ],
+              [
+                52.03,
+                23.68
+              ],
+              [
+                53.29,
+                23.68
+              ],
+              [
+                54.54,
+                23.68
+              ],
+              [
+                55.8,
+                23.68
+              ],
+              [
+                57.05,
+                23.68
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                36.96,
+                33.76
+              ],
+              [
+                38.22,
+                33.76
+              ],
+              [
+                39.48,
+                33.76
+              ],
+              [
+                40.73,
+                33.76
+              ],
+              [
+                41.99,
+                33.76
+              ],
+              [
+                43.24,
+                33.76
+              ],
+              [
+                44.5,
+                33.76
+              ],
+              [
+                45.75,
+                33.76
+              ],
+              [
+                47.01,
+                33.76
+              ],
+              [
+                48.26,
+                33.76
+              ],
+              [
+                49.52,
+                33.76
+              ],
+              [
+                50.77,
+                33.76
+              ],
+              [
+                52.03,
+                33.76
+              ],
+              [
+                53.29,
+                33.76
+              ],
+              [
+                54.54,
+                33.76
+              ],
+              [
+                55.8,
+                33.76
+              ],
+              [
+                57.05,
+                33.76
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                68.39,
+                17.2
+              ],
+              [
+                69.37,
+                16.3
+              ],
+              [
+                70.34,
+                15.4
+              ],
+              [
+                71.32,
+                14.5
+              ],
+              [
+                72.3,
+                13.6
+              ],
+              [
+                73.27,
+                12.7
+              ],
+              [
+                74.25,
+                11.8
+              ],
+              [
+                75.23,
+                10.9
+              ],
+              [
+                76.2,
+                10
+              ],
+              [
+                76.2,
+                11.29
+              ],
+              [
+                76.2,
+                12.57
+              ],
+              [
+                76.2,
+                13.86
+              ],
+              [
+                76.2,
+                15.14
+              ],
+              [
+                76.2,
+                16.43
+              ],
+              [
+                76.2,
+                17.71
+              ],
+              [
+                76.2,
+                19
+              ],
+              [
+                76.2,
+                20.29
+              ],
+              [
+                76.2,
+                21.57
+              ],
+              [
+                76.2,
+                22.86
+              ],
+              [
+                76.2,
+                24.14
+              ],
+              [
+                76.2,
+                25.43
+              ],
+              [
+                76.2,
+                26.71
+              ],
+              [
+                76.2,
+                28
+              ],
+              [
+                76.2,
+                29.29
+              ],
+              [
+                76.2,
+                30.57
+              ],
+              [
+                76.2,
+                31.86
+              ],
+              [
+                76.2,
+                33.14
+              ],
+              [
+                76.2,
+                34.43
+              ],
+              [
+                76.2,
+                35.71
+              ],
+              [
+                76.2,
+                37
+              ],
+              [
+                76.2,
+                38.29
+              ],
+              [
+                76.2,
+                39.57
+              ],
+              [
+                76.2,
+                40.86
+              ],
+              [
+                76.2,
+                42.14
+              ],
+              [
+                76.2,
+                43.43
+              ],
+              [
+                76.2,
+                44.71
+              ],
+              [
+                76.2,
+                46
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                97.62,
+                41.68
+              ],
+              [
+                97.52,
+                42.67
+              ],
+              [
+                97.41,
+                43.66
+              ],
+              [
+                97.3,
+                44.65
+              ],
+              [
+                97.19,
+                45.64
+              ],
+              [
+                96.76,
+                46.23
+              ],
+              [
+                96.33,
+                46.81
+              ],
+              [
+                95.9,
+                47.4
+              ],
+              [
+                95.46,
+                47.98
+              ],
+              [
+                95.03,
+                48.57
+              ],
+              [
+                94.6,
+                49.15
+              ],
+              [
+                94.17,
+                49.74
+              ],
+              [
+                93.74,
+                50.32
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                127.61,
+                10.72
+              ],
+              [
+                126.5,
+                10.72
+              ],
+              [
+                125.38,
+                10.72
+              ],
+              [
+                124.26,
+                10.72
+              ],
+              [
+                123.15,
+                10.72
+              ],
+              [
+                122.03,
+                10.72
+              ],
+              [
+                120.92,
+                10.72
+              ],
+              [
+                119.8,
+                10.72
+              ],
+              [
+                118.68,
+                10.72
+              ],
+              [
+                117.57,
+                10.72
+              ],
+              [
+                116.45,
+                10.72
+              ],
+              [
+                115.34,
+                10.72
+              ],
+              [
+                114.22,
+                10.72
+              ],
+              [
+                113.1,
+                10.72
+              ],
+              [
+                111.99,
+                10.72
+              ],
+              [
+                110.87,
+                10.72
+              ],
+              [
+                109.76,
+                10.72
+              ],
+              [
+                109.66,
+                12.01
+              ],
+              [
+                109.57,
+                13.3
+              ],
+              [
+                109.48,
+                14.59
+              ],
+              [
+                109.38,
+                15.88
+              ],
+              [
+                109.29,
+                17.17
+              ],
+              [
+                109.2,
+                18.46
+              ],
+              [
+                109.11,
+                19.75
+              ],
+              [
+                109.01,
+                21.04
+              ],
+              [
+                108.92,
+                22.33
+              ],
+              [
+                108.83,
+                23.62
+              ],
+              [
+                108.73,
+                24.91
+              ],
+              [
+                108.64,
+                26.2
+              ],
+              [
+                109.63,
+                26.08
+              ],
+              [
+                110.61,
+                25.96
+              ],
+              [
+                111.6,
+                25.84
+              ],
+              [
+                112.58,
+                25.72
+              ],
+              [
+                113.57,
+                25.6
+              ],
+              [
+                114.55,
+                25.48
+              ],
+              [
+                115.54,
+                25.36
+              ],
+              [
+                116.53,
+                25.24
+              ],
+              [
+                117.51,
+                25.12
+              ],
+              [
+                118.5,
+                25
+              ],
+              [
+                119.48,
+                24.88
+              ],
+              [
+                120.47,
+                24.76
+              ],
+              [
+                121.33,
+                25.53
+              ],
+              [
+                122.2,
+                26.29
+              ],
+              [
+                123.06,
+                27.06
+              ],
+              [
+                123.93,
+                27.82
+              ],
+              [
+                124.79,
+                28.59
+              ],
+              [
+                125.66,
+                29.35
+              ],
+              [
+                126.52,
+                30.12
+              ],
+              [
+                127.39,
+                30.88
+              ],
+              [
+                127.11,
+                32.23
+              ],
+              [
+                126.83,
+                33.58
+              ],
+              [
+                126.55,
+                34.93
+              ],
+              [
+                126.27,
+                36.28
+              ],
+              [
+                125.99,
+                37.63
+              ],
+              [
+                125.71,
+                38.98
+              ],
+              [
+                125.44,
+                40.33
+              ],
+              [
+                125.16,
+                41.68
+              ],
+              [
+                124.12,
+                41.9
+              ],
+              [
+                123.09,
+                42.13
+              ],
+              [
+                122.06,
+                42.35
+              ],
+              [
+                121.03,
+                42.58
+              ],
+              [
+                120,
+                42.8
+              ],
+              [
+                118.96,
+                43.03
+              ],
+              [
+                117.93,
+                43.26
+              ],
+              [
+                116.9,
+                43.48
+              ],
+              [
+                115.87,
+                43.71
+              ],
+              [
+                114.83,
+                43.93
+              ],
+              [
+                113.8,
+                44.16
+              ],
+              [
+                112.77,
+                44.38
+              ],
+              [
+                111.74,
+                44.61
+              ],
+              [
+                110.7,
+                44.83
+              ],
+              [
+                109.67,
+                45.06
+              ],
+              [
+                108.64,
+                45.28
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                138.81,
+                28.72
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                151.12,
+                17.2
+              ],
+              [
+                151.68,
+                16.3
+              ],
+              [
+                152.24,
+                15.4
+              ],
+              [
+                152.79,
+                14.5
+              ],
+              [
+                153.35,
+                13.6
+              ],
+              [
+                153.91,
+                12.7
+              ],
+              [
+                154.47,
+                11.8
+              ],
+              [
+                155.03,
+                10.9
+              ],
+              [
+                155.58,
+                10
+              ],
+              [
+                156.84,
+                10
+              ],
+              [
+                158.09,
+                10
+              ],
+              [
+                159.35,
+                10
+              ],
+              [
+                160.61,
+                10
+              ],
+              [
+                161.86,
+                10
+              ],
+              [
+                163.12,
+                10
+              ],
+              [
+                164.37,
+                10
+              ],
+              [
+                165.63,
+                10
+              ],
+              [
+                166.19,
+                10.99
+              ],
+              [
+                166.74,
+                11.98
+              ],
+              [
+                167.3,
+                12.97
+              ],
+              [
+                167.86,
+                13.96
+              ],
+              [
+                168.42,
+                14.95
+              ],
+              [
+                168.98,
+                15.94
+              ],
+              [
+                169.53,
+                16.93
+              ],
+              [
+                170.09,
+                17.92
+              ],
+              [
+                169.62,
+                19.09
+              ],
+              [
+                169.14,
+                20.26
+              ],
+              [
+                168.67,
+                21.43
+              ],
+              [
+                168.19,
+                22.6
+              ],
+              [
+                167.72,
+                23.77
+              ],
+              [
+                167.25,
+                24.94
+              ],
+              [
+                166.77,
+                26.11
+              ],
+              [
+                166.3,
+                27.28
+              ],
+              [
+                165.54,
+                28.22
+              ],
+              [
+                164.78,
+                29.15
+              ],
+              [
+                164.02,
+                30.09
+              ],
+              [
+                163.26,
+                31.02
+              ],
+              [
+                162.5,
+                31.96
+              ],
+              [
+                161.74,
+                32.9
+              ],
+              [
+                160.99,
+                33.83
+              ],
+              [
+                160.23,
+                34.77
+              ],
+              [
+                159.47,
+                35.7
+              ],
+              [
+                158.71,
+                36.64
+              ],
+              [
+                157.95,
+                37.58
+              ],
+              [
+                157.19,
+                38.51
+              ],
+              [
+                156.43,
+                39.45
+              ],
+              [
+                155.67,
+                40.38
+              ],
+              [
+                154.91,
+                41.32
+              ],
+              [
+                154.16,
+                42.26
+              ],
+              [
+                153.4,
+                43.19
+              ],
+              [
+                152.64,
+                44.13
+              ],
+              [
+                151.88,
+                45.06
+              ],
+              [
+                151.12,
+                46
+              ],
+              [
+                152.31,
+                46
+              ],
+              [
+                153.49,
+                46
+              ],
+              [
+                154.68,
+                46
+              ],
+              [
+                155.86,
+                46
+              ],
+              [
+                157.05,
+                46
+              ],
+              [
+                158.23,
+                46
+              ],
+              [
+                159.42,
+                46
+              ],
+              [
+                160.61,
+                46
+              ],
+              [
+                161.79,
+                46
+              ],
+              [
+                162.98,
+                46
+              ],
+              [
+                164.16,
+                46
+              ],
+              [
+                165.35,
+                46
+              ],
+              [
+                166.53,
+                46
+              ],
+              [
+                167.72,
+                46
+              ],
+              [
+                168.91,
+                46
+              ],
+              [
+                170.09,
+                46
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                10,
+                95.6
+              ],
+              [
+                10.64,
+                96.63
+              ],
+              [
+                11.28,
+                97.66
+              ],
+              [
+                11.91,
+                98.69
+              ],
+              [
+                12.55,
+                99.71
+              ],
+              [
+                13.19,
+                100.74
+              ],
+              [
+                13.83,
+                101.77
+              ],
+              [
+                14.46,
+                102.8
+              ],
+              [
+                15.1,
+                103.83
+              ],
+              [
+                15.74,
+                104.86
+              ],
+              [
+                16.38,
+                105.89
+              ],
+              [
+                17.01,
+                106.91
+              ],
+              [
+                17.65,
+                107.94
+              ],
+              [
+                18.29,
+                108.97
+              ],
+              [
+                18.93,
+                110
+              ],
+              [
+                19.57,
+                111.03
+              ],
+              [
+                20.2,
+                112.06
+              ],
+              [
+                20.84,
+                113.09
+              ],
+              [
+                21.48,
+                114.11
+              ],
+              [
+                22.12,
+                115.14
+              ],
+              [
+                22.75,
+                116.17
+              ],
+              [
+                23.39,
+                117.2
+              ],
+              [
+                24.03,
+                118.23
+              ],
+              [
+                24.67,
+                119.26
+              ],
+              [
+                25.31,
+                120.29
+              ],
+              [
+                25.94,
+                121.31
+              ],
+              [
+                26.58,
+                122.34
+              ],
+              [
+                27.22,
+                123.37
+              ],
+              [
+                27.86,
+                124.4
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                27.86,
+                95.6
+              ],
+              [
+                27.22,
+                96.63
+              ],
+              [
+                26.58,
+                97.66
+              ],
+              [
+                25.94,
+                98.69
+              ],
+              [
+                25.31,
+                99.71
+              ],
+              [
+                24.67,
+                100.74
+              ],
+              [
+                24.03,
+                101.77
+              ],
+              [
+                23.39,
+                102.8
+              ],
+              [
+                22.75,
+                103.83
+              ],
+              [
+                22.12,
+                104.86
+              ],
+              [
+                21.48,
+                105.89
+              ],
+              [
+                20.84,
+                106.91
+              ],
+              [
+                20.2,
+                107.94
+              ],
+              [
+                19.57,
+                108.97
+              ],
+              [
+                18.93,
+                110
+              ],
+              [
+                18.29,
+                111.03
+              ],
+              [
+                17.65,
+                112.06
+              ],
+              [
+                17.01,
+                113.09
+              ],
+              [
+                16.38,
+                114.11
+              ],
+              [
+                15.74,
+                115.14
+              ],
+              [
+                15.1,
+                116.17
+              ],
+              [
+                14.46,
+                117.2
+              ],
+              [
+                13.83,
+                118.23
+              ],
+              [
+                13.19,
+                119.26
+              ],
+              [
+                12.55,
+                120.29
+              ],
+              [
+                11.91,
+                121.31
+              ],
+              [
+                11.28,
+                122.34
+              ],
+              [
+                10.64,
+                123.37
+              ],
+              [
+                10,
+                124.4
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                36.96,
+                105.68
+              ],
+              [
+                38.22,
+                105.68
+              ],
+              [
+                39.48,
+                105.68
+              ],
+              [
+                40.73,
+                105.68
+              ],
+              [
+                41.99,
+                105.68
+              ],
+              [
+                43.24,
+                105.68
+              ],
+              [
+                44.5,
+                105.68
+              ],
+              [
+                45.75,
+                105.68
+              ],
+              [
+                47.01,
+                105.68
+              ],
+              [
+                48.26,
+                105.68
+              ],
+              [
+                49.52,
+                105.68
+              ],
+              [
+                50.77,
+                105.68
+              ],
+              [
+                52.03,
+                105.68
+              ],
+              [
+                53.29,
+                105.68
+              ],
+              [
+                54.54,
+                105.68
+              ],
+              [
+                55.8,
+                105.68
+              ],
+              [
+                57.05,
+                105.68
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                36.96,
+                115.76
+              ],
+              [
+                38.22,
+                115.76
+              ],
+              [
+                39.48,
+                115.76
+              ],
+              [
+                40.73,
+                115.76
+              ],
+              [
+                41.99,
+                115.76
+              ],
+              [
+                43.24,
+                115.76
+              ],
+              [
+                44.5,
+                115.76
+              ],
+              [
+                45.75,
+                115.76
+              ],
+              [
+                47.01,
+                115.76
+              ],
+              [
+                48.26,
+                115.76
+              ],
+              [
+                49.52,
+                115.76
+              ],
+              [
+                50.77,
+                115.76
+              ],
+              [
+                52.03,
+                115.76
+              ],
+              [
+                53.29,
+                115.76
+              ],
+              [
+                54.54,
+                115.76
+              ],
+              [
+                55.8,
+                115.76
+              ],
+              [
+                57.05,
+                115.76
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                65.71,
+                94.16
+              ],
+              [
+                66.72,
+                93.98
+              ],
+              [
+                67.72,
+                93.8
+              ],
+              [
+                68.73,
+                93.62
+              ],
+              [
+                69.73,
+                93.44
+              ],
+              [
+                70.74,
+                93.26
+              ],
+              [
+                71.74,
+                93.08
+              ],
+              [
+                72.74,
+                92.9
+              ],
+              [
+                73.75,
+                92.72
+              ],
+              [
+                74.75,
+                92.54
+              ],
+              [
+                75.76,
+                92.36
+              ],
+              [
+                76.76,
+                92.18
+              ],
+              [
+                77.77,
+                92
+              ],
+              [
+                78.6,
+                92.9
+              ],
+              [
+                79.44,
+                93.8
+              ],
+              [
+                80.28,
+                94.7
+              ],
+              [
+                81.11,
+                95.6
+              ],
+              [
+                81.95,
+                96.5
+              ],
+              [
+                82.79,
+                97.4
+              ],
+              [
+                83.63,
+                98.3
+              ],
+              [
+                84.46,
+                99.2
+              ],
+              [
+                83.9,
+                100.19
+              ],
+              [
+                83.35,
+                101.18
+              ],
+              [
+                82.79,
+                102.17
+              ],
+              [
+                82.23,
+                103.16
+              ],
+              [
+                81.67,
+                104.15
+              ],
+              [
+                81.11,
+                105.14
+              ],
+              [
+                80.56,
+                106.13
+              ],
+              [
+                80,
+                107.12
+              ],
+              [
+                79.11,
+                107.48
+              ],
+              [
+                78.21,
+                107.84
+              ],
+              [
+                77.32,
+                108.2
+              ],
+              [
+                76.43,
+                108.56
+              ],
+              [
+                75.53,
+                108.92
+              ],
+              [
+                74.64,
+                109.28
+              ],
+              [
+                73.75,
+                109.64
+              ],
+              [
+                72.86,
+                110
+              ],
+              [
+                73.78,
+                110.23
+              ],
+              [
+                74.7,
+                110.45
+              ],
+              [
+                75.62,
+                110.68
+              ],
+              [
+                76.54,
+                110.9
+              ],
+              [
+                77.46,
+                111.13
+              ],
+              [
+                78.38,
+                111.35
+              ],
+              [
+                79.3,
+                111.57
+              ],
+              [
+                80.22,
+                111.8
+              ],
+              [
+                80.92,
+                112.83
+              ],
+              [
+                81.62,
+                113.87
+              ],
+              [
+                82.31,
+                114.9
+              ],
+              [
+                83.01,
+                115.94
+              ],
+              [
+                83.71,
+                116.98
+              ],
+              [
+                84.41,
+                118.01
+              ],
+              [
+                85.1,
+                119.04
+              ],
+              [
+                85.8,
+                120.08
+              ],
+              [
+                85.08,
+                120.98
+              ],
+              [
+                84.35,
+                121.88
+              ],
+              [
+                83.63,
+                122.78
+              ],
+              [
+                82.9,
+                123.68
+              ],
+              [
+                82.17,
+                124.58
+              ],
+              [
+                81.45,
+                125.48
+              ],
+              [
+                80.72,
+                126.38
+              ],
+              [
+                80,
+                127.28
+              ],
+              [
+                78.81,
+                127.16
+              ],
+              [
+                77.62,
+                127.04
+              ],
+              [
+                76.43,
+                126.92
+              ],
+              [
+                75.24,
+                126.8
+              ],
+              [
+                74.05,
+                126.68
+              ],
+              [
+                72.86,
+                126.56
+              ],
+              [
+                71.67,
+                126.44
+              ],
+              [
+                70.48,
+                126.32
+              ],
+              [
+                69.28,
+                126.2
+              ],
+              [
+                68.09,
+                126.08
+              ],
+              [
+                66.9,
+                125.96
+              ],
+              [
+                65.71,
+                125.84
+              ]
+            ]
+          }
+        ]
+      },
+      "drawingPng": "Z:\\Drive\\BBF\\Projekte Martin\\Software\\OCR\\lia-canvas-ocr\\docs\\benchmarks\\ocr-pipeline-decimal-fix-2026-09-06.json.assets\\decimal-comma-r1-drawing.png",
+      "wallMs": 1327.5999999046326,
+      "nativeApiMs": 29.5,
+      "state": "ready",
+      "analysisState": "ready",
+      "lines": [
+        "x = 1, 5 \\cdot 2",
+        "x = 3"
+      ],
+      "latex": "\\begin{aligned} x &= 1, 5 \\cdot 2 \\\\ x &= 3 \\end{aligned}",
+      "answer": "[\"x = 1, 5 \\\\cdot 2\",\"x = 3\"]",
+      "validated": {
+        "accepted": true,
+        "outcome": "correct",
+        "lines": [
+          "x = 1, 5 \\cdot 2",
+          "x = 3"
+        ],
+        "promptCheck": {
+          "status": "valid",
+          "reason": "prompt-match"
+        },
+        "transitionChecks": [
+          {
+            "from": "x = 1, 5 \\cdot 2",
+            "to": "x = 3",
+            "fromIndex": 0,
+            "toIndex": 1,
+            "status": "valid",
+            "reason": "equivalent-linear-equations",
+            "messageKey": "ocr.plus.validation.validEquivalent"
+          }
+        ],
+        "finalCheck": {
+          "status": "valid",
+          "reason": "solved-variable"
+        }
+      },
+      "checked": {
+        "accepted": true,
+        "outcome": "correct",
+        "lines": [
+          "x = 1, 5 \\cdot 2",
+          "x = 3"
+        ],
+        "promptCheck": {
+          "status": "valid",
+          "reason": "prompt-match"
+        },
+        "transitionChecks": [
+          {
+            "from": "x = 1, 5 \\cdot 2",
+            "to": "x = 3",
+            "fromIndex": 0,
+            "toIndex": 1,
+            "status": "valid",
+            "reason": "equivalent-linear-equations",
+            "messageKey": "ocr.plus.validation.validEquivalent"
+          }
+        ],
+        "finalCheck": {
+          "status": "valid",
+          "reason": "solved-variable"
+        },
+        "ok": true,
+        "status": "correct",
+        "reason": "correct",
+        "message": "The complete calculation is correct."
+      },
+      "engineError": "",
+      "checks": [
+        {
+          "fromIndex": "0",
+          "toIndex": "1",
+          "status": "correct",
+          "reason": "equivalent-linear-equations"
+        }
+      ],
+      "recognitionModelCallCount": 2,
+      "actualLineCount": 2,
+      "actualOperations": [
+        null,
+        null
+      ],
+      "lineCountExact": true,
+      "operationTextExact": true,
+      "transcription": {
+        "rawExact": false,
+        "normalizedExact": true,
+        "expectedTokens": 11,
+        "actualTokens": 11,
+        "tokenEdits": 0,
+        "tokenErrorRate": 0
+      },
+      "previewPng": "Z:\\Drive\\BBF\\Projekte Martin\\Software\\OCR\\lia-canvas-ocr\\docs\\benchmarks\\ocr-pipeline-decimal-fix-2026-09-06.json.assets\\decimal-comma-r1-preview.png",
+      "cacheStartCallIndex": 2,
+      "cacheObservation": {
+        "wallMs": 76.40000009536743,
+        "additionalModelCalls": 0
+      },
+      "events": [
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 6063.899999856949,
+          "detail": {
+            "uid": "0_0",
+            "phase": "idle",
+            "reason": "resize",
+            "revision": 0,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 6150.599999904633,
+          "detail": {
+            "uid": "0_0",
+            "phase": "idle",
+            "reason": "resize",
+            "revision": 0,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 6167.299999952316,
+          "detail": {
+            "uid": "0_0",
+            "phase": "idle",
+            "reason": "resize",
+            "revision": 0,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 6183.399999856949,
+          "detail": {
+            "uid": "0_0",
+            "phase": "idle",
+            "reason": "resize",
+            "revision": 0,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 6200.200000047684,
+          "detail": {
+            "uid": "0_0",
+            "phase": "idle",
+            "reason": "resize",
+            "revision": 0,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 6217.099999904633,
+          "detail": {
+            "uid": "0_0",
+            "phase": "idle",
+            "reason": "resize",
+            "revision": 0,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 6233.299999952316,
+          "detail": {
+            "uid": "0_0",
+            "phase": "idle",
+            "reason": "resize",
+            "revision": 0,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 6249.899999856949,
+          "detail": {
+            "uid": "0_0",
+            "phase": "idle",
+            "reason": "resize",
+            "revision": 0,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 6266.700000047684,
+          "detail": {
+            "uid": "0_0",
+            "phase": "idle",
+            "reason": "resize",
+            "revision": 0,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 6316.700000047684,
+          "detail": {
+            "uid": "0_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 1,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 6384.399999856949,
+          "detail": {
+            "uid": "0_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 1,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 6399.700000047684,
+          "detail": {
+            "uid": "0_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 2,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 6467,
+          "detail": {
+            "uid": "0_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 2,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 6482.899999856949,
+          "detail": {
+            "uid": "0_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 3,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 6550.5,
+          "detail": {
+            "uid": "0_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 3,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 6566.099999904633,
+          "detail": {
+            "uid": "0_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 4,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 6633.099999904633,
+          "detail": {
+            "uid": "0_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 4,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 6649.299999952316,
+          "detail": {
+            "uid": "0_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 5,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 6783.599999904633,
+          "detail": {
+            "uid": "0_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 5,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 6799.299999952316,
+          "detail": {
+            "uid": "0_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 6,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 6933.399999856949,
+          "detail": {
+            "uid": "0_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 6,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 6949.5,
+          "detail": {
+            "uid": "0_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 7,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 7350.099999904633,
+          "detail": {
+            "uid": "0_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 7,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 7366.200000047684,
+          "detail": {
+            "uid": "0_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 8,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 7367.399999856949,
+          "detail": {
+            "uid": "0_0",
+            "phase": "manual",
+            "reason": "stroke-tap",
+            "revision": 8,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 7382.799999952316,
+          "detail": {
+            "uid": "0_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 9,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 7783.5,
+          "detail": {
+            "uid": "0_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 9,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 7799.5,
+          "detail": {
+            "uid": "0_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 10,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 7866.899999856949,
+          "detail": {
+            "uid": "0_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 10,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 7882.700000047684,
+          "detail": {
+            "uid": "0_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 11,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 7950.099999904633,
+          "detail": {
+            "uid": "0_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 11,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 7966.099999904633,
+          "detail": {
+            "uid": "0_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 12,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 8033.599999904633,
+          "detail": {
+            "uid": "0_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 12,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 8049.5,
+          "detail": {
+            "uid": "0_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 13,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 8116.899999856949,
+          "detail": {
+            "uid": "0_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 13,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 8132.799999952316,
+          "detail": {
+            "uid": "0_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 14,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 8666.899999856949,
+          "detail": {
+            "uid": "0_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 14,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-answer",
+          "at": 10126.399999856949,
+          "detail": {
+            "uid": "0_0",
+            "revision": 14,
+            "lines": [
+              "x = 1, 5 \\cdot 2",
+              "x = 3"
+            ],
+            "latex": "\\begin{aligned} x &= 1, 5 \\cdot 2 \\\\ x &= 3 \\end{aligned}",
+            "value": "[\"x = 1, 5 \\\\cdot 2\",\"x = 3\"]",
+            "submissionValue": "[\"x = 1, 5 \\\\cdot 2\",\"x = 3\"]",
+            "pathAccepted": true,
+            "source": "ocr",
+            "applied": true
+          }
+        },
+        {
+          "type": "lia:canvasplus-render",
+          "at": 10126.399999856949,
+          "detail": {
+            "uid": "0_0",
+            "revision": 14,
+            "lineCount": 2,
+            "lines": [
+              "x = 1, 5 \\cdot 2",
+              "x = 3"
+            ],
+            "latex": "\\begin{aligned} x &= 1, 5 \\cdot 2 \\\\ x &= 3 \\end{aligned}",
+            "source": "ocr",
+            "preparedInBackground": false
+          }
+        },
+        {
+          "type": "lia:canvasplus-analysis",
+          "at": 10154.200000047684,
+          "detail": {
+            "uid": "0_0",
+            "revision": 14,
+            "state": "ready",
+            "checks": [
+              {
+                "from": "x = 1, 5 \\cdot 2",
+                "to": "x = 3",
+                "fromIndex": 0,
+                "toIndex": 1,
+                "status": "valid",
+                "reason": "equivalent-linear-equations",
+                "messageKey": "ocr.plus.validation.validEquivalent"
+              }
+            ]
+          }
+        },
+        {
+          "type": "lia:canvasplus-answer",
+          "at": 10620.299999952316,
+          "detail": {
+            "uid": "0_0",
+            "revision": 14,
+            "lines": [
+              "x = 1, 5 \\cdot 2",
+              "x = 3"
+            ],
+            "latex": "\\begin{aligned} x &= 1, 5 \\cdot 2 \\\\ x &= 3 \\end{aligned}",
+            "value": "[\"x = 1, 5 \\\\cdot 2\",\"x = 3\"]",
+            "submissionValue": "[\"x = 1, 5 \\\\cdot 2\",\"x = 3\"]",
+            "pathAccepted": true,
+            "source": "ocr",
+            "applied": true
+          }
+        },
+        {
+          "type": "lia:canvasplus-render",
+          "at": 10620.299999952316,
+          "detail": {
+            "uid": "0_0",
+            "revision": 14,
+            "lineCount": 2,
+            "lines": [
+              "x = 1, 5 \\cdot 2",
+              "x = 3"
+            ],
+            "latex": "\\begin{aligned} x &= 1, 5 \\cdot 2 \\\\ x &= 3 \\end{aligned}",
+            "source": "ocr",
+            "preparedInBackground": false
+          }
+        },
+        {
+          "type": "lia:canvasplus-analysis",
+          "at": 10640.200000047684,
+          "detail": {
+            "uid": "0_0",
+            "revision": 14,
+            "state": "ready",
+            "checks": [
+              {
+                "from": "x = 1, 5 \\cdot 2",
+                "to": "x = 3",
+                "fromIndex": 0,
+                "toIndex": 1,
+                "status": "valid",
+                "reason": "equivalent-linear-equations",
+                "messageKey": "ocr.plus.validation.validEquivalent"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "caseId": "decimal-comma",
+      "repeat": 2,
+      "split": "development",
+      "status": "ok",
+      "expectedLines": [
+        "x=1,5\\cdot2",
+        "x=3"
+      ],
+      "expectedLineCount": 2,
+      "expectedOperations": [
+        null,
+        null
+      ],
+      "expectedGradeAccepted": true,
+      "intentionalError": null,
+      "modelCalls": [
+        {
+          "index": 2,
+          "firstInference": false,
+          "width": 179,
+          "height": 64,
+          "options": {
+            "max_new_tokens": 64,
+            "do_sample": false
+          },
+          "worldBounds": null,
+          "pixelScale": 1,
+          "captureMs": 0.20000004768371582,
+          "startedAt": 13496.299999952316,
+          "text": "X = 1, 5 \\cdot 2",
+          "wallMs": 613.0999999046326,
+          "phase": "recognition",
+          "cropSha256": "2ea8d9887c21d2738131fde34d63a3b46e20cf3a25ceac641bb2c8b274475325",
+          "cropPng": "Z:\\Drive\\BBF\\Projekte Martin\\Software\\OCR\\lia-canvas-ocr\\docs\\benchmarks\\ocr-pipeline-decimal-fix-2026-09-06.json.assets\\decimal-comma-r2-call2.png"
+        },
+        {
+          "index": 3,
+          "firstInference": false,
+          "width": 95,
+          "height": 57,
+          "options": {
+            "max_new_tokens": 64,
+            "do_sample": false
+          },
+          "worldBounds": null,
+          "pixelScale": 1,
+          "captureMs": 0.19999980926513672,
+          "startedAt": 14109.899999856949,
+          "text": "x = 3",
+          "wallMs": 583.4000000953674,
+          "phase": "recognition",
+          "cropSha256": "db86375a809541865d27f44b73c01fd9f8e69590d150ba2a1d1510c5ed5263d2",
+          "cropPng": "Z:\\Drive\\BBF\\Projekte Martin\\Software\\OCR\\lia-canvas-ocr\\docs\\benchmarks\\ocr-pipeline-decimal-fix-2026-09-06.json.assets\\decimal-comma-r2-call3.png"
+        }
+      ],
+      "freezeInput": {
+        "v": "cvf1",
+        "u": "1_0",
+        "w": 180,
+        "h": 137,
+        "bg": {
+          "m": "none"
+        },
+        "it": [
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                10,
+                13.6
+              ],
+              [
+                10.64,
+                14.63
+              ],
+              [
+                11.28,
+                15.66
+              ],
+              [
+                11.91,
+                16.69
+              ],
+              [
+                12.55,
+                17.71
+              ],
+              [
+                13.19,
+                18.74
+              ],
+              [
+                13.83,
+                19.77
+              ],
+              [
+                14.46,
+                20.8
+              ],
+              [
+                15.1,
+                21.83
+              ],
+              [
+                15.74,
+                22.86
+              ],
+              [
+                16.38,
+                23.89
+              ],
+              [
+                17.01,
+                24.91
+              ],
+              [
+                17.65,
+                25.94
+              ],
+              [
+                18.29,
+                26.97
+              ],
+              [
+                18.93,
+                28
+              ],
+              [
+                19.57,
+                29.03
+              ],
+              [
+                20.2,
+                30.06
+              ],
+              [
+                20.84,
+                31.09
+              ],
+              [
+                21.48,
+                32.11
+              ],
+              [
+                22.12,
+                33.14
+              ],
+              [
+                22.75,
+                34.17
+              ],
+              [
+                23.39,
+                35.2
+              ],
+              [
+                24.03,
+                36.23
+              ],
+              [
+                24.67,
+                37.26
+              ],
+              [
+                25.31,
+                38.29
+              ],
+              [
+                25.94,
+                39.31
+              ],
+              [
+                26.58,
+                40.34
+              ],
+              [
+                27.22,
+                41.37
+              ],
+              [
+                27.86,
+                42.4
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                27.86,
+                13.6
+              ],
+              [
+                27.22,
+                14.63
+              ],
+              [
+                26.58,
+                15.66
+              ],
+              [
+                25.94,
+                16.69
+              ],
+              [
+                25.31,
+                17.71
+              ],
+              [
+                24.67,
+                18.74
+              ],
+              [
+                24.03,
+                19.77
+              ],
+              [
+                23.39,
+                20.8
+              ],
+              [
+                22.75,
+                21.83
+              ],
+              [
+                22.12,
+                22.86
+              ],
+              [
+                21.48,
+                23.89
+              ],
+              [
+                20.84,
+                24.91
+              ],
+              [
+                20.2,
+                25.94
+              ],
+              [
+                19.57,
+                26.97
+              ],
+              [
+                18.93,
+                28
+              ],
+              [
+                18.29,
+                29.03
+              ],
+              [
+                17.65,
+                30.06
+              ],
+              [
+                17.01,
+                31.09
+              ],
+              [
+                16.38,
+                32.11
+              ],
+              [
+                15.74,
+                33.14
+              ],
+              [
+                15.1,
+                34.17
+              ],
+              [
+                14.46,
+                35.2
+              ],
+              [
+                13.83,
+                36.23
+              ],
+              [
+                13.19,
+                37.26
+              ],
+              [
+                12.55,
+                38.29
+              ],
+              [
+                11.91,
+                39.31
+              ],
+              [
+                11.28,
+                40.34
+              ],
+              [
+                10.64,
+                41.37
+              ],
+              [
+                10,
+                42.4
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                36.96,
+                23.68
+              ],
+              [
+                38.22,
+                23.68
+              ],
+              [
+                39.48,
+                23.68
+              ],
+              [
+                40.73,
+                23.68
+              ],
+              [
+                41.99,
+                23.68
+              ],
+              [
+                43.24,
+                23.68
+              ],
+              [
+                44.5,
+                23.68
+              ],
+              [
+                45.75,
+                23.68
+              ],
+              [
+                47.01,
+                23.68
+              ],
+              [
+                48.26,
+                23.68
+              ],
+              [
+                49.52,
+                23.68
+              ],
+              [
+                50.77,
+                23.68
+              ],
+              [
+                52.03,
+                23.68
+              ],
+              [
+                53.29,
+                23.68
+              ],
+              [
+                54.54,
+                23.68
+              ],
+              [
+                55.8,
+                23.68
+              ],
+              [
+                57.05,
+                23.68
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                36.96,
+                33.76
+              ],
+              [
+                38.22,
+                33.76
+              ],
+              [
+                39.48,
+                33.76
+              ],
+              [
+                40.73,
+                33.76
+              ],
+              [
+                41.99,
+                33.76
+              ],
+              [
+                43.24,
+                33.76
+              ],
+              [
+                44.5,
+                33.76
+              ],
+              [
+                45.75,
+                33.76
+              ],
+              [
+                47.01,
+                33.76
+              ],
+              [
+                48.26,
+                33.76
+              ],
+              [
+                49.52,
+                33.76
+              ],
+              [
+                50.77,
+                33.76
+              ],
+              [
+                52.03,
+                33.76
+              ],
+              [
+                53.29,
+                33.76
+              ],
+              [
+                54.54,
+                33.76
+              ],
+              [
+                55.8,
+                33.76
+              ],
+              [
+                57.05,
+                33.76
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                68.39,
+                17.2
+              ],
+              [
+                69.37,
+                16.3
+              ],
+              [
+                70.34,
+                15.4
+              ],
+              [
+                71.32,
+                14.5
+              ],
+              [
+                72.3,
+                13.6
+              ],
+              [
+                73.27,
+                12.7
+              ],
+              [
+                74.25,
+                11.8
+              ],
+              [
+                75.23,
+                10.9
+              ],
+              [
+                76.2,
+                10
+              ],
+              [
+                76.2,
+                11.29
+              ],
+              [
+                76.2,
+                12.57
+              ],
+              [
+                76.2,
+                13.86
+              ],
+              [
+                76.2,
+                15.14
+              ],
+              [
+                76.2,
+                16.43
+              ],
+              [
+                76.2,
+                17.71
+              ],
+              [
+                76.2,
+                19
+              ],
+              [
+                76.2,
+                20.29
+              ],
+              [
+                76.2,
+                21.57
+              ],
+              [
+                76.2,
+                22.86
+              ],
+              [
+                76.2,
+                24.14
+              ],
+              [
+                76.2,
+                25.43
+              ],
+              [
+                76.2,
+                26.71
+              ],
+              [
+                76.2,
+                28
+              ],
+              [
+                76.2,
+                29.29
+              ],
+              [
+                76.2,
+                30.57
+              ],
+              [
+                76.2,
+                31.86
+              ],
+              [
+                76.2,
+                33.14
+              ],
+              [
+                76.2,
+                34.43
+              ],
+              [
+                76.2,
+                35.71
+              ],
+              [
+                76.2,
+                37
+              ],
+              [
+                76.2,
+                38.29
+              ],
+              [
+                76.2,
+                39.57
+              ],
+              [
+                76.2,
+                40.86
+              ],
+              [
+                76.2,
+                42.14
+              ],
+              [
+                76.2,
+                43.43
+              ],
+              [
+                76.2,
+                44.71
+              ],
+              [
+                76.2,
+                46
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                97.62,
+                41.68
+              ],
+              [
+                97.52,
+                42.67
+              ],
+              [
+                97.41,
+                43.66
+              ],
+              [
+                97.3,
+                44.65
+              ],
+              [
+                97.19,
+                45.64
+              ],
+              [
+                96.76,
+                46.23
+              ],
+              [
+                96.33,
+                46.81
+              ],
+              [
+                95.9,
+                47.4
+              ],
+              [
+                95.46,
+                47.98
+              ],
+              [
+                95.03,
+                48.57
+              ],
+              [
+                94.6,
+                49.15
+              ],
+              [
+                94.17,
+                49.74
+              ],
+              [
+                93.74,
+                50.32
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                127.61,
+                10.72
+              ],
+              [
+                126.5,
+                10.72
+              ],
+              [
+                125.38,
+                10.72
+              ],
+              [
+                124.26,
+                10.72
+              ],
+              [
+                123.15,
+                10.72
+              ],
+              [
+                122.03,
+                10.72
+              ],
+              [
+                120.92,
+                10.72
+              ],
+              [
+                119.8,
+                10.72
+              ],
+              [
+                118.68,
+                10.72
+              ],
+              [
+                117.57,
+                10.72
+              ],
+              [
+                116.45,
+                10.72
+              ],
+              [
+                115.34,
+                10.72
+              ],
+              [
+                114.22,
+                10.72
+              ],
+              [
+                113.1,
+                10.72
+              ],
+              [
+                111.99,
+                10.72
+              ],
+              [
+                110.87,
+                10.72
+              ],
+              [
+                109.76,
+                10.72
+              ],
+              [
+                109.66,
+                12.01
+              ],
+              [
+                109.57,
+                13.3
+              ],
+              [
+                109.48,
+                14.59
+              ],
+              [
+                109.38,
+                15.88
+              ],
+              [
+                109.29,
+                17.17
+              ],
+              [
+                109.2,
+                18.46
+              ],
+              [
+                109.11,
+                19.75
+              ],
+              [
+                109.01,
+                21.04
+              ],
+              [
+                108.92,
+                22.33
+              ],
+              [
+                108.83,
+                23.62
+              ],
+              [
+                108.73,
+                24.91
+              ],
+              [
+                108.64,
+                26.2
+              ],
+              [
+                109.63,
+                26.08
+              ],
+              [
+                110.61,
+                25.96
+              ],
+              [
+                111.6,
+                25.84
+              ],
+              [
+                112.58,
+                25.72
+              ],
+              [
+                113.57,
+                25.6
+              ],
+              [
+                114.55,
+                25.48
+              ],
+              [
+                115.54,
+                25.36
+              ],
+              [
+                116.53,
+                25.24
+              ],
+              [
+                117.51,
+                25.12
+              ],
+              [
+                118.5,
+                25
+              ],
+              [
+                119.48,
+                24.88
+              ],
+              [
+                120.47,
+                24.76
+              ],
+              [
+                121.33,
+                25.53
+              ],
+              [
+                122.2,
+                26.29
+              ],
+              [
+                123.06,
+                27.06
+              ],
+              [
+                123.93,
+                27.82
+              ],
+              [
+                124.79,
+                28.59
+              ],
+              [
+                125.66,
+                29.35
+              ],
+              [
+                126.52,
+                30.12
+              ],
+              [
+                127.39,
+                30.88
+              ],
+              [
+                127.11,
+                32.23
+              ],
+              [
+                126.83,
+                33.58
+              ],
+              [
+                126.55,
+                34.93
+              ],
+              [
+                126.27,
+                36.28
+              ],
+              [
+                125.99,
+                37.63
+              ],
+              [
+                125.71,
+                38.98
+              ],
+              [
+                125.44,
+                40.33
+              ],
+              [
+                125.16,
+                41.68
+              ],
+              [
+                124.12,
+                41.9
+              ],
+              [
+                123.09,
+                42.13
+              ],
+              [
+                122.06,
+                42.35
+              ],
+              [
+                121.03,
+                42.58
+              ],
+              [
+                120,
+                42.8
+              ],
+              [
+                118.96,
+                43.03
+              ],
+              [
+                117.93,
+                43.26
+              ],
+              [
+                116.9,
+                43.48
+              ],
+              [
+                115.87,
+                43.71
+              ],
+              [
+                114.83,
+                43.93
+              ],
+              [
+                113.8,
+                44.16
+              ],
+              [
+                112.77,
+                44.38
+              ],
+              [
+                111.74,
+                44.61
+              ],
+              [
+                110.7,
+                44.83
+              ],
+              [
+                109.67,
+                45.06
+              ],
+              [
+                108.64,
+                45.28
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                138.81,
+                28.72
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                151.12,
+                17.2
+              ],
+              [
+                151.68,
+                16.3
+              ],
+              [
+                152.24,
+                15.4
+              ],
+              [
+                152.79,
+                14.5
+              ],
+              [
+                153.35,
+                13.6
+              ],
+              [
+                153.91,
+                12.7
+              ],
+              [
+                154.47,
+                11.8
+              ],
+              [
+                155.03,
+                10.9
+              ],
+              [
+                155.58,
+                10
+              ],
+              [
+                156.84,
+                10
+              ],
+              [
+                158.09,
+                10
+              ],
+              [
+                159.35,
+                10
+              ],
+              [
+                160.61,
+                10
+              ],
+              [
+                161.86,
+                10
+              ],
+              [
+                163.12,
+                10
+              ],
+              [
+                164.37,
+                10
+              ],
+              [
+                165.63,
+                10
+              ],
+              [
+                166.19,
+                10.99
+              ],
+              [
+                166.74,
+                11.98
+              ],
+              [
+                167.3,
+                12.97
+              ],
+              [
+                167.86,
+                13.96
+              ],
+              [
+                168.42,
+                14.95
+              ],
+              [
+                168.98,
+                15.94
+              ],
+              [
+                169.53,
+                16.93
+              ],
+              [
+                170.09,
+                17.92
+              ],
+              [
+                169.62,
+                19.09
+              ],
+              [
+                169.14,
+                20.26
+              ],
+              [
+                168.67,
+                21.43
+              ],
+              [
+                168.19,
+                22.6
+              ],
+              [
+                167.72,
+                23.77
+              ],
+              [
+                167.25,
+                24.94
+              ],
+              [
+                166.77,
+                26.11
+              ],
+              [
+                166.3,
+                27.28
+              ],
+              [
+                165.54,
+                28.22
+              ],
+              [
+                164.78,
+                29.15
+              ],
+              [
+                164.02,
+                30.09
+              ],
+              [
+                163.26,
+                31.02
+              ],
+              [
+                162.5,
+                31.96
+              ],
+              [
+                161.74,
+                32.9
+              ],
+              [
+                160.99,
+                33.83
+              ],
+              [
+                160.23,
+                34.77
+              ],
+              [
+                159.47,
+                35.7
+              ],
+              [
+                158.71,
+                36.64
+              ],
+              [
+                157.95,
+                37.58
+              ],
+              [
+                157.19,
+                38.51
+              ],
+              [
+                156.43,
+                39.45
+              ],
+              [
+                155.67,
+                40.38
+              ],
+              [
+                154.91,
+                41.32
+              ],
+              [
+                154.16,
+                42.26
+              ],
+              [
+                153.4,
+                43.19
+              ],
+              [
+                152.64,
+                44.13
+              ],
+              [
+                151.88,
+                45.06
+              ],
+              [
+                151.12,
+                46
+              ],
+              [
+                152.31,
+                46
+              ],
+              [
+                153.49,
+                46
+              ],
+              [
+                154.68,
+                46
+              ],
+              [
+                155.86,
+                46
+              ],
+              [
+                157.05,
+                46
+              ],
+              [
+                158.23,
+                46
+              ],
+              [
+                159.42,
+                46
+              ],
+              [
+                160.61,
+                46
+              ],
+              [
+                161.79,
+                46
+              ],
+              [
+                162.98,
+                46
+              ],
+              [
+                164.16,
+                46
+              ],
+              [
+                165.35,
+                46
+              ],
+              [
+                166.53,
+                46
+              ],
+              [
+                167.72,
+                46
+              ],
+              [
+                168.91,
+                46
+              ],
+              [
+                170.09,
+                46
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                10,
+                95.6
+              ],
+              [
+                10.64,
+                96.63
+              ],
+              [
+                11.28,
+                97.66
+              ],
+              [
+                11.91,
+                98.69
+              ],
+              [
+                12.55,
+                99.71
+              ],
+              [
+                13.19,
+                100.74
+              ],
+              [
+                13.83,
+                101.77
+              ],
+              [
+                14.46,
+                102.8
+              ],
+              [
+                15.1,
+                103.83
+              ],
+              [
+                15.74,
+                104.86
+              ],
+              [
+                16.38,
+                105.89
+              ],
+              [
+                17.01,
+                106.91
+              ],
+              [
+                17.65,
+                107.94
+              ],
+              [
+                18.29,
+                108.97
+              ],
+              [
+                18.93,
+                110
+              ],
+              [
+                19.57,
+                111.03
+              ],
+              [
+                20.2,
+                112.06
+              ],
+              [
+                20.84,
+                113.09
+              ],
+              [
+                21.48,
+                114.11
+              ],
+              [
+                22.12,
+                115.14
+              ],
+              [
+                22.75,
+                116.17
+              ],
+              [
+                23.39,
+                117.2
+              ],
+              [
+                24.03,
+                118.23
+              ],
+              [
+                24.67,
+                119.26
+              ],
+              [
+                25.31,
+                120.29
+              ],
+              [
+                25.94,
+                121.31
+              ],
+              [
+                26.58,
+                122.34
+              ],
+              [
+                27.22,
+                123.37
+              ],
+              [
+                27.86,
+                124.4
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                27.86,
+                95.6
+              ],
+              [
+                27.22,
+                96.63
+              ],
+              [
+                26.58,
+                97.66
+              ],
+              [
+                25.94,
+                98.69
+              ],
+              [
+                25.31,
+                99.71
+              ],
+              [
+                24.67,
+                100.74
+              ],
+              [
+                24.03,
+                101.77
+              ],
+              [
+                23.39,
+                102.8
+              ],
+              [
+                22.75,
+                103.83
+              ],
+              [
+                22.12,
+                104.86
+              ],
+              [
+                21.48,
+                105.89
+              ],
+              [
+                20.84,
+                106.91
+              ],
+              [
+                20.2,
+                107.94
+              ],
+              [
+                19.57,
+                108.97
+              ],
+              [
+                18.93,
+                110
+              ],
+              [
+                18.29,
+                111.03
+              ],
+              [
+                17.65,
+                112.06
+              ],
+              [
+                17.01,
+                113.09
+              ],
+              [
+                16.38,
+                114.11
+              ],
+              [
+                15.74,
+                115.14
+              ],
+              [
+                15.1,
+                116.17
+              ],
+              [
+                14.46,
+                117.2
+              ],
+              [
+                13.83,
+                118.23
+              ],
+              [
+                13.19,
+                119.26
+              ],
+              [
+                12.55,
+                120.29
+              ],
+              [
+                11.91,
+                121.31
+              ],
+              [
+                11.28,
+                122.34
+              ],
+              [
+                10.64,
+                123.37
+              ],
+              [
+                10,
+                124.4
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                36.96,
+                105.68
+              ],
+              [
+                38.22,
+                105.68
+              ],
+              [
+                39.48,
+                105.68
+              ],
+              [
+                40.73,
+                105.68
+              ],
+              [
+                41.99,
+                105.68
+              ],
+              [
+                43.24,
+                105.68
+              ],
+              [
+                44.5,
+                105.68
+              ],
+              [
+                45.75,
+                105.68
+              ],
+              [
+                47.01,
+                105.68
+              ],
+              [
+                48.26,
+                105.68
+              ],
+              [
+                49.52,
+                105.68
+              ],
+              [
+                50.77,
+                105.68
+              ],
+              [
+                52.03,
+                105.68
+              ],
+              [
+                53.29,
+                105.68
+              ],
+              [
+                54.54,
+                105.68
+              ],
+              [
+                55.8,
+                105.68
+              ],
+              [
+                57.05,
+                105.68
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                36.96,
+                115.76
+              ],
+              [
+                38.22,
+                115.76
+              ],
+              [
+                39.48,
+                115.76
+              ],
+              [
+                40.73,
+                115.76
+              ],
+              [
+                41.99,
+                115.76
+              ],
+              [
+                43.24,
+                115.76
+              ],
+              [
+                44.5,
+                115.76
+              ],
+              [
+                45.75,
+                115.76
+              ],
+              [
+                47.01,
+                115.76
+              ],
+              [
+                48.26,
+                115.76
+              ],
+              [
+                49.52,
+                115.76
+              ],
+              [
+                50.77,
+                115.76
+              ],
+              [
+                52.03,
+                115.76
+              ],
+              [
+                53.29,
+                115.76
+              ],
+              [
+                54.54,
+                115.76
+              ],
+              [
+                55.8,
+                115.76
+              ],
+              [
+                57.05,
+                115.76
+              ]
+            ]
+          },
+          {
+            "k": "p",
+            "c": "#000",
+            "a": 1,
+            "w": 3,
+            "p": [
+              [
+                65.71,
+                94.16
+              ],
+              [
+                66.72,
+                93.98
+              ],
+              [
+                67.72,
+                93.8
+              ],
+              [
+                68.73,
+                93.62
+              ],
+              [
+                69.73,
+                93.44
+              ],
+              [
+                70.74,
+                93.26
+              ],
+              [
+                71.74,
+                93.08
+              ],
+              [
+                72.74,
+                92.9
+              ],
+              [
+                73.75,
+                92.72
+              ],
+              [
+                74.75,
+                92.54
+              ],
+              [
+                75.76,
+                92.36
+              ],
+              [
+                76.76,
+                92.18
+              ],
+              [
+                77.77,
+                92
+              ],
+              [
+                78.6,
+                92.9
+              ],
+              [
+                79.44,
+                93.8
+              ],
+              [
+                80.28,
+                94.7
+              ],
+              [
+                81.11,
+                95.6
+              ],
+              [
+                81.95,
+                96.5
+              ],
+              [
+                82.79,
+                97.4
+              ],
+              [
+                83.63,
+                98.3
+              ],
+              [
+                84.46,
+                99.2
+              ],
+              [
+                83.9,
+                100.19
+              ],
+              [
+                83.35,
+                101.18
+              ],
+              [
+                82.79,
+                102.17
+              ],
+              [
+                82.23,
+                103.16
+              ],
+              [
+                81.67,
+                104.15
+              ],
+              [
+                81.11,
+                105.14
+              ],
+              [
+                80.56,
+                106.13
+              ],
+              [
+                80,
+                107.12
+              ],
+              [
+                79.11,
+                107.48
+              ],
+              [
+                78.21,
+                107.84
+              ],
+              [
+                77.32,
+                108.2
+              ],
+              [
+                76.43,
+                108.56
+              ],
+              [
+                75.53,
+                108.92
+              ],
+              [
+                74.64,
+                109.28
+              ],
+              [
+                73.75,
+                109.64
+              ],
+              [
+                72.86,
+                110
+              ],
+              [
+                73.78,
+                110.23
+              ],
+              [
+                74.7,
+                110.45
+              ],
+              [
+                75.62,
+                110.68
+              ],
+              [
+                76.54,
+                110.9
+              ],
+              [
+                77.46,
+                111.13
+              ],
+              [
+                78.38,
+                111.35
+              ],
+              [
+                79.3,
+                111.57
+              ],
+              [
+                80.22,
+                111.8
+              ],
+              [
+                80.92,
+                112.83
+              ],
+              [
+                81.62,
+                113.87
+              ],
+              [
+                82.31,
+                114.9
+              ],
+              [
+                83.01,
+                115.94
+              ],
+              [
+                83.71,
+                116.98
+              ],
+              [
+                84.41,
+                118.01
+              ],
+              [
+                85.1,
+                119.04
+              ],
+              [
+                85.8,
+                120.08
+              ],
+              [
+                85.08,
+                120.98
+              ],
+              [
+                84.35,
+                121.88
+              ],
+              [
+                83.63,
+                122.78
+              ],
+              [
+                82.9,
+                123.68
+              ],
+              [
+                82.17,
+                124.58
+              ],
+              [
+                81.45,
+                125.48
+              ],
+              [
+                80.72,
+                126.38
+              ],
+              [
+                80,
+                127.28
+              ],
+              [
+                78.81,
+                127.16
+              ],
+              [
+                77.62,
+                127.04
+              ],
+              [
+                76.43,
+                126.92
+              ],
+              [
+                75.24,
+                126.8
+              ],
+              [
+                74.05,
+                126.68
+              ],
+              [
+                72.86,
+                126.56
+              ],
+              [
+                71.67,
+                126.44
+              ],
+              [
+                70.48,
+                126.32
+              ],
+              [
+                69.28,
+                126.2
+              ],
+              [
+                68.09,
+                126.08
+              ],
+              [
+                66.9,
+                125.96
+              ],
+              [
+                65.71,
+                125.84
+              ]
+            ]
+          }
+        ]
+      },
+      "drawingPng": "Z:\\Drive\\BBF\\Projekte Martin\\Software\\OCR\\lia-canvas-ocr\\docs\\benchmarks\\ocr-pipeline-decimal-fix-2026-09-06.json.assets\\decimal-comma-r2-drawing.png",
+      "wallMs": 1303.4000000953674,
+      "nativeApiMs": 25.299999952316284,
+      "state": "ready",
+      "analysisState": "ready",
+      "lines": [
+        "x = 1, 5 \\cdot 2",
+        "x = 3"
+      ],
+      "latex": "\\begin{aligned} x &= 1, 5 \\cdot 2 \\\\ x &= 3 \\end{aligned}",
+      "answer": "[\"x = 1, 5 \\\\cdot 2\",\"x = 3\"]",
+      "validated": {
+        "accepted": true,
+        "outcome": "correct",
+        "lines": [
+          "x = 1, 5 \\cdot 2",
+          "x = 3"
+        ],
+        "promptCheck": {
+          "status": "valid",
+          "reason": "prompt-match"
+        },
+        "transitionChecks": [
+          {
+            "from": "x = 1, 5 \\cdot 2",
+            "to": "x = 3",
+            "fromIndex": 0,
+            "toIndex": 1,
+            "status": "valid",
+            "reason": "equivalent-linear-equations",
+            "messageKey": "ocr.plus.validation.validEquivalent"
+          }
+        ],
+        "finalCheck": {
+          "status": "valid",
+          "reason": "solved-variable"
+        }
+      },
+      "checked": {
+        "accepted": true,
+        "outcome": "correct",
+        "lines": [
+          "x = 1, 5 \\cdot 2",
+          "x = 3"
+        ],
+        "promptCheck": {
+          "status": "valid",
+          "reason": "prompt-match"
+        },
+        "transitionChecks": [
+          {
+            "from": "x = 1, 5 \\cdot 2",
+            "to": "x = 3",
+            "fromIndex": 0,
+            "toIndex": 1,
+            "status": "valid",
+            "reason": "equivalent-linear-equations",
+            "messageKey": "ocr.plus.validation.validEquivalent"
+          }
+        ],
+        "finalCheck": {
+          "status": "valid",
+          "reason": "solved-variable"
+        },
+        "ok": true,
+        "status": "correct",
+        "reason": "correct",
+        "message": "The complete calculation is correct."
+      },
+      "engineError": "",
+      "checks": [
+        {
+          "fromIndex": "0",
+          "toIndex": "1",
+          "status": "correct",
+          "reason": "equivalent-linear-equations"
+        }
+      ],
+      "recognitionModelCallCount": 2,
+      "actualLineCount": 2,
+      "actualOperations": [
+        null,
+        null
+      ],
+      "lineCountExact": true,
+      "operationTextExact": true,
+      "transcription": {
+        "rawExact": false,
+        "normalizedExact": true,
+        "expectedTokens": 11,
+        "actualTokens": 11,
+        "tokenEdits": 0,
+        "tokenErrorRate": 0
+      },
+      "previewPng": "Z:\\Drive\\BBF\\Projekte Martin\\Software\\OCR\\lia-canvas-ocr\\docs\\benchmarks\\ocr-pipeline-decimal-fix-2026-09-06.json.assets\\decimal-comma-r2-preview.png",
+      "cacheStartCallIndex": 4,
+      "cacheObservation": {
+        "wallMs": 74.20000004768372,
+        "additionalModelCalls": 0
+      },
+      "events": [
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 10771.099999904633,
+          "detail": {
+            "uid": "1_0",
+            "phase": "idle",
+            "reason": "resize",
+            "revision": 0,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 10800.200000047684,
+          "detail": {
+            "uid": "1_0",
+            "phase": "idle",
+            "reason": "resize",
+            "revision": 0,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 10817.099999904633,
+          "detail": {
+            "uid": "1_0",
+            "phase": "idle",
+            "reason": "resize",
+            "revision": 0,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 10833.299999952316,
+          "detail": {
+            "uid": "1_0",
+            "phase": "idle",
+            "reason": "resize",
+            "revision": 0,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 10849.899999856949,
+          "detail": {
+            "uid": "1_0",
+            "phase": "idle",
+            "reason": "resize",
+            "revision": 0,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 10866.599999904633,
+          "detail": {
+            "uid": "1_0",
+            "phase": "idle",
+            "reason": "resize",
+            "revision": 0,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 10883.399999856949,
+          "detail": {
+            "uid": "1_0",
+            "phase": "idle",
+            "reason": "resize",
+            "revision": 0,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 10899.899999856949,
+          "detail": {
+            "uid": "1_0",
+            "phase": "idle",
+            "reason": "resize",
+            "revision": 0,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 10916.700000047684,
+          "detail": {
+            "uid": "1_0",
+            "phase": "idle",
+            "reason": "resize",
+            "revision": 0,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 10966.399999856949,
+          "detail": {
+            "uid": "1_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 1,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 11033.899999856949,
+          "detail": {
+            "uid": "1_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 1,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 11049.700000047684,
+          "detail": {
+            "uid": "1_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 2,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 11116.799999952316,
+          "detail": {
+            "uid": "1_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 2,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 11132.799999952316,
+          "detail": {
+            "uid": "1_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 3,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 11200.399999856949,
+          "detail": {
+            "uid": "1_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 3,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 11216.299999952316,
+          "detail": {
+            "uid": "1_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 4,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 11283.299999952316,
+          "detail": {
+            "uid": "1_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 4,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 11299.700000047684,
+          "detail": {
+            "uid": "1_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 5,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 11433.5,
+          "detail": {
+            "uid": "1_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 5,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 11449.5,
+          "detail": {
+            "uid": "1_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 6,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 11583.299999952316,
+          "detail": {
+            "uid": "1_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 6,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 11599.599999904633,
+          "detail": {
+            "uid": "1_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 7,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 12000.099999904633,
+          "detail": {
+            "uid": "1_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 7,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 12016.5,
+          "detail": {
+            "uid": "1_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 8,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 12017.5,
+          "detail": {
+            "uid": "1_0",
+            "phase": "manual",
+            "reason": "stroke-tap",
+            "revision": 8,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 12032.899999856949,
+          "detail": {
+            "uid": "1_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 9,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 12433.5,
+          "detail": {
+            "uid": "1_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 9,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 12449.399999856949,
+          "detail": {
+            "uid": "1_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 10,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 12517.099999904633,
+          "detail": {
+            "uid": "1_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 10,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 12532.799999952316,
+          "detail": {
+            "uid": "1_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 11,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 12600.099999904633,
+          "detail": {
+            "uid": "1_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 11,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 12616.899999856949,
+          "detail": {
+            "uid": "1_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 12,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 12683.599999904633,
+          "detail": {
+            "uid": "1_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 12,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 12699.899999856949,
+          "detail": {
+            "uid": "1_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 13,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 12766.799999952316,
+          "detail": {
+            "uid": "1_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 13,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 12783.099999904633,
+          "detail": {
+            "uid": "1_0",
+            "phase": "stale",
+            "reason": "stroke-start",
+            "revision": 14,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-ocr",
+          "at": 13317.200000047684,
+          "detail": {
+            "uid": "1_0",
+            "phase": "manual",
+            "reason": "stroke-end",
+            "revision": 14,
+            "lineCount": 0,
+            "source": "submit"
+          }
+        },
+        {
+          "type": "lia:canvasplus-answer",
+          "at": 14726.899999856949,
+          "detail": {
+            "uid": "1_0",
+            "revision": 14,
+            "lines": [
+              "x = 1, 5 \\cdot 2",
+              "x = 3"
+            ],
+            "latex": "\\begin{aligned} x &= 1, 5 \\cdot 2 \\\\ x &= 3 \\end{aligned}",
+            "value": "[\"x = 1, 5 \\\\cdot 2\",\"x = 3\"]",
+            "submissionValue": "[\"x = 1, 5 \\\\cdot 2\",\"x = 3\"]",
+            "pathAccepted": true,
+            "source": "ocr",
+            "applied": true
+          }
+        },
+        {
+          "type": "lia:canvasplus-render",
+          "at": 14726.899999856949,
+          "detail": {
+            "uid": "1_0",
+            "revision": 14,
+            "lineCount": 2,
+            "lines": [
+              "x = 1, 5 \\cdot 2",
+              "x = 3"
+            ],
+            "latex": "\\begin{aligned} x &= 1, 5 \\cdot 2 \\\\ x &= 3 \\end{aligned}",
+            "source": "ocr",
+            "preparedInBackground": false
+          }
+        },
+        {
+          "type": "lia:canvasplus-analysis",
+          "at": 14748.299999952316,
+          "detail": {
+            "uid": "1_0",
+            "revision": 14,
+            "state": "ready",
+            "checks": [
+              {
+                "from": "x = 1, 5 \\cdot 2",
+                "to": "x = 3",
+                "fromIndex": 0,
+                "toIndex": 1,
+                "status": "valid",
+                "reason": "equivalent-linear-equations",
+                "messageKey": "ocr.plus.validation.validEquivalent"
+              }
+            ]
+          }
+        },
+        {
+          "type": "lia:canvasplus-answer",
+          "at": 15267.599999904633,
+          "detail": {
+            "uid": "1_0",
+            "revision": 14,
+            "lines": [
+              "x = 1, 5 \\cdot 2",
+              "x = 3"
+            ],
+            "latex": "\\begin{aligned} x &= 1, 5 \\cdot 2 \\\\ x &= 3 \\end{aligned}",
+            "value": "[\"x = 1, 5 \\\\cdot 2\",\"x = 3\"]",
+            "submissionValue": "[\"x = 1, 5 \\\\cdot 2\",\"x = 3\"]",
+            "pathAccepted": true,
+            "source": "ocr",
+            "applied": true
+          }
+        },
+        {
+          "type": "lia:canvasplus-render",
+          "at": 15267.599999904633,
+          "detail": {
+            "uid": "1_0",
+            "revision": 14,
+            "lineCount": 2,
+            "lines": [
+              "x = 1, 5 \\cdot 2",
+              "x = 3"
+            ],
+            "latex": "\\begin{aligned} x &= 1, 5 \\cdot 2 \\\\ x &= 3 \\end{aligned}",
+            "source": "ocr",
+            "preparedInBackground": false
+          }
+        },
+        {
+          "type": "lia:canvasplus-analysis",
+          "at": 15285.299999952316,
+          "detail": {
+            "uid": "1_0",
+            "revision": 14,
+            "state": "ready",
+            "checks": [
+              {
+                "from": "x = 1, 5 \\cdot 2",
+                "to": "x = 3",
+                "fromIndex": 0,
+                "toIndex": 1,
+                "status": "valid",
+                "reason": "equivalent-linear-equations",
+                "messageKey": "ocr.plus.validation.validEquivalent"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "quality": {
+    "overall": {
+      "total": 2,
+      "completed": 2,
+      "missing": 0,
+      "failed": 0,
+      "transcription": {
+        "rawExact": {
+          "matches": 0,
+          "total": 2,
+          "rate": 0
+        },
+        "normalizedExact": {
+          "matches": 2,
+          "total": 2,
+          "rate": 1
+        },
+        "expectedTokens": 22,
+        "actualTokens": 22,
+        "tokenEdits": 0,
+        "tokenErrorRate": 0,
+        "unscored": 0
+      },
+      "grading": {
+        "expected": 2,
+        "observed": 2,
+        "correct": 2,
+        "accuracy": 1
+      },
+      "wallMs": {
+        "count": 2,
+        "excluded": 0,
+        "median": 1315.5,
+        "p95": 1327.5999999046326
+      }
+    },
+    "bySplit": {
+      "development": {
+        "total": 2,
+        "completed": 2,
+        "missing": 0,
+        "failed": 0,
+        "transcription": {
+          "rawExact": {
+            "matches": 0,
+            "total": 2,
+            "rate": 0
+          },
+          "normalizedExact": {
+            "matches": 2,
+            "total": 2,
+            "rate": 1
+          },
+          "expectedTokens": 22,
+          "actualTokens": 22,
+          "tokenEdits": 0,
+          "tokenErrorRate": 0,
+          "unscored": 0
+        },
+        "grading": {
+          "expected": 2,
+          "observed": 2,
+          "correct": 2,
+          "accuracy": 1
+        },
+        "wallMs": {
+          "count": 2,
+          "excluded": 0,
+          "median": 1315.5,
+          "p95": 1327.5999999046326
+        }
+      },
+      "holdout": {
+        "total": 0,
+        "completed": 0,
+        "missing": 0,
+        "failed": 0,
+        "transcription": {
+          "rawExact": {
+            "matches": 0,
+            "total": 0,
+            "rate": null
+          },
+          "normalizedExact": {
+            "matches": 0,
+            "total": 0,
+            "rate": null
+          },
+          "expectedTokens": 0,
+          "actualTokens": 0,
+          "tokenEdits": 0,
+          "tokenErrorRate": null,
+          "unscored": 0
+        },
+        "grading": {
+          "expected": 0,
+          "observed": 0,
+          "correct": 0,
+          "accuracy": null
+        },
+        "wallMs": {
+          "count": 0,
+          "excluded": 0,
+          "median": null,
+          "p95": null
+        }
+      }
+    }
+  },
+  "artifactErrorCount": 0,
+  "browserErrors": {
+    "console": [
+      "\u001b[0;93m2026-09-06 16:52:42.226598 [W:onnxruntime:, execution_frame.cc:876 VerifyOutputSizes] Expected shape from model of {-1,4,2048} does not match actual shape of {1,144,2048} for output last_hidden_state\u001b[m",
+      "\u001b[0;93m2026-09-06 16:52:42.812998 [W:onnxruntime:, execution_frame.cc:876 VerifyOutputSizes] Expected shape from model of {-1,4,2048} does not match actual shape of {1,144,2048} for output last_hidden_state\u001b[m",
+      "\u001b[0;93m2026-09-06 16:52:46.852398 [W:onnxruntime:, execution_frame.cc:876 VerifyOutputSizes] Expected shape from model of {-1,4,2048} does not match actual shape of {1,144,2048} for output last_hidden_state\u001b[m",
+      "\u001b[0;93m2026-09-06 16:52:47.444898 [W:onnxruntime:, execution_frame.cc:876 VerifyOutputSizes] Expected shape from model of {-1,4,2048} does not match actual shape of {1,144,2048} for output last_hidden_state\u001b[m"
+    ],
+    "page": [],
+    "requests": []
+  },
+  "modelRequests": [
+    "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/+esm",
+    "https://cdn.jsdelivr.net/npm/onnxruntime-common/+esm",
+    "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0-dev.20250409-89f8206ba4/+esm",
+    "https://huggingface.co/alephpi/FormulaNet/resolve/63e04c86fc96c2324811114351eeea8118bf6b28/config.json",
+    "https://huggingface.co/alephpi/FormulaNet/resolve/63e04c86fc96c2324811114351eeea8118bf6b28/tokenizer.json",
+    "https://huggingface.co/alephpi/FormulaNet/resolve/63e04c86fc96c2324811114351eeea8118bf6b28/tokenizer_config.json",
+    "https://huggingface.co/alephpi/FormulaNet/resolve/63e04c86fc96c2324811114351eeea8118bf6b28/onnx/encoder_model.onnx",
+    "https://huggingface.co/alephpi/FormulaNet/resolve/63e04c86fc96c2324811114351eeea8118bf6b28/onnx/decoder_model_merged.onnx",
+    "https://huggingface.co/alephpi/FormulaNet/resolve/63e04c86fc96c2324811114351eeea8118bf6b28/generation_config.json",
+    "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0-dev.20250409-89f8206ba4/dist/ort.bundle.min.mjs",
+    "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/ort-wasm-simd-threaded.jsep.mjs",
+    "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/ort-wasm-simd-threaded.jsep.wasm"
+  ],
+  "artifactRetention": {
+    "pngFiles": "not-retained-in-repository",
+    "originalPaths": "Historical diagnostic locations, not required benchmark inputs.",
+    "retainedEvidence": "Authored strokes, raw model text, grading, timings and crop SHA-256 remain unchanged."
+  }
+}

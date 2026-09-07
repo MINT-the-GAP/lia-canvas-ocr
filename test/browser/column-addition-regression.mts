@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { chromium, type Page } from 'playwright';
+import { OCR_LAYOUT_ALGORITHM_VERSION } from '../../src/ocr/layout.ts';
 
 import {
   BUNDLE_URL,
@@ -1316,7 +1317,7 @@ export function registerColumnAdditionBrowserRegression(): void {
 
         assert.deepEqual(bundleMarkers, {
           ok: true,
-          layoutVersion: 'lines-v20-deep-hook-carries',
+          layoutVersion: OCR_LAYOUT_ALGORITHM_VERSION,
           hasExactNormalizer: true,
         });
         assert.equal(result.state, 'ready');
@@ -2627,7 +2628,10 @@ export function registerColumnAdditionBrowserRegression(): void {
         });
         await pair.locator('.lia-color-btn:visible').click();
         await pair.locator('.lia-tool-menu [data-act=close]:visible').click();
-        await drawDesign(page, box, screenshotAdditionStrokes());
+        await canvas.scrollIntoViewIfNeeded();
+        const redrawBox = await canvas.boundingBox();
+        assert.ok(redrawBox, 'the canvas must be measured again after the draft editor changes the page layout');
+        await drawDesign(page, redrawBox, screenshotAdditionStrokes());
         await pair.locator('.lia-canvasplus-submit:visible').click();
         await page.waitForFunction(
           pairSelector => {

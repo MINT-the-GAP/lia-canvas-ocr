@@ -771,14 +771,14 @@ test('aligns only the first outer relation and preserves transformation bars', (
     assert.equal(alignFirstTopLevelRelation('x \\approx 1'), 'x &\\approx 1');
 });
 
-test('repairs an exists-sign confusion only inside a proven algebra sequence', () => {
+test('preserves explicit quantifiers because adjacent equations are not image evidence', () => {
     assert.deepEqual(
         normalizeCalculationLineSequence(['3x-7=5', '\u2203 x=12', 'x=4']),
-        ['3x-7=5', '3x=12', 'x=4']
+        ['3x-7=5', '\u2203 x=12', 'x=4']
     );
     assert.deepEqual(
         normalizeCalculationLineSequence(['3x-7=5', '\\exists x =12', 'x=4']),
-        ['3x-7=5', '3x=12', 'x=4']
+        ['3x-7=5', '\\exists x =12', 'x=4']
     );
     assert.deepEqual(
         normalizeCalculationLineSequence(['\\exists x=12']),
@@ -795,7 +795,7 @@ test('repairs an exists-sign confusion only inside a proven algebra sequence', (
     assert.deepEqual(normalizeCalculationLineSequence(['x=51+7']), ['x=51+7']);
 });
 
-test('repairs the screenshot coefficient-dot OCR error only from an adjacent variable', () => {
+test('repairs an operandless coefficient-dot without changing signed factors or variable case', () => {
     assert.deepEqual(
         normalizeCalculationLineSequence([
             String.raw`3\cdot-5=8 \mid +5`,
@@ -803,33 +803,55 @@ test('repairs the screenshot coefficient-dot OCR error only from an adjacent var
             String.raw`X=\frac{13}{3}`
         ]),
         [
-            String.raw`3x-5=8 \mid +5`,
-            String.raw`3x=13 \mid :3`,
-            String.raw`x=\frac{13}{3}`
+            String.raw`3\cdot-5=8 \mid +5`,
+            String.raw`3X=13 \mid :3`,
+            String.raw`X=\frac{13}{3}`
         ]
     );
 });
 
-test('prefers lowercase x only for an otherwise uncontextualized algebra variable', () => {
-    assert.deepEqual(
-        normalizeCalculationLineSequence(['3X-5=7', '3X=12', 'X=4']),
-        ['3x-5=7', '3x=12', 'x=4']
-    );
-    assert.deepEqual(normalizeCalculationLineSequence(['X=4']), ['x=4']);
-    assert.deepEqual(
-        normalizeCalculationLineSequence([String.raw`\frac{X+1}{2}=3`]),
-        [String.raw`\frac{x+1}{2}=3`]
-    );
-    assert.deepEqual(normalizeCalculationLineSequence(['X+Y=7']), ['X+Y=7']);
-    assert.deepEqual(normalizeCalculationLineSequence(['X_0=4']), ['X_0=4']);
-    assert.deepEqual(
-        normalizeCalculationLineSequence([String.raw`\vec{X}=4`]),
-        [String.raw`\vec{X}=4`]
-    );
+test('preserves scalar uppercase variables and distinct letter cases in all OCR rows', () => {
+    const cases = [
+        ['3X-5=7', '3X=12', 'X=4'],
+        ['X=4'],
+        ['x=4'],
+        ['x-X=0'],
+        ['X+x=7', 'X=3', 'x=4'],
+        ['3X=12', 'x=4'],
+        ['3x=12', 'X=4'],
+        ['X=4', 'x=5'],
+        ['Y=4'],
+        ['Y-y=0', 'y=4', 'Y=4'],
+        [String.raw`\frac{X+1}{2}=3`],
+        [String.raw`\Gamma+X=1`],
+        [String.raw`\alpha+X=x`],
+        ['X+Y=7'],
+        ['X_0=4'],
+        [String.raw`X^2=4`, String.raw`X_{1,2}=\pm2`],
+        [String.raw`\vec{X}=4`],
+        [String.raw`\mathbf{X}+\mathbf{x}=\vec{Y}`],
+        [String.raw`\text{X und x}: X=x`],
+    ];
+    for (const lines of cases) {
+        assert.deepEqual(normalizeCalculationLineSequence(lines), lines, JSON.stringify(lines));
+    }
     assert.equal(editableTextToLatex('X=4'), 'X=4');
 });
 
-test('repairs a coefficient-dot from the correctly recognized following equation row', () => {
+test('missing-plus-minus hints require the same case-sensitive variable as the previous square', () => {
+    for (const variable of ['x', 'X', 'y', 'Y']) {
+        assert.equal(findMissingPlusMinusRootLine([
+            variable + '^2=4', variable + String.raw`_{1,2}=\sqrt{4}`
+        ]), 1, variable);
+    }
+    for (const [previous, target] of [['x','X'],['X','x'],['y','Y'],['Y','y']]) {
+        assert.equal(findMissingPlusMinusRootLine([
+            previous + '^2=4', target + String.raw`_{1,2}=\sqrt{4}`
+        ]), -1, previous + ' -> ' + target);
+    }
+});
+
+test('keeps genuine multiplication intact beside a following coefficient-variable equation', () => {
     assert.deepEqual(
         normalizeCalculationLineSequence([
             String.raw`3\cdot-5=7 \mid +5`,
@@ -837,7 +859,7 @@ test('repairs a coefficient-dot from the correctly recognized following equation
             String.raw`x=4`
         ]),
         [
-            String.raw`3x-5=7 \mid +5`,
+            String.raw`3\cdot-5=7 \mid +5`,
             String.raw`3x=12 \mid :3`,
             String.raw`x=4`
         ]
@@ -872,7 +894,7 @@ test('does not invent a variable for genuine multiplication or without a unique 
         ]),
         [
             String.raw`3\cdot(-5)=-15`,
-            String.raw`x=-15`
+            String.raw`X=-15`
         ]
     );
     assert.deepEqual(
@@ -1463,4 +1485,128 @@ test('runs one OCR job at a time and promotes queued foreground work', async () 
     releaseFirst();
     await Promise.all([first, second, foreground, promoted]);
     assert.deepEqual(order, ['background-1', 'foreground', 'promoted', 'background-2']);
+});
+
+test('equation canvas segmentation recovers a spatial fraction and preserves source scale', () => {
+    withFakeCanvasDocument(() => {
+        const canvas = fakeRasterCanvas(180, 160, [
+            [40, 5, 49, 24], [53, 5, 62, 24], [24, 43, 80, 44], [45, 64, 56, 83],
+            [10, 116, 20, 135], [27, 116, 39, 135],
+        ]);
+        const segments = segmentOcrCanvas(canvas);
+        assert.deepEqual(segments.map(segment => [segment.inkBox.y, segment.inkBox.height]),
+            [[5, 79], [116, 20]]);
+        assert.equal(segments.every(segment => (segment.canvas as any).__liaOcrPixelScale === 1), true);
+        assert.equal(segmentOcrCanvas(canvas, 2).every(segment =>
+            (segment.canvas as any).__liaOcrPixelScale === 2), true);
+        const written = segmentOcrCanvas(canvas, 1, { maskCalculationRules: true });
+        assert.deepEqual(written.map(segment => [segment.inkBox.y, segment.inkBox.height]),
+            [[5, 20], [43, 2], [64, 20], [116, 20]],
+            'explicit written-calculation mode retains its established row semantics');
+    });
+});
+
+test('equation projection gaps depend on pixel scale while the legacy mode retains canvas-height behavior', () => {
+    const short = projection(80, [[10, 29, 20], [34, 53, 20]]);
+    const tall = projection(400, [[10, 29, 20], [34, 53, 20]]);
+    const boxes = (bands: ReturnType<typeof findOcrLineBands>) => bands.map(band => [band.y0, band.y1]);
+    assert.deepEqual(boxes(findOcrLineBands(short, 100, 1, 'local-scale')), [[10, 29], [34, 53]]);
+    assert.deepEqual(boxes(findOcrLineBands(tall, 100, 1, 'local-scale')), [[10, 29], [34, 53]]);
+    assert.deepEqual(boxes(findOcrLineBands(short, 100, 1, 'canvas-height')), [[10, 29], [34, 53]]);
+    assert.deepEqual(boxes(findOcrLineBands(tall, 100, 1, 'canvas-height')), [[10, 53]]);
+    assert.deepEqual(findOcrLineBands(tall, 100), findOcrLineBands(tall, 100, 1, 'canvas-height'),
+        'existing callers retain the previous projection default');
+});
+
+test('equation canvas rows are invariant to empty margins and a distant third line at every tested DPI', () => {
+    withFakeCanvasDocument(() => {
+        for (const scale of [1, 2, 3]) {
+            const rectangles = (offset = 0): RasterRectangle[] => [
+                [10, 10 + offset, 20, 29 + offset],
+                [10, 34 + offset, 20, 53 + offset],
+            ];
+            const scaled = (rectangles: readonly RasterRectangle[]) => rectangles.map(
+                ([x0, y0, x1, y1]) => [x0 * scale, y0 * scale,
+                    (x1 + 1) * scale - 1, (y1 + 1) * scale - 1] as RasterRectangle);
+            const summarize = (canvas: HTMLCanvasElement) => segmentOcrCanvas(canvas, scale).map(
+                segment => ({ y: segment.inkBox.y / scale, height: segment.inkBox.height / scale,
+                    fingerprint: segment.fingerprint }));
+            const small = summarize(fakeRasterCanvas(100 * scale, 80 * scale, scaled(rectangles())));
+            const tall = summarize(fakeRasterCanvas(100 * scale, 400 * scale, scaled(rectangles())));
+            const wide = summarize(fakeRasterCanvas(600 * scale, 400 * scale, scaled(rectangles())));
+            const distant = summarize(fakeRasterCanvas(100 * scale, 400 * scale,
+                scaled([...rectangles(), [10, 340, 20, 359]])));
+            const translated = summarize(fakeRasterCanvas(100 * scale, 400 * scale, scaled(rectangles(120))));
+            assert.deepEqual(small.map(({ y, height }) => [y, height]), [[10, 20], [34, 20]]);
+            assert.deepEqual(tall, small);
+            assert.deepEqual(wide, small);
+            assert.deepEqual(distant.slice(0, 2), small);
+            assert.deepEqual(translated.map(row => ({ ...row, y: row.y - 120 })), small);
+        }
+    });
+});
+
+test('explicit written-calculation segmentation keeps its established projection distances', () => {
+    withFakeCanvasDocument(() => {
+        const source = fakeRasterCanvas(100, 400, [[10, 10, 20, 29], [10, 34, 20, 53]]);
+        assert.equal(segmentOcrCanvas(source).length, 2);
+        for (const options of [
+            { maskCalculationRules: true },
+            { maskCarryOnes: true },
+            { maskDivisionRules: true },
+            { minimumColumnRowsAboveRule: 2 },
+        ]) {
+            assert.deepEqual(segmentOcrCanvas(source, 1, options).map(segment =>
+                [segment.inkBox.y, segment.inkBox.height]), [[10, 44]]);
+        }
+    });
+});
+
+
+test('signed multiplication factors never become variables from neighboring equations', () => {
+    for (const source of [String.raw`3\cdot(-5)=-15`, String.raw`3\cdot-5=-15`,
+        String.raw`3\cdot+5=15`, String.raw`3\cdot -5=999`, String.raw`3\cdot +x=12`]) {
+        const lines=[source,'3x=12','x=4'];
+        assert.deepEqual(normalizeCalculationLineSequence(lines),lines,source);
+    }
+    const quantified=['3x+1=999',String.raw`\exists x=12`,'x=0'];
+    assert.deepEqual(normalizeCalculationLineSequence(quantified),quantified);
+});
+
+test('operandless-dot recovery rejects competing variable cases anywhere in the block', () => {
+    for (const lines of [
+        [String.raw`3\cdot=12`,'3x=12','X=4'],
+        ['X=1','a=2',String.raw`3\cdot=12`,'x=4'],
+        ['x=1','a=2',String.raw`3\cdot=12`,'X=4'],
+        [String.raw`3\cdot=12`,'3Y=12','y=4'],
+        ['xX=1',String.raw`3\cdot=12`,'X=4'],
+    ]) assert.deepEqual(normalizeCalculationLineSequence(lines),lines,JSON.stringify(lines));
+    assert.deepEqual(normalizeCalculationLineSequence([String.raw`3\cdot=12`,'3X=12','X=4']),
+        ['3X=12','3X=12','X=4']);
+    // The heuristic does not fix the contradictory 13 or the written final 4.
+    assert.deepEqual(normalizeCalculationLineSequence([String.raw`3\cdot=13`,'X=4']),
+        ['3X=13','X=4']);
+});
+
+test('aligns confirmed standalone equality groups without rewriting their TeX or variable case', () => {
+    for (const [source, expected] of [
+        ['X { = } 2', 'X &{ = } 2'],
+        ['x{=}2', 'x&{=}2'],
+        [String.raw`\frac{X}{2}{=}3`, String.raw`\frac{X}{2}&{=}3`],
+        ['x{=}1+1=2', 'x&{=}1+1=2'],
+        ['x=2{=}1+1', 'x&=2{=}1+1'],
+        ['X&{=}2', 'X&{=}2'],
+    ]) assert.equal(alignFirstTopLevelRelation(source), expected, source);
+    assert.equal(composeMultilineLatex(['2X=4', 'X { = } 2']),
+        String.raw`\begin{aligned} 2X&=4 \\ X &{ = } 2 \end{aligned}`);
+});
+
+test('does not align a grouped equality inside a script, command argument or enclosing expression', () => {
+    for (const source of [
+        String.raw`X^{=}2`, String.raw`X_{{=}}2`, String.raw`\frac{X}{=}2`,
+        String.raw`\sqrt{X{=}2}`, String.raw`\text{X{=}2}`, String.raw`(X{=}2)`,
+        String.raw`\unknown{X}{=}2`, String.raw`\begin{matrix}X{=}2\end{matrix}`,
+        String.raw`X{{=}}2`, String.raw`X{=}2+{`,
+    ]) assert.equal(alignFirstTopLevelRelation(source), source, source);
+    assert.equal(alignFirstTopLevelRelation(String.raw`\frac{X{=}2}{3}=1`), String.raw`\frac{X{=}2}{3}&=1`);
 });
