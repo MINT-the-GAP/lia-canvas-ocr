@@ -9,7 +9,7 @@ import {
 import { ensureMountUID, __liaDispatchCanvasFreezeChange } from './store';
 import { paintStrokePath } from './stroke-rendering';
 import { CalculationCorrections } from './calculation-corrections';
-import { normalizeCalculationNotation } from '../ocr/math-notation';
+import { normalizeCalculationNotation, normalizeOcrTexNumbers } from '../ocr/math-notation';
 export { ensureCanvasFreezeApi } from './freeze';
 import {
     __liaApplyValue,
@@ -2719,7 +2719,8 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
 
             __ocrLog('OCR result: ' + latex);
             if (!wrap!.isConnected) return;
-            const ok = __liaFindAndSetInputBeforeNode((canvasPair || wrap!) as Element, latex);
+            const answer = normalizeOcrTexNumbers(latex);
+            const ok = __liaFindAndSetInputBeforeNode((canvasPair || wrap!) as Element, answer);
             if (!ok) { __ocrLog('Could not find an input field before this @canvas.'); }
             else { rectActionBtn.textContent = trOcr('submitted', '✅ submitted'); setTimeout(() => { rectActionBtn.textContent = oldText; }, 900); }
         } catch (err) {
@@ -5238,7 +5239,21 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         return (c.key === 'auto') ? getAutoPen() : (c.value || getAutoPen());
     }
 
-    function setMenuOpen(open: boolean): void { if (!menu) return; menu.dataset.open = open ? '1' : '0'; }
+    // These setters also run at stroke boundaries. Reassigning identical
+    // reflected attributes still wakes document-wide MutationObservers.
+    function setAttributeIfChanged(element: HTMLElement, name: string, value: string): void {
+        if (element.getAttribute(name) !== value) element.setAttribute(name, value);
+    }
+    function setButtonDisabled(button: HTMLButtonElement, disabled: boolean): void {
+        if (button.disabled !== disabled) button.disabled = disabled;
+    }
+    function setButtonLabel(button: HTMLButtonElement, label: string): void {
+        setAttributeIfChanged(button, 'title', label);
+        setAttributeIfChanged(button, 'aria-label', label);
+    }
+    function setMenuOpen(open: boolean): void {
+        if (menu) setAttributeIfChanged(menu, 'data-open', open ? '1' : '0');
+    }
     function autoCloseSubmenus(): void { if (menu && menu.dataset.open === '1') setMenuOpen(false); }
 
     function __menuCloseBtnSvg(): string {
@@ -5340,16 +5355,21 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         return null;
     }
 
-    function hideEraserRing(): void { if (!eraserRing) return; eraserRing.dataset.on = '0'; }
+    function hideEraserRing(): void {
+        if (eraserRing) setAttributeIfChanged(eraserRing, 'data-on', '0');
+    }
 
     function updateEraserRingFromScreen(sx: number, sy: number): void {
         if (!eraserRing) return;
         if (tool !== 'eraser' || !isFinite(sx) || !isFinite(sy)) { hideEraserRing(); return; }
-        const size = Math.max(8, eraserWidth * VIEW.scale);
-        eraserRing.style.width = size + 'px'; eraserRing.style.height = size + 'px';
-        eraserRing.style.left = clamp(sx, 0, canvas.clientWidth) + 'px';
-        eraserRing.style.top = clamp(sy, 0, canvas.clientHeight) + 'px';
-        eraserRing.dataset.on = '1';
+        const size = Math.max(8, eraserWidth * VIEW.scale) + 'px';
+        const left = clamp(sx, 0, canvas.clientWidth) + 'px';
+        const top = clamp(sy, 0, canvas.clientHeight) + 'px';
+        if (eraserRing.style.width !== size) eraserRing.style.width = size;
+        if (eraserRing.style.height !== size) eraserRing.style.height = size;
+        if (eraserRing.style.left !== left) eraserRing.style.left = left;
+        if (eraserRing.style.top !== top) eraserRing.style.top = top;
+        setAttributeIfChanged(eraserRing, 'data-on', '1');
     }
 
     let __rectBtnRAF = 0;
@@ -5369,9 +5389,10 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             // quiz-submit bubble would create a second, competing flow.
             rectActionBtn.style.display = 'none';
         } else {
-            rectActionBtn.style.display = 'block'; rectActionBtn.style.visibility = 'hidden';
+            // Layout can be measured synchronously after displaying the button;
+            // hiding/showing it on every drawing frame only causes mutations.
+            rectActionBtn.style.display = 'block';
             const bw = rectActionBtn.offsetWidth || 180, bh = rectActionBtn.offsetHeight || 34;
-            rectActionBtn.style.visibility = 'visible';
             const right = Math.max(a.sx, b.sx), bottom = Math.max(a.sy, b.sy);
             const pad = 6, gap = 8;
             const left = clamp(right - bw, pad, canvas.clientWidth - bw - pad);
@@ -5385,9 +5406,8 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             }
         }
         if (rectCloseBtn) {
-            rectCloseBtn.style.display = 'block'; rectCloseBtn.style.visibility = 'hidden';
+            rectCloseBtn.style.display = 'block';
             const cbw = rectCloseBtn.offsetWidth || 24, cbh = rectCloseBtn.offsetHeight || 24;
-            rectCloseBtn.style.visibility = 'visible';
             const topRect = Math.min(a.sy, b.sy), rightRect = Math.max(a.sx, b.sx);
             const pad2 = 6;
             rectCloseBtn.style.left = clamp(rightRect - cbw * 0.5, pad2, canvas.clientWidth - cbw - pad2) + 'px';
@@ -5522,19 +5542,18 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         const col = penBaseColor(), accent = getAccentCssVar();
         const labelPen = trCanvas('pen', 'Pen');
         const labelEraser = trCanvas('eraser', 'Eraser');
-        if (btnUndo) { const label = trCanvas('undo', 'Undo'); btnUndo.disabled = (ITEMS.length === 0); btnUndo.title = label; btnUndo.setAttribute('aria-label', label); }
-        if (btnRedo) { const label = trCanvas('redo', 'Redo'); btnRedo.disabled = (REDO.length === 0); btnRedo.title = label; btnRedo.setAttribute('aria-label', label); }
-        if (btnColor) { btnColor.style.background = col; btnColor.dataset.active = (tool === 'pen') ? '1' : '0'; btnColor.title = labelPen; btnColor.setAttribute('aria-label', labelPen); }
-        if (btnEraser) { btnEraser.dataset.active = (tool === 'eraser') ? '1' : '0'; btnEraser.title = labelEraser; btnEraser.setAttribute('aria-label', labelEraser); }
+        if (btnUndo) { setButtonDisabled(btnUndo, ITEMS.length === 0); setButtonLabel(btnUndo, trCanvas('undo', 'Undo')); }
+        if (btnRedo) { setButtonDisabled(btnRedo, REDO.length === 0); setButtonLabel(btnRedo, trCanvas('redo', 'Redo')); }
+        if (btnColor) { btnColor.style.background = col; setAttributeIfChanged(btnColor, 'data-active', tool === 'pen' ? '1' : '0'); setButtonLabel(btnColor, labelPen); }
+        if (btnEraser) { setAttributeIfChanged(btnEraser, 'data-active', tool === 'eraser' ? '1' : '0'); setButtonLabel(btnEraser, labelEraser); }
         if (btnRect) {
             const label = isCanvasPlus
                 ? trOcr('plus.selectArea', 'Select render area')
                 : trOcr('selectSubmit', 'Submit as Solution');
             btnRect.style.background = 'transparent';
-            btnRect.dataset.active = (tool === 'rect') ? '1' : '0';
-            btnRect.setAttribute('aria-pressed', tool === 'rect' ? 'true' : 'false');
-            btnRect.title = label;
-            btnRect.setAttribute('aria-label', label);
+            setAttributeIfChanged(btnRect, 'data-active', tool === 'rect' ? '1' : '0');
+            setAttributeIfChanged(btnRect, 'aria-pressed', tool === 'rect' ? 'true' : 'false');
+            setButtonLabel(btnRect, label);
         }
         if (btnBg) {
             const labelBackground = trCanvas('background', 'Background');
@@ -5542,19 +5561,19 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             btnBg.style.backgroundColor = 'transparent';
             btnBg.style.backgroundImage = `linear-gradient(to right, ${gridCol} ${t}px, transparent ${t}px), linear-gradient(to bottom, ${gridCol} ${t}px, transparent ${t}px)`;
             btnBg.style.backgroundSize = `${s}px ${s}px`; btnBg.style.backgroundPosition = 'center';
-            btnBg.dataset.active = (menuMode === 'bg') ? '1' : '0'; btnBg.title = labelBackground; btnBg.setAttribute('aria-label', labelBackground);
+            setAttributeIfChanged(btnBg, 'data-active', menuMode === 'bg' ? '1' : '0'); setButtonLabel(btnBg, labelBackground);
         }
         if (plusSubmitBtn) {
-            plusSubmitBtn.disabled = __ocrBusy || !__plusHasVisibleInkItems() ||
-                __plusRasterIsEmpty() || __plusIsFrozenView();
+            setButtonDisabled(plusSubmitBtn, __ocrBusy || !__plusHasVisibleInkItems() ||
+                __plusRasterIsEmpty() || __plusIsFrozenView());
         }
         if (plusEditBtn) {
-            plusEditBtn.disabled = __ocrBusy ||
+            setButtonDisabled(plusEditBtn, __ocrBusy ||
                 !plusReview?.getSnapshot() ||
                 Boolean(plusResult?.hidden) ||
                 plusResult?.dataset.stale === '1' ||
                 __plusRenderedRevision !== __plusInkRevision ||
-                __plusIsFrozenView();
+                __plusIsFrozenView());
         }
         if (tool !== 'eraser') hideEraserRing();
     }

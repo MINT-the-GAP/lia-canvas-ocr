@@ -37,6 +37,18 @@ function protectedGroupEnd(input: string, start: number): number {
     return input.length;
 }
 
+
+function skipArgumentTrivia(input: string, start: number): number {
+    while (start < input.length) {
+        if (/\s/.test(input[start])) start++;
+        else if (input[start] === '%') {
+            const newline = input.indexOf('\n', start);
+            start = newline < 0 ? input.length : newline;
+        } else break;
+    }
+    return start;
+}
+
 function tokenize(input: string): Token[] {
     const tokens: Token[] = [];
     const stack: number[] = [];
@@ -56,9 +68,9 @@ function tokenize(input: string): Token[] {
             kind = 'command';
             const command = input.slice(start, i);
             if (TEXT_COMMANDS.has(command)) {
-                let argument = i;
+                let argument = skipArgumentTrivia(input, i);
                 if (command === '\\operatorname' && input[argument] === '*') argument++;
-                while (argument < input.length && /\s/.test(input[argument])) argument++;
+                argument = skipArgumentTrivia(input, argument);
                 if (input[argument] === '{') {
                     i = protectedGroupEnd(input, argument);
                     kind = 'protected';
@@ -89,6 +101,70 @@ function tokenize(input: string): Token[] {
         }
     }
     return tokens;
+}
+
+
+// Ungrouped TeX arguments consume one token, not the following digit run:
+// \\frac 1 3 is a fraction and x^1 3 is x to the first power followed by 3.
+const TWO_ARGUMENT_COMMANDS = new Set([
+    '\\frac', '\\dfrac', '\\tfrac', '\\binom', '\\dbinom', '\\tbinom',
+    '\\overset', '\\underset', '\\stackrel', '\\textcolor',
+]);
+const ONE_ARGUMENT_COMMANDS = new Set([
+    ...TEXT_COMMANDS, ...VECTOR_COMMANDS,
+    '\\sqrt', '\\mathrm', '\\mathit', '\\mathsf', '\\mathtt', '\\mathnormal',
+    '\\mathcal', '\\mathbb', '\\mathfrak', '\\hat', '\\widehat', '\\bar',
+    '\\overline', '\\underline', '\\tilde', '\\widetilde', '\\dot', '\\ddot',
+    '\\boxed', '\\overbrace', '\\underbrace', '\\phantom', '\\hphantom', '\\vphantom',
+    '\\smash', '\\mathop', '\\mathord', '\\mathbin', '\\mathrel', '\\mathopen',
+    '\\mathclose', '\\mathpunct', '\\mathinner',
+]);
+
+/**
+ * Join OCR-split digits in math before sending TeX to a native quiz validator.
+ * Only ordinary source whitespace between digits is removed. Commands, text,
+ * comments, variables, explicit spacing/products and TeX argument boundaries
+ * retain their meaning; this is deliberately not a general whitespace cleanup.
+ */
+export function normalizeOcrTexNumbers(input: string): string {
+    if (!/[0-9]\s+[0-9]/.test(input)) return input;
+    const tokens = tokenize(input);
+    const argumentEnds = new Set<number>();
+    const skipSpace = (start: number): number => {
+        while (tokens[start]?.kind === 'space'
+            || (tokens[start]?.kind === 'protected' && tokens[start].value.startsWith('%'))) start++;
+        return start;
+    };
+    for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i];
+        if (token.kind === 'protected') continue;
+        let count = TWO_ARGUMENT_COMMANDS.has(token.value) ? 2
+            : ONE_ARGUMENT_COMMANDS.has(token.value) || token.value === '^' || token.value === '_' ? 1 : 0;
+        let argument = skipSpace(i + 1);
+        if (token.value === '\\sqrt' && tokens[argument]?.value === '[') {
+            const end = tokens[argument].pair;
+            if (end === undefined) continue;
+            argument = skipSpace(end + 1);
+        }
+        while (count-- > 0 && argument < tokens.length) {
+            const next = tokens[argument];
+            if (next.value === '{') {
+                if (next.pair === undefined) break;
+                argument = skipSpace(next.pair + 1);
+            } else {
+                argumentEnds.add(argument);
+                argument = skipSpace(argument + 1);
+            }
+        }
+    }
+    return tokens.map((token, index) => {
+        const left = tokens[index - 1];
+        const right = tokens[index + 1];
+        return token.kind === 'space' && !argumentEnds.has(index - 1)
+            && left?.kind === 'character' && /^[0-9]$/.test(left.value)
+            && right?.kind === 'character' && /^[0-9]$/.test(right.value)
+            ? '' : token.value;
+    }).join('');
 }
 
 function neighbor(tokens: Token[], index: number, direction: -1 | 1): number {

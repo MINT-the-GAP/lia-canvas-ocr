@@ -11,6 +11,7 @@
     "test:browser": "npm run test:browser:current",
     "test:browser:current": "npm run build && npm run test:browser:smoke",
     "test:browser:smoke": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test test/browser/cross-browser.test.mts",
+    "test:browser:ocr-regressions": "npm run build && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test test/browser/ocr-answer-regression.test.mts test/browser/canvas-mutations.test.mts",
     "test:browser:real": "npm run build && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test test/browser/real-formula-block.test.mts",
     "test:browser:chromium-131": "npm run build && npm run test:browser:chromium-131:run",
     "test:browser:chromium-131:run": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test test/browser/chromium-131.test.mts",
