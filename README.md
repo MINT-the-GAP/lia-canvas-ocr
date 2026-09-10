@@ -326,6 +326,9 @@ The canvas supports touch and stylus input with pinch-to-zoom and pan. It can
 be resized by dragging the corners. The background and drawings remain in the
 runtime store while the course is open and can be carried by the Freeze
 integration. A hard browser reload currently resets the drawing.
+The [Canvas live-state API contract for lia-freeze-v2](docs/canvas-live-state.md)
+documents incremental autosaving, activity detection, restoration, and the
+separate final submission export.
 
 ## OCR Engine
 

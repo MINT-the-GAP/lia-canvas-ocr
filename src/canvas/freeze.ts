@@ -1,12 +1,22 @@
 // Canvas freeze: export, paint, and render frozen canvas states.
 
 import { LIA } from '../index';
+import { parseWrittenArithmeticPrompt, serializeWrittenArithmeticSubmission } from '../math/written-arithmetic';
 import { isLineFeedbackEnabledForPair } from '../lia/calculation-options';
 import { liaT, calculationRoleLabel, calculationRoleCheckLabel } from '../lia/i18n';
 import { calculationMethodFallback, type CalculationCheckRole } from '../math/calculation-methods';
 import { __liaRenderTexPreview } from '../lia/input';
 import { alignFirstTopLevelRelation } from '../ocr/layout';
-import { ensureMountUID } from './store';
+import {
+    ensureMountUID, getCanvasLiveActivityByUID, disposeCanvasLiveController,
+    __liaDispatchCanvasFreezeChange
+} from './store';
+import { canvasMarkup, initAll } from './index';
+import {
+    getCanvasLiveRevision, exportCanvasLiveSnapshot, publishCanvasLiveEntry,
+    cloneCanvasLiveStateForRestore
+} from './live-state';
+export type { CanvasLiveStateV1, CanvasLiveSnapshot } from './live-state';
 import { paintStrokePath } from './stroke-rendering';
 import { getAccentCssVar, getAutoPen, rgbaFromAny } from './theme';
 import {
@@ -155,7 +165,8 @@ function cfGetCanvasUidFromPair(pair: Element): string {
 
 function cfGetCanvasStoreEntryRaw(uid: string): any {
     const STORE = cfGetCanvasStore();
-    return uid && STORE[uid] ? STORE[uid] : null;
+    return typeof uid === 'string' && uid && Object.prototype.hasOwnProperty.call(STORE, uid)
+        ? STORE[uid] : null;
 }
 
 /**
@@ -181,9 +192,66 @@ function cfGetCanvasStoreEntry(uid: string): any {
 
 function cfCollectCanvasPairsFromRoot(root: Element | Document): Element[] {
     const scope = (root && (root as any).querySelectorAll) ? root : document;
-    return Array.from(scope.querySelectorAll('.lia-canvas-pair')).filter(pair =>
-        !!cfGetCanvasMountFromPair(pair)
-    );
+    const pairs = Array.from(scope.querySelectorAll('.lia-canvas-pair'));
+    if (scope instanceof Element && scope.matches('.lia-canvas-pair')) pairs.unshift(scope);
+    return pairs.filter(pair => !!cfGetCanvasMountFromPair(pair));
+}
+
+// Live backups use only the revision ledger and immutable world geometry.
+// In particular, never route these functions through the cvf1 raster exporter.
+function listCanvasLiveStateRevisions(root: Element | Document): Array<{ uid: string; revision: number }> {
+    const result: Array<{ uid: string; revision: number }> = [];
+    const seen = new Set<string>();
+    for (const pair of cfCollectCanvasPairsFromRoot(root)) {
+        const uid = cfGetCanvasUidFromPair(pair);
+        if (!uid || seen.has(uid)) continue;
+        seen.add(uid);
+        const entry = cfGetCanvasStoreEntryRaw(uid);
+        if (entry) result.push({ uid, revision: getCanvasLiveRevision(uid, entry) });
+    }
+    return result;
+}
+
+function exportCanvasLiveStateByUID(uid: string) {
+    return exportCanvasLiveSnapshot(uid, cfGetCanvasStoreEntryRaw(uid));
+}
+
+function restoreCanvasLiveStateByUID(uid: string, state: unknown): boolean {
+    if (typeof uid !== 'string' || !uid) return false;
+    const entry = cloneCanvasLiveStateForRestore(state);
+    if (!entry || (entry.ocr && !entry.ocr.editableText.trim())) return false;
+    const pairs = cfCollectCanvasPairsFromRoot(document)
+        .filter(pair => cfGetCanvasUidFromPair(pair) === uid);
+    const writtenSubmission = entry.ocr?.writtenSubmission;
+    if (writtenSubmission) {
+        if (!serializeWrittenArithmeticSubmission(writtenSubmission)) return false;
+        for (const pair of pairs) {
+            if (pair.getAttribute('data-canvas-mode') !== 'plus') continue;
+            const targetKind = parseWrittenArithmeticPrompt(
+                pair.getAttribute('data-calculation-prompt') || ''
+            )?.kind;
+            if (writtenSubmission.kind !== targetKind) return false;
+        }
+    }
+    // Dispose synchronously so old OCR promises and cleanup observers cannot
+    // overwrite the restored store or report activity for the replacement.
+    disposeCanvasLiveController(uid);
+    Object.defineProperty(LIA.store, uid, {
+        value: entry, enumerable: true, configurable: true, writable: true
+    });
+    publishCanvasLiveEntry(uid, entry);
+    for (const pair of pairs) {
+        const mount = cfGetCanvasMountFromPair(pair) as HTMLElement;
+        if (mount.dataset.open !== '1') continue;
+        mount.innerHTML = canvasMarkup();
+    }
+    initAll();
+    __liaDispatchCanvasFreezeChange({
+        uid, revision: getCanvasLiveRevision(uid, LIA.store[uid]),
+        reason: 'restore', active: getCanvasLiveActivityByUID(uid)?.active || false,
+        hasItems: entry.ITEMS.length > 0 ? 1 : 0
+    });
+    return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -1087,6 +1155,8 @@ function cfPaintCanvasFreezeStateToCanvas(canvas: HTMLCanvasElement, state: any)
 function cfRenderCanvasFreezeStateIntoMount(mount: Element, state: any): Element | null {
     if (!mount || !(mount instanceof Element) || !state) return null;
 
+    const uid = (mount as HTMLElement).dataset.uid;
+    if (uid) disposeCanvasLiveController(uid);
     (mount as HTMLElement).dataset.open = '1';
     mount.replaceChildren();
 
@@ -1150,6 +1220,11 @@ export function ensureCanvasFreezeApi(): any {
     cfEnsureFreezeI18nListener(api);
 
     api.version = 'cvf1';
+    api.liveStateVersion = 'cvl1';
+    api.listCanvasLiveStateRevisions = listCanvasLiveStateRevisions;
+    api.exportCanvasLiveStateByUID = exportCanvasLiveStateByUID;
+    api.getCanvasLiveActivityByUID = getCanvasLiveActivityByUID;
+    api.restoreCanvasLiveStateByUID = restoreCanvasLiveStateByUID;
     api.collectCanvasPairsFromRoot = cfCollectCanvasPairsFromRoot;
     api.getCanvasMountFromPair = cfGetCanvasMountFromPair;
     api.getCanvasUidFromPair = cfGetCanvasUidFromPair;

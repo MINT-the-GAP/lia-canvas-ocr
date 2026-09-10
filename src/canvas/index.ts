@@ -6,7 +6,11 @@ import {
     COLORS, getAutoPen, getAccentCssVar, rgbaFromAny,
     setUndoIcon, setRedoIcon, setEraserIcon, setRectIcon
 } from './theme';
-import { ensureMountUID, __liaDispatchCanvasFreezeChange } from './store';
+import {
+    ensureMountUID, __liaDispatchCanvasFreezeChange, setCanvasLiveOperation,
+    getCanvasLiveActivityByUID, registerCanvasLiveController, unregisterCanvasLiveController
+} from './store';
+import { publishCanvasLiveEntry, touchCanvasLiveEntry, getCanvasLiveRevision } from './live-state';
 import { paintStrokePath } from './stroke-rendering';
 import { CalculationCorrections } from './calculation-corrections';
 import { normalizeCalculationNotation, normalizeOcrTexNumbers } from '../ocr/math-notation';
@@ -1082,7 +1086,9 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     const sctx = strokeLayer.getContext('2d')!;
 
     const STORE = LIA.store as Record<string, any>;
-    const saved = (uid && STORE[uid]) ? STORE[uid] : null;
+    const saved = uid && Object.prototype.hasOwnProperty.call(STORE, uid) ? STORE[uid] : null;
+    if (saved?.wrapW > 0) wrap.style.width = saved.wrapW + 'px';
+    if (saved?.canvasH > 0) canvas.style.height = saved.canvasH + 'px';
 
     const VIEW = saved && saved.VIEW
         ? { ...saved.VIEW }
@@ -1105,6 +1111,8 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             __liaCanvasFreezeNotifyTimer = 0;
             __liaDispatchCanvasFreezeChange({
                 uid,
+                revision: getCanvasLiveRevision(uid, STORE[uid]),
+                active: getCanvasLiveActivityByUID(uid)?.active || false,
                 reason: String(reason || 'persist'),
                 hasItems: (Array.isArray(ITEMS) && ITEMS.length > 0) ? 1 : 0
             });
@@ -2702,6 +2710,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         if (!engine || !engine.recognize) { __ocrLog('Formula OCR engine not available.'); return; }
         const oldText = rectActionBtn.textContent || '';
         __ocrBusy = true;
+        liveOperation('ocr', true);
         rectActionBtn.disabled = true;
         rectActionBtn.textContent = trOcr('runningOcr', 'Running OCR...');
         __rectProgStartPseudo();
@@ -2731,6 +2740,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             __rectProgStop(1);
             rectActionBtn.disabled = false;
             __ocrBusy = false;
+            liveOperation('ocr', false);
             __liaRefreshOcrTexts();
         }
     }
@@ -2770,10 +2780,13 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     let __plusInkRevision = 0;
     let __plusGeneration = 0;
     let __plusBackgroundTimer = 0;
+    let __plusLiveBackgroundJobs = 0;
     let __plusDraft: CanvasPlusDocumentRecognition | null = null;
     let __plusRenderedRevision = -1;
     let __plusRenderedModelKey = '';
     let __plusCorrection: CanvasPlusCorrection | null = null;
+    let __plusLiveOcr: any = saved?.ocr || null;
+    let __plusLiveEditorDraft: string | undefined = saved?.editorDraft;
     let __plusRasterInkState: 'unknown' | 'present' | 'empty' = 'unknown';
     let __plusFreezeReview: CalculationReviewFreezeState | null =
         lineFeedbackEnabled
@@ -2791,6 +2804,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         if (!lineFeedbackEnabled) return;
         __plusFreezeReview = sanitizeCalculationReviewFreezeState(value);
         persist(reason);
+        liveOperation('review', __plusFreezeReview?.state === 'running' && !__plusFreezeReview.stale);
     }
 
     function __plusRecordFreezeAnalysis(
@@ -4094,6 +4108,11 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     function __plusCloseEditor(restoreFocus = true): void {
         if (!plusInlineEditor || plusInlineEditor.hidden) return;
         plusInlineEditor.hidden = true;
+        if (!cleanedUp) {
+            __plusLiveEditorDraft = undefined;
+            persist('editor-close');
+            liveOperation('editor', false);
+        }
         if (plusEditBtn) plusEditBtn.setAttribute('aria-expanded', 'false');
         if (restoreFocus && plusEditBtn?.isConnected) {
             requestAnimationFrame(() => {
@@ -4111,6 +4130,9 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         plusEditTextarea.value = snapshot.editableText;
         plusEditTextarea.rows = Math.max(3, Math.min(12, snapshot.lines.length + 1));
         plusInlineEditor.hidden = false;
+        __plusLiveEditorDraft = plusEditTextarea.value;
+        persist('editor-open');
+        liveOperation('editor', true);
         plusEditBtn.setAttribute('aria-expanded', 'true');
         __plusValidateEditor();
         requestAnimationFrame(() => {
@@ -4126,7 +4148,8 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         modelKey: string,
         source: 'ocr' | 'correction',
         preparedInBackground: boolean,
-        writtenSubmission: WrittenArithmeticSubmission | null = null
+        writtenSubmission: WrittenArithmeticSubmission | null = null,
+        restoring = false
     ): void {
         const isWrittenDraft = isWrittenArithmetic && !writtenSubmission;
         if (isWrittenArithmetic) {
@@ -4180,6 +4203,11 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             plusEditBtn.hidden = lockEdit;
             plusEditBtn.disabled = lockEdit;
         }
+        __plusLiveOcr = {
+            editableText: snapshot.editableText,
+            ...(__plusWrittenSubmission ? { writtenSubmission: __plusWrittenSubmission } : {})
+        };
+        persist('ocr-render');
         if (lineFeedbackEnabled) {
             __plusStoreFreezeReview({
                 v: 'cr1',
@@ -4190,6 +4218,9 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         }
         __plusCloseEditor(source === 'correction');
         __plusSetStandaloneState(isWrittenDraft ? 'draft' : 'rendered');
+        // Rehydrate the preview without submitting an older OCR result over a
+        // separately restored (possibly manually corrected) native quiz answer.
+        if (restoring) return;
         const submissionValue = isWrittenArithmetic
             ? __plusWrittenSubmission
                 ? serializeWrittenArithmeticSubmission(__plusWrittenSubmission)
@@ -4284,6 +4315,10 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     }
 
     function __plusMarkRenderedStale(): void {
+        if (__plusLiveOcr && !__plusLiveOcr.stale) {
+            __plusLiveOcr = { ...__plusLiveOcr, stale: true };
+            persist('ocr-stale');
+        }
         if (!plusResult || __plusRenderedRevision < 0) return;
         __plusCorrection = null;
         __plusCloseEditor(false);
@@ -4300,6 +4335,10 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     }
 
     function __plusClearStandaloneResult(): void {
+        if (__plusLiveOcr) {
+            __plusLiveOcr = null;
+            persist('ocr-clear');
+        }
         if (canvasPair) {
             delete canvasPair.dataset.ocrError;
         }
@@ -4310,6 +4349,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         if (lineFeedbackEnabled && __plusFreezeReview) {
             __plusFreezeReview = null;
             persist('calculation-clear');
+            liveOperation('review', false);
         }
         __plusRasterInkState = 'empty';
         if (plusSubmitBtn) plusSubmitBtn.disabled = true;
@@ -4907,6 +4947,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             !__plusIsFrozenView();
 
         __ocrBusy = true;
+        liveOperation('ocr', true);
         if (plusSubmitBtn) plusSubmitBtn.disabled = true;
         if (plusEditBtn) plusEditBtn.disabled = true;
         __plusCloseEditor(false);
@@ -4996,6 +5037,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         } finally {
             if (plusResult) plusResult.removeAttribute('aria-busy');
             __ocrBusy = false;
+            liveOperation('ocr', false);
             updateUI();
             __liaRefreshOcrTexts();
         }
@@ -5017,7 +5059,11 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         });
     }
     if (plusEditTextarea) {
-        plusEditTextarea.addEventListener('input', __plusValidateEditor);
+        plusEditTextarea.addEventListener('input', () => {
+            __plusLiveEditorDraft = plusEditTextarea!.value;
+            persist('editor-input');
+            __plusValidateEditor();
+        });
         plusEditTextarea.addEventListener('keydown', event => {
             if (event.key === 'Escape') {
                 event.preventDefault();
@@ -5130,6 +5176,8 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             !document.hidden &&
             !__plusIsFrozenView();
         __plusDispatch('running', reason, 0);
+        __plusLiveBackgroundJobs++;
+        liveOperation('ocr-background', true);
         try {
             const result = await __plusRecognizeDocument(
                 engine,
@@ -5161,6 +5209,9 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             __ocrLog('Calculation background OCR error: ' +
                 (error && (error as any).message ? (error as any).message : String(error)));
             __plusDispatch('error', reason, 0);
+        } finally {
+            __plusLiveBackgroundJobs--;
+            liveOperation('ocr-background', __plusLiveBackgroundJobs > 0);
         }
     }
 
@@ -5186,6 +5237,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
                 if (plusEditApplyBtn) plusEditApplyBtn.disabled = true;
                 if (plusSubmitBtn) plusSubmitBtn.disabled = true;
                 plusReview?.pause();
+                liveOperation('review', false);
                 if (__plusBackgroundTimer) {
                     clearTimeout(__plusBackgroundTimer);
                     __plusBackgroundTimer = 0;
@@ -5200,6 +5252,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
                 );
             } else {
                 plusReview?.resume();
+                liveOperation('review', __plusFreezeReview?.state === 'running' && !__plusFreezeReview.stale);
                 if (!document.hidden && __plusHasVisibleInkItems()) {
                     __plusScheduleBackground('unfreeze', 80);
                 }
@@ -5224,13 +5277,16 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             REDO,
             bgMode,
             bgStep,
-            wrapW: wrap!.getBoundingClientRect().width,
-            canvasH: canvas.clientHeight
+            wrapW: wrap!.getBoundingClientRect().width || STORE[uid]?.wrapW || 1,
+            canvasH: canvas.clientHeight || STORE[uid]?.canvasH || 1
         };
         if (lineFeedbackEnabled && __plusFreezeReview) {
             entry.calculationReviewFreeze = __plusFreezeReview;
         }
+        if (__plusLiveOcr) entry.ocr = __plusLiveOcr;
+        if (__plusLiveEditorDraft !== undefined) entry.editorDraft = __plusLiveEditorDraft;
         STORE[uid] = entry;
+        publishCanvasLiveEntry(uid, entry);
         scheduleCanvasFreezeNotify(reason || 'persist');
     }
 
@@ -5613,6 +5669,9 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         const w = screenToWorld(sx, sy);
         const it = { kind: 'path', tool, color: penBaseColor(), alpha: penAlpha, width: (tool === 'eraser') ? eraserWidth : penWidth, points: [{ x: w.x, y: w.y }] };
         ITEMS.push(it); currentPath = it; REDO.length = 0;
+        // The store sees this stroke before any RAF or debounced notification.
+        touchCanvasLiveEntry(uid);
+        liveOperation(tool === 'eraser' ? 'erase' : 'draw', true);
         currentStrokeRenderedPointCount = 0;
         currentStrokePointerType = pointerType;
         __plusInvalidateInk('stroke-start');
@@ -5623,6 +5682,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     function appendStrokePointWorld(wx: number, wy: number): void {
         if (!currentPath) return;
         currentPath.points.push({ x: wx, y: wy });
+        touchCanvasLiveEntry(uid);
     }
 
     function appendStrokePointFromScreen(sx: number, sy: number): void {
@@ -5667,6 +5727,8 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             updateUI();
             __plusScheduleBackground('stroke-cancel');
             persist('stroke-cancel');
+            liveOperation('draw', false);
+            liveOperation('erase', false);
             return;
         }
         flushStrokePresent();
@@ -5678,9 +5740,11 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             __plusScheduleBackground(finished.points.length > 1 ? 'stroke-end' : 'stroke-tap');
         }
         if (finished) persist('stroke-end');
+        liveOperation('draw', false);
+        liveOperation('erase', false);
     }
 
-    function startRectAtScreen(sx: number, sy: number): void { const w = screenToWorld(sx, sy); currentRect = { x0: w.x, y0: w.y, x1: w.x, y1: w.y }; }
+    function startRectAtScreen(sx: number, sy: number): void { const w = screenToWorld(sx, sy); currentRect = { x0: w.x, y0: w.y, x1: w.x, y1: w.y }; liveOperation('select', true); }
     function updateRectToScreen(sx: number, sy: number): void { if (!currentRect) return; const w = screenToWorld(sx, sy); currentRect.x1 = w.x; currentRect.y1 = w.y; present(); }
     function finishRect(commit: boolean): void {
         if (!currentRect) return;
@@ -5699,6 +5763,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             }
         }
         currentRect = null; rebuildHighlightLayer(); present(); updateUI(); persist(); scheduleRectActionUpdate();
+        liveOperation('select', false);
         if (selectionChanged) {
             __plusInvalidateInk('selection-change');
             __plusScheduleBackground('selection-change');
@@ -5724,6 +5789,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     __liaRefreshOcrTexts();
     const ro = new ResizeObserver(() => resizeToCss()); ro.observe(canvas);
 
+    const cancelResizeGestures: Array<() => void> = [];
     function ensureCorners(): void {
         const ww = wrap!;
         if ((ww as any).__cornersReady) return; (ww as any).__cornersReady = true;
@@ -5740,11 +5806,13 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         }
         function bindCorner(handle: HTMLElement, side: string): void {
             let resizing = false, startX = 0, startY = 0, startW = 0, startH = 0;
-            function down(e: PointerEvent) { autoCloseSubmenus(); e.preventDefault(); e.stopPropagation(); resizing = true; startW = ww.getBoundingClientRect().width; startH = canvas.clientHeight || CANVAS_DEFAULT_H; startX = e.clientX; startY = e.clientY; try { handle.setPointerCapture(e.pointerId); } catch (_) { } }
-            function move(e: PointerEvent) { if (!resizing) return; e.preventDefault(); const dx = e.clientX - startX, dy = e.clientY - startY; canvas.style.height = clampLocal(startH + dy, MIN_H, MAX_H) + 'px'; const maxW = containerMaxWidth(); ww.style.width = clampLocal(side === 'br' ? startW + dx : startW - dx, MIN_W, maxW) + 'px'; }
-            function up(e: PointerEvent) { if (!resizing) return; resizing = false; try { handle.releasePointerCapture(e.pointerId); } catch (_) { } resizeToCss(); persist(); }
+            cancelResizeGestures.push(() => { resizing = false; });
+            function down(e: PointerEvent) { autoCloseSubmenus(); e.preventDefault(); e.stopPropagation(); resizing = true; liveOperation('resize', true); startW = ww.getBoundingClientRect().width; startH = canvas.clientHeight || CANVAS_DEFAULT_H; startX = e.clientX; startY = e.clientY; try { handle.setPointerCapture(e.pointerId); } catch (_) { } }
+            function move(e: PointerEvent) { if (!resizing) return; e.preventDefault(); const dx = e.clientX - startX, dy = e.clientY - startY; canvas.style.height = clampLocal(startH + dy, MIN_H, MAX_H) + 'px'; const maxW = containerMaxWidth(); ww.style.width = clampLocal(side === 'br' ? startW + dx : startW - dx, MIN_W, maxW) + 'px'; persist('resize'); }
+            function up(e: PointerEvent) { if (!resizing) return; resizing = false; try { handle.releasePointerCapture(e.pointerId); } catch (_) { } resizeToCss(); persist(); liveOperation('resize', false); }
             handle.addEventListener('pointerdown', down); handle.addEventListener('pointermove', move);
             handle.addEventListener('pointerup', up); handle.addEventListener('pointercancel', up);
+            handle.addEventListener('lostpointercapture', up);
         }
         bindCorner(br, 'br'); bindCorner(bl, 'bl');
     }
@@ -5772,10 +5840,15 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     window.addEventListener('keyup', onWinKeyup);
 
     let cleanedUp = false;
+    function liveOperation(operation: string, active: boolean): void {
+        if (!cleanedUp) setCanvasLiveOperation(uid, operation, active);
+    }
     let teardownObs: MutationObserver | null = null;
     function cleanup(): void {
         if (cleanedUp) return;
         cleanedUp = true;
+        __plusCancelNativeResolveHandoff();
+        unregisterCanvasLiveController(uid, canvas);
         ro.disconnect();
         if (__rectProgRAF) { cancelAnimationFrame(__rectProgRAF); __rectProgRAF = 0; }
         if (__rectBtnRAF) { cancelAnimationFrame(__rectBtnRAF); __rectBtnRAF = 0; }
@@ -5809,6 +5882,10 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         document.removeEventListener('keydown', onDocKeydown);
         window.removeEventListener('keydown', onWinKeydown);
         window.removeEventListener('keyup', onWinKeyup);
+        window.removeEventListener('pointerup', onLiveControlsEnd);
+        window.removeEventListener('pointercancel', onLiveControlsEnd);
+        window.removeEventListener('keyup', onLiveControlsEnd);
+        window.removeEventListener('blur', onLiveBlur);
         if (teardownObs) {
             teardownObs.disconnect();
             teardownObs = null;
@@ -5861,8 +5938,9 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         autoCloseSubmenus();
         if ((e.target as Element)?.classList?.contains('lia-resize-corner')) return;
         const p = getScreenPos(e); pointers.set(e.pointerId, p); canvas.setPointerCapture(e.pointerId);
-        if (pointers.size === 2) {
+        if (pointers.size >= 2) {
             hideEraserRing();
+            liveOperation('pan', false);
             if (mode === 'draw') {
                 if (currentStrokePointerType === 'touch' && currentPath?.points.length === 1) {
                     // The first contact of a pinch is a gesture, not a written dot.
@@ -5871,11 +5949,11 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             }
             if (mode === 'rect') finishRect(false);
             const arr = Array.from(pointers.values()); const m = mid(arr[0], arr[1]); const d = Math.max(1e-6, dist(arr[0], arr[1]));
-            pinchStart = { dist: d, worldMid: screenToWorld(m.sx, m.sy), startScale: VIEW.scale }; mode = 'pinch'; return;
+            pinchStart = { dist: d, worldMid: screenToWorld(m.sx, m.sy), startScale: VIEW.scale }; mode = 'pinch'; liveOperation('pinch', true); return;
         }
         const isRightMouse = (e.pointerType === 'mouse' && e.button === 2), isMiddleMouse = (e.pointerType === 'mouse' && e.button === 1);
         const wantPan = isRightMouse || isMiddleMouse || (e.pointerType === 'mouse' && spaceDown);
-        if (wantPan) { hideEraserRing(); mode = 'pan'; lastPanSX = p.sx; lastPanSY = p.sy; canvas.style.cursor = 'grab'; return; }
+        if (wantPan) { hideEraserRing(); mode = 'pan'; liveOperation('pan', true); lastPanSX = p.sx; lastPanSY = p.sy; canvas.style.cursor = 'grab'; return; }
         if (tool === 'rect') { hideEraserRing(); mode = 'rect'; canvas.style.cursor = 'crosshair'; startRectAtScreen(p.sx, p.sy); present(); return; }
         mode = 'draw'; canvas.style.cursor = 'crosshair';
         startStrokeAtScreen(p.sx, p.sy, String(e.pointerType || '').toLowerCase());
@@ -5939,6 +6017,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             if (pointers.size < 2) {
                 pinchStart = null;
                 mode = 'idle';
+                liveOperation('pinch', false);
                 __plusInvalidateView('pinch');
                 __plusScheduleBackground('pinch');
             }
@@ -5946,6 +6025,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         }
         if (mode === 'pan') {
             mode = 'idle';
+            liveOperation('pan', false);
             canvas.style.cursor = 'crosshair';
             __plusInvalidateView('pan');
             __plusScheduleBackground('pan');
@@ -5968,6 +6048,9 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     }
     canvas.addEventListener('pointerup', stopPointer);
     canvas.addEventListener('pointercancel', stopPointer);
+    canvas.addEventListener('lostpointercapture', (e: PointerEvent) => {
+        if (pointers.has(e.pointerId)) stopPointer(e);
+    });
     canvas.addEventListener('pointerleave', (e: PointerEvent) => {
         if (String(e.pointerType || '').toLowerCase() === 'pen') {
             canvasPenPointers.delete(e.pointerId);
@@ -5978,11 +6061,62 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         const abandonedRect = mode === 'rect';
         if (endedStroke) endStroke();
         if (abandonedRect) finishRect(false);
-        if (mode !== 'pinch') mode = 'idle';
+        if (mode !== 'pinch') {
+            mode = 'idle';
+            liveOperation('pan', false);
+        }
         canvas.style.cursor = 'crosshair'; updateUI();
         if (!endedStroke) persist();
     });
 
+    // Signals live outside the DOM; pen moves cause no attribute churn.
+    function onLiveControlsEnd(): void { liveOperation('controls', false); }
+    function onLiveBlur(): void {
+        if (currentPath) endStroke();
+        if (currentRect) finishRect(false);
+        pointers.clear();
+        for (const cancelResize of cancelResizeGestures) cancelResize();
+        pinchStart = null;
+        mode = 'idle';
+        for (const operation of ['pan', 'pinch', 'resize', 'controls']) liveOperation(operation, false);
+    }
+    wrap.addEventListener('pointerdown', event => {
+        if ((event.target as Element)?.matches('input[type=range]')) liveOperation('controls', true);
+    }, true);
+    wrap.addEventListener('keydown', event => {
+        if ((event.target as Element)?.matches('input[type=range]') &&
+            /^(Arrow|Home$|End$|Page)/.test(event.key)) liveOperation('controls', true);
+    });
+    window.addEventListener('keyup', onLiveControlsEnd);
+    window.addEventListener('pointerup', onLiveControlsEnd);
+    window.addEventListener('pointercancel', onLiveControlsEnd);
+    window.addEventListener('blur', onLiveBlur);
+    registerCanvasLiveController(uid, { canvas, dispose: cleanup });
+    if (isCanvasPlus) {
+        const restoredReview = __plusFreezeReview;
+        const restoredDraft = saved?.editorDraft;
+        const restoredText = saved?.ocr?.editableText || restoredReview?.lines.join('\n');
+        if (restoredText) {
+            __plusCommitRenderedResult(
+                restoredText, __plusInkRevision, '', 'correction', false,
+                saved?.ocr?.writtenSubmission || null, true
+            );
+            if (saved?.ocr?.stale || restoredReview?.stale) __plusMarkRenderedStale();
+            // Retain the stored review until any newly scheduled analysis finishes.
+            __plusFreezeReview = restoredReview;
+            if (typeof restoredDraft === 'string' && plusInlineEditor && plusEditTextarea) {
+                plusInlineEditor.hidden = false;
+                if (plusResultDisclosure) plusResultDisclosure.open = true;
+                plusEditTextarea.value = restoredDraft;
+                __plusLiveEditorDraft = restoredDraft;
+                plusEditBtn?.setAttribute('aria-expanded', 'true');
+                __plusValidateEditor();
+                liveOperation('editor', true);
+            }
+        }
+    }
+    // Also publish empty canvases whose backing dimensions already matched CSS.
+    persist('init');
     __liaCanvasFreezeNotifyArmed = true;
     if (isCanvasPlus && __plusHasVisibleInkItems()) {
         __plusScheduleBackground('restore');
