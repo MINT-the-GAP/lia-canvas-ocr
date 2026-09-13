@@ -302,8 +302,15 @@ oben gezeigte normale Quizsyntax umgesetzt und verlangt keinen besonderen
 abschließenden Zeilenumbruch im Hinweisargument. Für neue Aufgaben verwende
 die einfache Form oben.
 
-Leite die Funktion $f(x)=2x^3-5x^2+4x-9$ einmal ab. Gib die
-Ausgangsfunktion und ihre Ableitung als vollständigen Rechenweg an.
+Bei `aufgabe=ableitung` muss die bereits gegebene Ausgangsfunktion nicht
+noch einmal abgeschrieben werden. Der Prüfer kontrolliert alle eingereichten
+Ableitungen gegen die Funktion aus dem Makro, einschließlich der ersten
+Antwortzeile. Die verlangte Ableitungsordnung muss erreicht werden; eine
+wiederholte Ausgangsfunktion allein reicht nicht aus. OCR-Leerzeichen in
+`f ^ { \prime } ( x )` und innerhalb von Zahlen wie `1 2` werden wie in der
+mathematischen Darstellung gelesen. Der erkannte Originaltext bleibt erhalten.
+
+Leite die Funktion $f(x)=2x^3-5x^2+4x-9$ einmal ab.
 
 <!-- data-hint-button="1" data-solution-button="3" -->
 @BerechneOCR(`f(x)=2*x^3-5*x^2+4*x-9`,`aufgabe=ableitung;ordnung=1;zeilenrueckmeldung=1`)

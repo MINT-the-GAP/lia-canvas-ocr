@@ -147,7 +147,8 @@ export function* iterateCurveCalculation(
     const configurationError = calculationContextError(options.calculationContext) || undefined;
     const decoded = proof.decodeCalculationSubmission(answer);
     const lines = decoded || [];
-    const bounded = decoded !== null && lines.length >= 2 && lines.length <= 32 && lines.every(line => line.length <= 2048) && typeof prompt === 'string' && prompt.length <= 2048;
+    const optionalPrompt = options.calculationContext?.task === 'derivative';
+    const bounded = decoded !== null && lines.length >= (optionalPrompt ? 1 : 2) && lines.length <= 32 && lines.every(line => line.length <= 2048) && typeof prompt === 'string' && prompt.length <= 2048;
     const runtime = options.runtime === undefined ? proof.resolveAlgebriteRuntime() : options.runtime;
     let env: CurveEnvironment | null = null, model: CurveTaskModel | null = null;
     if (!configurationError && bounded && runtime) {
@@ -157,18 +158,36 @@ export function* iterateCurveCalculation(
         } catch { model = null; }
     }
     const matched = env && bounded ? promptMatches(env, lines[0]) : null;
-    const promptStatus = matched === true ? 'valid' : matched === false ? 'invalid' : 'unknown';
+    // A derivative task already supplies its function. Learners may start with
+    // the first derivative, but that first assertion still needs the same proof
+    // as every following row; it must never be treated as an unchecked premise.
+    const firstIsAnswer = optionalPrompt && !!model && matched !== true;
+    let firstResult: CurveLineResult | null = null;
+    if (firstIsAnswer && model) {
+        try { firstResult = model.checkLine(lines[0]); } catch { firstResult = null; }
+    }
+    const anchorProof = firstIsAnswer ? firstResult?.proof ?? null : matched;
+    const promptStatus = anchorProof === true ? 'valid' : anchorProof === false ? 'invalid' : 'unknown';
     const satisfied = new Set<string>(), checks: TransitionCheck[] = [];
+    if (firstResult?.proof === true) firstResult.targets?.forEach(target => satisfied.add(target));
     for (let index = 1; index < lines.length && index < 32; index++) {
         let result: CurveLineResult | null = null;
         if (model) {
             try { result = model.checkLine(lines[index]); } catch { result = null; }
         }
         if (result?.proof === true) result.targets?.forEach(target => satisfied.add(target));
-        const reason: TransitionReason = configurationError ? 'curve-task-invalid' : !runtime ? 'cas-unavailable' : knownReason(result);
+        // The UI and cr1 Freeze format have one check per visible row gap.
+        // Keep the learner's rows and indices unchanged, and include a failed
+        // first assertion in the first visible check instead of inserting a
+        // synthetic function row. A proven error takes precedence over unknown.
+        let reviewed = result;
+        if (index === 1 && firstIsAnswer && firstResult?.proof !== true) {
+            reviewed = firstResult?.proof === false || result?.proof !== false ? firstResult : result;
+        }
+        const reason: TransitionReason = configurationError ? 'curve-task-invalid' : !runtime ? 'cas-unavailable' : knownReason(reviewed);
         const check: TransitionCheck = {
             from: lines[0] || '', to: lines[index], fromIndex: 0, toIndex: index,
-            status: result?.proof === true ? 'valid' : result?.proof === false ? 'invalid' : 'unknown',
+            status: reviewed?.proof === true ? 'valid' : reviewed?.proof === false ? 'invalid' : 'unknown',
             reason, messageKey: 'ocr.plus.validation.' + reason,
             role: reason === 'calculation-annotation' ? 'annotation' : 'task',
             dependencies: [0]
@@ -181,7 +200,8 @@ export function* iterateCurveCalculation(
     const firstProblem: CalculationQuizGrade['firstProblem'] =
         configurationError ? { stage: 'prompt', reason: 'curve-task-invalid', lineIndex: 0 }
         : !runtime ? { stage: 'prompt', reason: 'cas-unavailable', lineIndex: 0 }
-        : !bounded ? { stage: 'prompt', reason: decoded === null ? 'invalid-format' : lines.length < 2 ? 'too-few-lines' : lines.length > 32 ? 'too-many-lines' : 'curve-unsupported', lineIndex: 0 }
+        : !bounded ? { stage: 'prompt', reason: decoded === null ? 'invalid-format' : lines.length < (optionalPrompt ? 1 : 2) ? 'too-few-lines' : lines.length > 32 ? 'too-many-lines' : 'curve-unsupported', lineIndex: 0 }
+        : firstIsAnswer && firstResult?.proof !== true ? { stage: 'transition', reason: knownReason(firstResult), lineIndex: 0 }
         : promptStatus !== 'valid' ? { stage: 'prompt', reason: matched === false ? 'prompt-mismatch' : 'prompt-unproven', lineIndex: 0 }
         : invalid || unknown ? { stage: 'transition', reason: (invalid || unknown)!.reason, lineIndex: Math.max(0, (invalid || unknown)!.toIndex - 1) }
         : !complete ? { stage: 'final', reason: model ? 'curve-incomplete' : 'curve-unsupported', lineIndex: lines.length - 1 } : undefined;
@@ -189,7 +209,7 @@ export function* iterateCurveCalculation(
         accepted: !firstProblem,
         outcome: !firstProblem ? 'correct' : configurationError || !bounded || !runtime || promptStatus === 'unknown' ? 'unknown'
             : promptStatus === 'invalid' || invalid ? 'incorrect' : unknown || !model ? 'unknown' : 'incomplete',
-        lines, promptCheck: { status: promptStatus, reason: matched === true ? 'prompt-match' : matched === false ? 'prompt-mismatch' : 'prompt-unproven' },
+        lines, promptCheck: { status: promptStatus, reason: anchorProof === true ? 'prompt-match' : anchorProof === false ? 'prompt-mismatch' : 'prompt-unproven' },
         transitionChecks: checks,
         finalCheck: complete ? { status: 'valid', reason: 'task-complete' } : { status: model ? 'incomplete' : 'unknown', reason: model ? 'task-incomplete' : 'unsupported' },
         ...(configurationError ? { configurationError } : {}),

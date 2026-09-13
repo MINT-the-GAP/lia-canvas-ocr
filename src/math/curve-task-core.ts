@@ -26,6 +26,11 @@ export function curveClean(text: string): string {
     return text.trim().replace(/^\$([^]*)\$$/u, '$1')
         .replace(/\\(?:left|right)(?![A-Za-z])/gu, '')
         .replace(/\\(?:quad|qquad|,|;|!| )(?![A-Za-z])/gu, ' ')
+        // Join OCR-spaced numbers, but never extend an unbraced exponent or
+        // function argument: x^0 2 and \sqrt 1 6 must retain their factors.
+        .replace(/\d+(?:\.\d+)?(?:\s+\d+)+/gu, (digits, offset, source) =>
+            /(?:[\^_]|\\(?:sqrt|frac|dfrac|tfrac)|\b(?:sqrt|exp|abs|ln|log|lg|sin|cos|tan)(?:\s*\})*)\s*[+-]?\s*$/u.test(source.slice(0, offset))
+                ? digits : digits.replace(/\s/gu, ''))
         .replace(/[−–]/gu, '-').replace(/′/gu, "'").replace(/″/gu, "''")
         .replace(/\\text\s*\{([^{}]*)\}/gu, '$1').trim();
 }

@@ -56,7 +56,7 @@ import: https://raw.githubusercontent.com/MINT-the-GAP/lia-DynFlex/d91ae5c444507
 
 <div class="flex-child">
 
-**a)** Bilde die zweite Ableitung von $f(x)=x^4-3x^3+2x^2-x+1$. Notiere die Ausgangsfunktion sowie die erste und zweite Ableitung.
+**a)** Bilde die zweite Ableitung von $f(x)=x^4-3x^3+2x^2-x+1$. Notiere auch die erste Ableitung als Zwischenschritt.
 
 <!-- data-hint-button="1" data-solution-button="3" -->
 @BerechneOCR(`f(x)=x^4-3*x^3+2*x^2-x+1`,`aufgabe=ableitung;ordnung=2;zeilenrueckmeldung=1`)
@@ -67,7 +67,7 @@ import: https://raw.githubusercontent.com/MINT-the-GAP/lia-DynFlex/d91ae5c444507
 
 <div class="flex-child">
 
-**b)** Bilde die dritte Ableitung von $g(x)=\frac{1}{2}x^4-2x^3+x^2$. Notiere die Ausgangsfunktion sowie die erste, zweite und dritte Ableitung.
+**b)** Bilde die dritte Ableitung von $g(x)=\frac{1}{2}x^4-2x^3+x^2$. Notiere auch die erste und zweite Ableitung als Zwischenschritte.
 
 <!-- data-hint-button="1" data-solution-button="3" -->
 @BerechneOCR(`g(x)=1/2*x^4-2*x^3+x^2`,`aufgabe=ableitung;ordnung=3;zeilenrueckmeldung=1`)
@@ -162,4 +162,45 @@ Die alte WithOptions-Struktur aus `d1f60eb` wurde mit den einzeilig abgeschlosse
 
 Den Befund „nur eine Canvas pro Folie“ konnte der isolierte alte Zweispaltenausschnitt nicht reproduzieren: Dort waren zwei Launcher vorhanden. Für die korrigierte Ausgabe ist dagegen ausdrücklich geprüft, dass beide Canvas gleichzeitig sichtbar und bedienbar sind, getrennte Zeichnungen behalten und sich weder beim Schließen, erneuten Öffnen noch beim nativen Prüfen gegenseitig beeinflussen.
 
-Die Korrektur betrifft Makros, Dokumentation und Regressionstests. Die JavaScript-Laufzeit und das ausgelieferte `dist/index.js` benötigen dafür keine Änderung.
+Die erste Makrokorrektur betraf Makros, Dokumentation und Regressionstests. Die JavaScript-Laufzeit und das ausgelieferte `dist/index.js` benötigten dafür keine Änderung.
+
+## Nachkorrektur: erkannte Ableitungen mit OCR-Leerzeichen
+
+Der folgende unveränderte OCR-Rohtext wurde vom Nutzer nachgereicht. Seine mathematische Darstellung war richtig, trotzdem lieferte die Prüfung zweimal `curve-unsupported`:
+
+```text
+f ( x ) = x ^ { 4 } - 3 x ^ { 3 } + 2 x ^ { 2 } - x + 1
+f ^ { \prime }(x)= 4 x ^ { 3 } - 9 x ^ { 2 } + 4 x - 1
+f ^ { \prime \prime } ( x ) = 1 2 x ^ { 2 } - 1 8 x + 4
+```
+
+Der Ableitungsparser verlangte bislang unmittelbar aneinander anschließende Funktionsnamen, Ableitungszeichen und Klammern. Die TeX-Normalisierung erkannte außerdem keine Leerzeichen innerhalb von `^ { \prime }`. Nach Korrektur dieser beiden Stellen trat ein weiterer Unterschied zur Darstellung hervor: Die Ziffernfolgen `1 2` und `1 8` wurden als implizite Produkte gelesen. Die Normalisierung behandelt sie jetzt als 12 und 18; explizite Multiplikationszeichen bleiben Multiplikationen. Funktionsname, Variable, Ableitungsordnung und mathematischer Inhalt werden weiterhin geprüft. Die Korrektur errät oder ersetzt keine Koeffizienten.
+
+Bei `aufgabe=ableitung` ist die Wiederholung der Ausgangsfunktion nun optional. Jede eingereichte Zeile wird gegen die im Makro gegebene Funktion geprüft, auch die erste Ableitung am Anfang der Antwort. Eine falsche erste Ableitung darf nicht durch eine richtige letzte Zeile verdeckt werden. Eine alleinige Ausgangsfunktion oder eine noch nicht erreichte verlangte Ableitungsordnung bleibt unvollständig. Die ursprünglichen Antwortzeilen und ihre Reihenfolge bleiben in OCR-Anzeige, Antwortfeld und Freeze erhalten.
+
+Die einfache Autorensyntax bleibt bestehen. Für die zweite Ableitung aus dem Screenshot ist beispielsweise dieser Antworttext vollständig:
+
+```text
+f'(x)=4*x^3-9*x^2+4*x-1
+f''(x)=12*x^2-18*x+4
+```
+
+Diese Nachkorrektur ändert die mathematische JavaScript-Laufzeit; das ausgelieferte `dist/index.js` wurde deshalb neu gebaut. Die einfache Makrostruktur bleibt erhalten.
+
+Zusätzliche Gegenproben verhindern, dass die Normalisierung ungeklammerte Exponenten oder Funktionsargumente verlängert: `x^0 2` bleibt `2*x^0`, `\sqrt 1 6` bleibt `6*sqrt(1)`. Entsprechende Fälle mit formatierten Funktionsnamen bleiben ebenfalls getrennt. Gebracete Zahlen wie `x^{0 2}` und `\sqrt{1 6}` werden dagegen als 02 und 16 gelesen.
+
+Die Typprüfung und die vollständige Unit-Suite mit 782 Tests bestanden auf der Endfassung einschließlich der Absicherung formatierter Funktionsnamen. Die vorherige Tabelle dokumentiert den Teststand der Makrokorrektur.
+
+
+Die zusätzlichen Browserprüfungen liefen mit Chromium 151.0.7922.34, echtem LiaScript und gepinntem DynFlex:
+
+| Nachkorrektur | Ergebnis |
+| --- | --- |
+| Vollständige native Quizregression | 15 Szenarien bestanden (16 Node-Testeinträge einschließlich Obertest), keine Fehler oder ausgelassenen Tests |
+| Exakter Nutzer-Rohtext im Korrektureditor | Mit Ausgangsfunktion zwei gültige Rückmeldungen und nativ gelöst; ohne Ausgangsfunktion ein gültiger Übergang und nativ gelöst |
+| Falsche und unvollständige Ableitungen | Alle Gegenfälle nativ abgelehnt; eine falsche erste Ableitung wird als ungültig erkannt |
+| Direkte OCR-Ausgabe ohne Editor oder Antwortfeld-Refill | Zusätzlicher Test bestanden: drei getrennte Canvas-Zeilen, drei kontrollierte OCR-Antworten mit dem Nutzer-Rohtext, beide Rückmeldungen gültig und nativer Status `solved`; Screenshot visuell kontrolliert |
+| Bestehende Analysis-Browserregression | Alle zehn Szenarien bestanden, einschließlich Musterlösung und Freeze |
+| Bestehende Funktions-Browserregression | Alle vier Szenarien bestanden |
+
+Insgesamt wurden damit 16 native Quiz-Szenarien geprüft: der vollständige Lauf mit 15 Szenarien und der anschließend ergänzte direkte OCR-Fall. Firefox und WebKit waren in diesen Nachläufen ausgeschlossen. Die OCR-Ausgabe ist für diese gezielte Parserregression der kontrolliert eingespeiste Originaltext; es wurden keine Modellgewichte oder Erkennungsregeln angepasst.

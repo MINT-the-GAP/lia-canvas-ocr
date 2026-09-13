@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import test from 'node:test';
+import test, { type TestContext } from 'node:test';
 import { createExpectedColumnAdditionSubmission } from '../../src/math/column-arithmetic.ts';
 import { createExpectedColumnSubtractionSubmission } from '../../src/math/column-subtraction.ts';
 import { createExpectedColumnMultiplicationSubmission } from '../../src/math/column-multiplication.ts';
@@ -452,4 +452,147 @@ test('native LiaScript calculation quiz binding with external annotations, hints
       finally { await closeBinding(h); }
     });
   } finally { await browser.close(); }
+});
+
+
+type ScreenshotCorrection = { label: string; lines: string[]; accepted: boolean };
+
+async function checkScreenshotCorrections(browser: Browser, t: TestContext,
+  cases: ScreenshotCorrection[], recognized: string[]): Promise<void> {
+    const h = await openBinding(browser, 7);
+    try {
+      const page = h.page, pair = page.locator(PAIR).first();
+      await noBooleanOutput(page);
+      await page.evaluate(({ recognized, direct }) => {
+        const registry = (window as any).__LIA_CANVAS_OCR__;
+        (window as any).__derivativeOnlyOcrCalls = 0;
+        (window as any).__derivativeOnlyAnalyses = [];
+        document.querySelector('main:not([hidden]) .lia-canvas-pair')!.addEventListener('lia:canvasplus-analysis', event => {
+          (window as any).__derivativeOnlyAnalyses.push((event as CustomEvent).detail);
+        });
+        const ocr = { model: 'derivative-only-test-seed', cacheKey: 'derivative-only-test-seed', precision: 'fp32',
+          task: 'image-to-text', outputKind: 'latex', inputProfile: 'formulanet-line-384',
+          calculationSinglePass: true, ensureLoaded: async () => true,
+          recognize: async () => {
+            const index = (window as any).__derivativeOnlyOcrCalls++;
+            return direct ? recognized[index] : recognized.join('\n');
+          } };
+        registry.ocr = ocr; registry.canvasPlusOcr = ocr;
+      }, { recognized, direct: !cases.length });
+      await pair.locator('.lia-canvas-launch').click();
+      const canvas = pair.locator('canvas.lia-draw');
+      await canvas.scrollIntoViewIfNeeded();
+      const box = await canvas.boundingBox(); assert.ok(box);
+      // A genuine multi-line OCR submission recognizes one crop per drawn row.
+      // Each crop receives exactly one unchanged raw OCR line from the user.
+      const rows = cases.length ? [0.3] : [0.18, 0.43, 0.68];
+      for (const y of rows) {
+        await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * y);
+        await page.mouse.down();
+        await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * (y + (cases.length ? 0.12 : 0.01)), { steps: 8 });
+        await page.mouse.up();
+      }
+      await pair.locator('.lia-canvasplus-submit').click();
+      const output = pair.locator('.lia-canvasplus-output[data-state=ready]');
+      await output.waitFor();
+      const samples = cases.length ? cases : [{ label: 'direct raw OCR without editing', lines: recognized, accepted: true }];
+      for (const sample of samples) {
+        if (!await output.evaluate(node => (node as HTMLDetailsElement).open)) await output.locator(':scope > summary').click();
+        if (cases.length) {
+          const analysesBefore = await page.evaluate(() => (window as any).__derivativeOnlyAnalyses.length);
+          await output.locator('.lia-canvasplus-edit').click();
+          await output.locator('.lia-canvasplus-inline-textarea').fill(sample.lines.join('\n'));
+          await output.locator('.lia-canvasplus-accept').click();
+          await page.waitForFunction(before => (window as any).__derivativeOnlyAnalyses.length > before, analysesBefore);
+          await pair.locator('.lia-canvasplus-output[data-result-source=correction][data-analysis-state=ready]').waitFor();
+        } else {
+          await pair.locator('.lia-canvasplus-output[data-analysis-state=ready]').waitFor();
+          assert.equal(await output.locator('.lia-canvasplus-inline-textarea').isVisible(), false, 'direct OCR must not open the correction editor');
+        }
+        assert.deepEqual(JSON.parse(await field(page, 0).inputValue()), sample.lines, sample.label);
+        const checks = await page.evaluate(() => (window as any).__derivativeOnlyAnalyses.at(-1).checks);
+        t.diagnostic(sample.label + ': row statuses ' + checks.map((check: any) => check.status).join(', '));
+        const callsBefore = await page.evaluate(() => (window as any).__bindingCalls.length);
+        await quiz(page, 0).locator('button.lia-quiz__check').press('Enter');
+        await page.waitForFunction(before => (window as any).__bindingCalls.length > before, callsBefore);
+        const calls = await page.evaluate(before => (window as any).__bindingCalls.slice(before), callsBefore);
+        assert.equal(calls.length, 1, 'the native button must call only its own mathematical validator');
+        assert.equal(calls[0].uid, await pair.getAttribute('data-calculation-quiz'));
+        assert.equal(calls[0].result, sample.accepted, sample.label + ': ' + JSON.stringify(checks));
+        await page.waitForFunction(accepted => {
+          const target = document.querySelector('main:not([hidden]) .lia-quiz');
+          return target?.classList.contains(accepted ? 'solved' : 'open') &&
+            Boolean(target.querySelector(accepted ? '.lia-quiz__feedback.text-success' : '.lia-quiz__feedback.text-error'));
+        }, sample.accepted);
+        if (sample.accepted) {
+          assert.ok(checks.length > 0 && checks.every((check: any) => check.status === 'valid'),
+            'the corrected screenshot calculation must have valid mathematical row feedback');
+          assert.equal(await output.locator('.lia-canvasplus-transition').count(), checks.length);
+          const state = await pair.evaluate(node => (window as any).__LIA_CANVAS_OCR__.freeze.exportCanvasFreezeStateFromPair(node));
+          assert.deepEqual(state.cr.lines, sample.lines, 'Freeze must retain the submitted lines without inserting or changing a prompt');
+          assert.ok(state.cr.checks.length > 0 && state.cr.checks.every((check: any) => check.status === 'valid'));
+        }
+        assert.equal(await field(page, 1).inputValue(), '');
+        assert.equal(await quiz(page, 1).locator('.lia-quiz__feedback').count(), 0);
+      }
+      if (!cases.length && process.env.LIA_DERIVATIVE_OCR_SCREENSHOT) {
+        await page.screenshot({ path: process.env.LIA_DERIVATIVE_OCR_SCREENSHOT, fullPage: true });
+      }
+      assert.equal(await page.evaluate(() => (window as any).__derivativeOnlyOcrCalls), cases.length ? 1 : recognized.length);
+      assert.deepEqual(h.modelRequests, []);
+    } finally { await closeBinding(h); }
+}
+
+const SCREENSHOT_PROMPT = 'f(x)=x^4-3*x^3+2*x^2-x+1';
+const SCREENSHOT_DERIVATIVES = ["f'(x)=4*x^3-9*x^2+4*x-1", "f''(x)=12*x^2-18*x+4"];
+// Exact three OCR lines supplied by the user, including spaced primes, braces,
+// function arguments and digits. Keep this raw text unchanged as the regression.
+const SCREENSHOT_RAW_OCR = [
+  String.raw`f ( x ) = x ^ { 4 } - 3 x ^ { 3 } + 2 x ^ { 2 } - x + 1`,
+  String.raw`f ^ { \prime }(x)= 4 x ^ { 3 } - 9 x ^ { 2 } + 4 x - 1`,
+  String.raw`f ^ { \prime \prime } ( x ) = 1 2 x ^ { 2 } - 1 8 x + 4`,
+];
+const screenshotCorrectionScenarios = [
+  {
+    name: 'derivative-only screenshot correction uses the given function for row feedback and native grading',
+    recognized: SCREENSHOT_DERIVATIVES,
+    cases: [
+      { label: 'wrong first derivative followed by correct second', lines: ["f'(x)=4*x^3-9*x^2+4*x", SCREENSHOT_DERIVATIVES[1]], accepted: false },
+      { label: 'correct first derivative followed by wrong second', lines: [SCREENSHOT_DERIVATIVES[0], "f''(x)=12*x^2-18*x+5"], accepted: false },
+      { label: 'first derivative alone is incomplete', lines: [SCREENSHOT_DERIVATIVES[0]], accepted: false },
+      { label: 'original function alone is incomplete', lines: [SCREENSHOT_PROMPT], accepted: false },
+      { label: 'complete derivatives without repeating the prompt', lines: SCREENSHOT_DERIVATIVES, accepted: true },
+    ],
+  },
+  ...[true, false].map(withPrompt => {
+    const prefix = withPrompt ? SCREENSHOT_RAW_OCR.slice(0, 1) : [];
+    return {
+      name: 'OCR-TeX screenshot correction ' + (withPrompt ? 'with' : 'without') + ' the original function keeps native grading and row feedback correct',
+      recognized: [...prefix, ...SCREENSHOT_RAW_OCR.slice(1)],
+      cases: [
+        { label: 'wrong OCR first derivative followed by correct second', lines: [...prefix, SCREENSHOT_RAW_OCR[1].replace('- 1', '- 2'), SCREENSHOT_RAW_OCR[2]], accepted: false },
+        { label: 'correct OCR first derivative followed by wrong second', lines: [...prefix, SCREENSHOT_RAW_OCR[1], SCREENSHOT_RAW_OCR[2].replace('+ 4', '+ 5')], accepted: false },
+        { label: 'OCR first derivative alone is incomplete', lines: [...prefix, SCREENSHOT_RAW_OCR[1]], accepted: false },
+        { label: 'OCR original function alone is incomplete', lines: [SCREENSHOT_RAW_OCR[0]], accepted: false },
+        { label: 'complete correct OCR screenshot', lines: [...prefix, ...SCREENSHOT_RAW_OCR.slice(1)], accepted: true },
+      ],
+    };
+  }),
+];
+
+for (const scenario of screenshotCorrectionScenarios) {
+  test(scenario.name, { timeout: 120_000 }, async t => {
+    const browser = await chromium.launch({ headless: true });
+    t.diagnostic('Chromium ' + browser.version() + '; real LiaScript, DynFlex, controlled OCR, correction editor and native Check');
+    try { await checkScreenshotCorrections(browser, t, scenario.cases, scenario.recognized); }
+    finally { await browser.close(); }
+  });
+}
+
+
+test('direct raw OCR screenshot solves the native quiz without editing or refilling the answer', { timeout: 120_000 }, async t => {
+  const browser = await chromium.launch({ headless: true });
+  t.diagnostic('Chromium ' + browser.version() + '; exact user OCR text, real native Check, no correction editor');
+  try { await checkScreenshotCorrections(browser, t, [], SCREENSHOT_RAW_OCR); }
+  finally { await browser.close(); }
 });

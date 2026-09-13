@@ -18,8 +18,8 @@ const escape = (s: string): string => s.replace(/[.*+?^$()|[\]\\]/g, '\\$&');
 /** Local notation cleanup never modifies the OCR source. */
 function clean(raw: string): string {
     return curveClean(raw).replace(/[′’]/gu, "'").replace(/″/gu, "''")
-        .replace(/\^\{((?:\\prime\s*)+)\}/gu, (_, primes: string) => "'".repeat((primes.match(/\\prime/gu) || []).length))
-        .replace(/\^\\prime\b/gu, "'").replace(/\^\{\(([1-8])\)\}/gu, (_, n: string) => "'".repeat(Number(n)))
+        .replace(/\^\s*\{\s*((?:\\prime\s*)+)\}/gu, (_, primes: string) => "'".repeat((primes.match(/\\prime/gu) || []).length))
+        .replace(/\^\s*\\prime\b/gu, "'").replace(/\^\s*\{\s*\(\s*([1-8])\s*\)\s*\}/gu, (_, n: string) => "'".repeat(Number(n)))
         .replace(/\\(?:text|mathrm|operatorname)\{([^{}]*)\}/gu, '$1').trim();
 }
 function splitTop(source: string, separators = ';,'): string[] {
@@ -267,9 +267,11 @@ function evaluateChain(env: CurveEnvironment, text: string, expected: string): P
 }
 const derivativeLabel = (env: CurveEnvironment, order: number, point = env.variable) => env.name + "'".repeat(order) + '(' + point + ')';
 function checkFunctionLine(env: CurveEnvironment, source: string, targetOrder?: number, targetPoint?: string): CurveLineResult | null {
-    const match = /^([A-Za-z])('*)\(([^=]*)\)\s*=\s*(.+)$/u.exec(clean(source));
-    if (!match || match[1] !== env.name || match[2].length > 8) return null;
-    const order = match[2].length, value = order ? diff(env, env.expression, order) : env.expression;
+    const match = /^([A-Za-z])\s*((?:'\s*)*)\(([^=]*)\)\s*=\s*(.+)$/u.exec(clean(source));
+    if (!match || match[1] !== env.name) return null;
+    const order = match[2].replace(/\s/gu, '').length;
+    if (order > 8) return null;
+    const value = order ? diff(env, env.expression, order) : env.expression;
     if (!value) return result(null);
     const arg = match[3].trim(), point = arg === env.variable ? null : constant(env, arg);
     if (arg !== env.variable && point === null) return null;

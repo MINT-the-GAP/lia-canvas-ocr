@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import Algebrite from 'algebrite';
+import { sanitizeCalculationReviewFreezeState } from '../src/canvas/calculation-freeze.ts';
 import { validateCalculationPathSubmission, iterateCalculationPathChecks } from '../src/math/calculation-path.ts';
 import { generateContextualExpectedCalculation } from '../src/math/function-calculation-path.ts';
 import { parseCalculationOptions } from '../src/lia/calculation-options.ts';
@@ -126,4 +127,106 @@ test('substitution retains original holes and repeated solution labels cannot co
     const prompt = 'f(x)=x^2-1';
     assert.equal(validateCalculationPathSubmission(prompt, [prompt, 'nullstellen:', 'x_1=-1', 'x_1=1'], options).accepted, false);
     assert.equal(validateCalculationPathSubmission(prompt, [prompt, 'nullstellen:', 'x_1=-1', 'x_2=1'], options).accepted, true);
+});
+
+
+test('derivative paths may omit the supplied function without changing learner rows or Freeze indices', () => {
+    const prompt = 'f(x)=x^4-3*x^3+2*x^2-x+1';
+    const derivatives = ["f'(x)=4*x^3-9*x^2+4*x-1", "f''(x)=12*x^2-18*x+4"];
+    const options = config('aufgabe=ableitung;ordnung=2;zeilenrueckmeldung=1');
+    const rawPrompt = 'f ( x ) = x ^ { 4 } - 3 x ^ { 3 } + 2 x ^ { 2 } - x + 1';
+    const rawDerivatives = [
+        String.raw`f ^ { \prime }(x)= 4 x ^ { 3 } - 9 x ^ { 2 } + 4 x - 1`,
+        String.raw`f ^ { \prime \prime } ( x ) = 1 2 x ^ { 2 } - 1 8 x + 4`,
+    ];
+    for (const lines of [derivatives, [prompt, ...derivatives], rawDerivatives, [rawPrompt, ...rawDerivatives]]) {
+        const original = [...lines];
+        const grade = validateCalculationPathSubmission(prompt, lines, options);
+        assert.equal(grade.accepted, true, JSON.stringify(grade));
+        assert.deepEqual(grade.lines, original, 'no synthetic starting-function row may enter the answer');
+        assert.deepEqual(lines, original, 'the submitted array must not be mutated');
+        assert.equal(grade.transitionChecks.length, lines.length - 1);
+        assert.ok(grade.transitionChecks.every(check => check.status === 'valid'));
+        assert.deepEqual([...iterateCalculationPathChecks(lines, prompt, options)], grade.transitionChecks);
+        const review = { v: 'cr1', state: 'ready', lines: grade.lines,
+            checks: grade.transitionChecks.map(({ status, reason, fromIndex, toIndex, role }) =>
+                ({ status, reason, fromIndex, toIndex, role })) };
+        assert.deepEqual(sanitizeCalculationReviewFreezeState(review), review,
+            'every feedback dependency must remain a valid original-row index in Freeze');
+    }
+});
+
+test('a wrong or unsupported first derivative cannot be skipped before a correct requested derivative', () => {
+    const prompt = 'f(x)=x^4-3*x^3+2*x^2-x+1';
+    const final = "f''(x)=12*x^2-18*x+4";
+    const options = config('aufgabe=ableitung;ordnung=2');
+    for (const [first, status] of [
+        ["f'(x)=4*x^3-9*x^2+4*x", 'invalid'],
+        ["g'(x)=4*x^3-9*x^2+4*x-1", 'unknown'],
+        ["f'(t)=4*t^3-9*t^2+4*t-1", 'unknown'],
+        ['an unsupported first row', 'unknown'],
+    ]) {
+        const grade = validateCalculationPathSubmission(prompt, [first, final], options);
+        assert.equal(grade.accepted, false, first);
+        assert.equal(grade.transitionChecks.length, 1);
+        assert.equal(grade.transitionChecks[0].status, status, first);
+        assert.equal(grade.transitionChecks[0].fromIndex, 0);
+        assert.equal(grade.transitionChecks[0].toIndex, 1);
+        assert.equal(grade.firstProblem?.lineIndex, 0);
+    }
+    const grade = validateCalculationPathSubmission(prompt,
+        ['unknown first row', "f''(x)=12*x^2-18*x+5"], options);
+    assert.equal(grade.transitionChecks[0].status, 'invalid', 'a proven later error outranks an unsupported first row');
+});
+
+test('an explicitly repeated wrong function remains rejected even when all derivatives match the authored task', () => {
+    const prompt = 'f(x)=x^4-3*x^3+2*x^2-x+1';
+    const options = config('aufgabe=ableitung;ordnung=2');
+    const final = "f''(x)=12*x^2-18*x+4";
+    for (const first of ['f(x)=x^4-3*x^3+2*x^2-x+2', 'g(x)=x^4-3*x^3+2*x^2-x+1']) {
+        const grade = validateCalculationPathSubmission(prompt, [first, final], options);
+        assert.equal(grade.accepted, false, first);
+        assert.notEqual(grade.transitionChecks[0].status, 'valid', 'the supplied wrong premise must remain visible');
+    }
+});
+
+test('a single requested derivative is complete but the original function or a lower order is not', () => {
+    const prompt = 'f(x)=x^4';
+    const options = config('aufgabe=ableitung;ordnung=2');
+    for (const answer of [["f''(x)=12*x^2"], JSON.stringify(["f''(x)=12*x^2"])]) {
+        const grade = validateCalculationPathSubmission(prompt, answer, options);
+        assert.equal(grade.accepted, true, JSON.stringify(grade));
+        assert.deepEqual(grade.lines, ["f''(x)=12*x^2"]);
+        assert.deepEqual(grade.transitionChecks, []);
+    }
+    for (const lines of [[prompt], ["f'(x)=4*x^3"], ["f''(x)=12*x^2+1"], []]) {
+        assert.equal(validateCalculationPathSubmission(prompt, lines, options).accepted, false, JSON.stringify(lines));
+    }
+    assert.equal(validateCalculationPathSubmission(prompt, ["f'(x)=4*x^3"], config('aufgabe=ableitung')).accepted, true);
+    assert.equal(validateCalculationPathSubmission(prompt, ["f''(x)=12*x^2"], config('aufgabe=ableitung;ordnung=3')).accepted, false);
+});
+
+test('third derivatives can begin with intermediate derivatives and retain later errors', () => {
+    const prompt = 'g(x)=1/2*x^4-2*x^3+x^2';
+    const options = config('aufgabe=ableitung;ordnung=3');
+    const lines = ["g'(x)=2*x^3-6*x^2+2*x", "g''(x)=6*x^2-12*x+2", "g'''(x)=12*x-12"];
+    const grade = validateCalculationPathSubmission(prompt, lines, options);
+    assert.equal(grade.accepted, true, JSON.stringify(grade));
+    assert.equal(grade.transitionChecks.length, 2);
+    const wrong = [lines[0], "g''(x)=6*x^2-12*x+3", lines[2]];
+    const failed = validateCalculationPathSubmission(prompt, wrong, options);
+    assert.equal(failed.accepted, false);
+    assert.equal(failed.transitionChecks[0].status, 'invalid');
+    assert.deepEqual(failed.lines, wrong);
+});
+
+test('optional supplied functions remain limited to derivatives and keep existing safety bounds', () => {
+    assert.equal(validateCalculationPathSubmission('f(x)=x', ['I=0'], config('aufgabe=integral;von=-1;bis=1')).accepted, false);
+    assert.equal(validateCalculationPathSubmission('f(x)=x^2', ["f'(1)=2"], config('aufgabe=ableitungswert;stelle=1')).accepted, false);
+    assert.equal(validateCalculationPathSubmission('2x+3=7', ['2x=4', 'x=2'], config('aufgabe=gleichung')).accepted, false);
+    const options = config('aufgabe=ableitung');
+    for (const lines of [["f'(x)=2^(2^100000)"], Array(33).fill("f'(x)=2*x")]) {
+        assert.equal(validateCalculationPathSubmission('f(x)=x^2', lines, options).accepted, false);
+    }
+    assert.equal(validateCalculationPathSubmission('f(x)=x^2', ["f'(x)=2*x"], { ...options, runtime: null }).accepted, false);
 });

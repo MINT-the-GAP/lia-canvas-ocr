@@ -260,3 +260,43 @@ test('global extrema distinguish attained ties from unattained endpoint bounds',
     assert.equal(accepts(open, ['H(-1|2)']), true);
     assert.equal(accepts(open, ['H(-1|2)', 'T(1|-2)']), false);
 });
+
+
+test('OCR whitespace in derivative labels retains order, identity and the original expressions', () => {
+    const prompt = 'f(x)=x^4-3*x^3+2*x^2-x+1';
+    const first = T`f ^ { \prime }(x)= 4 x ^ { 3 } - 9 x ^ { 2 } + 4 x - 1`;
+    const second = T`f ^ { \prime \prime } ( x ) = 1 2 x ^ { 2 } - 1 8 x + 4`;
+    const task = model(prompt, { task: 'derivative', order: 2 });
+    for (const line of [first, second]) assert.equal(task.checkLine(line)?.proof, true, line);
+    assert.equal(accepts(task, [first, second]), true);
+    for (const label of ["f ' ' ( x )", T`f ^ { ( 2 ) } ( x )`, 'f″ ( x )']) {
+        assert.equal(accepts(task, [label + ' = 12 x ^ { 2 } - 18 x + 4']), true, label);
+    }
+    assert.equal(accepts(model(prompt, { task: 'derivative' }), [first]), true);
+    assert.equal(accepts(model(prompt, { task: 'derivative' }), [second]), false);
+    assert.equal(task.checkLine(first.replace('- 1', '+ 1'))?.proof, false);
+    assert.equal(task.checkLine(second.replace('+ 4', '+ 5'))?.proof, false);
+    for (const wrong of [second.replace('f ^', 'g ^'), second.replace('1 2', '1 * 2'),
+        second.replace('1 8', T`1 \cdot 8`), second.replace('( x )', '( t )'),
+        second.replace('\\prime \\prime', '\\primeval'), second.replace('+ 4', '+ 4 + x/x - 1')]) {
+        assert.notEqual(task.checkLine(wrong)?.proof, true, wrong);
+    }
+    assert.equal(accepts(model('g(t)=t^3', { task: 'derivative-value', point: '2' }),
+        [T`g ^ \prime ( 2 ) = 1 2`]), true);
+});
+
+
+test('OCR digit joining cannot extend unbraced powers or function arguments', () => {
+    const square = model('f(x)=x^3/3', { task: 'derivative' });
+    assert.equal(accepts(square, ["f'(x)=x^0 2"]), false);
+    assert.equal(accepts(square, ["f'(x)=x^{0 2}"]), true);
+    assert.equal(accepts(model('f(x)=2*x', { task: 'derivative' }), ["f'(x)=x^0 2"]), true);
+    const constant = model('f(x)=4*x', { task: 'derivative' });
+    assert.equal(accepts(constant, [T`f'(x)=\sqrt 1 6`]), false);
+    assert.equal(accepts(constant, [T`f'(x)=\sqrt{1 6}`]), true);
+    for (const name of [T`\operatorname{sqrt}`, T`\mathrm{sqrt}`, T`\text{sqrt}`, T`\text{\mathrm{sqrt}}`]) {
+        assert.equal(accepts(constant, ["f'(x)=" + name + ' 1 6']), false, name);
+    }
+    assert.equal(accepts(model('f(x)=6*x', { task: 'derivative' }), [T`f'(x)=\sqrt 1 6`]), true);
+    assert.equal(accepts(model('f(x)=12*x', { task: 'derivative' }), ["f'(x)=1 2"]), true);
+});

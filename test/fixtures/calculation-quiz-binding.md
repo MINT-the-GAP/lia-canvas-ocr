@@ -97,7 +97,7 @@ Kennzeichne die aufeinanderfolgenden Ableitungen mit $f'(x)$, $f''(x)$ beziehung
 
 <div class="flex-child">
 
-**Bestimme** die zweite Ableitung von $f(x)=x^4-3x^3+2x^2-x+1$. **Notiere** auch die erste Ableitung als Zwischenschritt.
+**Bestimme** die zweite Ableitung von $f(x)=x^4-3x^3+2x^2-x+1$. **Notiere** auch die erste Ableitung als Zwischenschritt. Die Ausgangsgleichung muss nicht wiederholt werden.
 
 <!-- data-hint-button="1" data-solution-button="3" -->
 @BerechneOCR(`f(x)=x^4-3*x^3+2*x^2-x+1`,`aufgabe=ableitung;ordnung=2;zeilenrueckmeldung=1`)
