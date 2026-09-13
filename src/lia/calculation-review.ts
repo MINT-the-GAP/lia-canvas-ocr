@@ -5,7 +5,7 @@ import {
     alignFirstTopLevelRelation,
     editableTextToLatex
 } from '../ocr/layout';
-import type { TransitionCheck } from '../math/equivalence';
+import type { TransitionValidationOptions, TransitionCheck } from '../math/equivalence';
 import { iterateCalculationPathChecks } from '../math/calculation-path';
 import { calculationMethodFallback, type CalculationCheckRole } from '../math/calculation-methods';
 import { calculationRoleLabel, calculationRoleCheckLabel } from './i18n';
@@ -45,6 +45,7 @@ type ReviewOptions = {
     translate: (key: string, fallback: string) => string;
     mode?: CalculationReviewMode;
     promptEquation?: string;
+    validationOptions?: TransitionValidationOptions;
     composeLatex?: (lines: readonly string[]) => string;
     onAnalysis?: (analysis: CalculationReviewAnalysis) => void;
 };
@@ -604,7 +605,7 @@ export function createCalculationReview(options: ReviewOptions): CalculationRevi
                 if (destroyed || stale || requestGeneration !== generation) return;
                 try {
                     const checks: TransitionCheck[] = [];
-                    for (const check of iterateCalculationPathChecks(snapshot.lines, options.promptEquation)) {
+                    for (const check of iterateCalculationPathChecks(snapshot.lines, options.promptEquation, options.validationOptions)) {
                         if (destroyed || stale || requestGeneration !== generation) return;
                         checks.push(check);
                         await new Promise<void>(resolve => window.setTimeout(resolve, 0));

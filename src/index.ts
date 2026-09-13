@@ -1,3 +1,7 @@
+import { calculationContextError } from './math/calculation-context';
+import { generateContextualExpectedCalculation } from './math/function-calculation-path';
+import { parseCalculationOptions } from './lia/calculation-options';
+import type { TransitionValidationOptions } from './math/equivalence';
 // Boot module: registry, theme sync, OCR bar, engine, canvas init.
 
 // ---------------------------------------------------------------------------
@@ -80,6 +84,9 @@ let themeSyncRunning = false;
 function calculationQuizMessage(grade: CalculationQuizGrade): string {
   const reason = grade.firstProblem?.reason || '';
   const line = grade.firstProblem?.lineIndex;
+  if (grade.configurationError) return liaT('ocr.quiz.curveOptions', 'Invalid task options: {message}').replace('{message}', grade.configurationError);
+  if (reason === 'curve-incomplete') return liaT('ocr.quiz.curveIncomplete', 'Provide all required results, including coordinates and classifications.');
+  if (reason.startsWith('curve-') && grade.firstProblem?.stage === 'transition') return liaT('ocr.quiz.curveStep', 'Check the statement in line {line}.').replace('{line}', String((line ?? 0) + 2));
   if (reason === 'too-few-lines') {
     return liaT('ocr.quiz.tooFewLines', 'Write the starting equation and at least one solution step.');
   }
@@ -108,6 +115,8 @@ function calculationQuizMessage(grade: CalculationQuizGrade): string {
 }
 
 LIA.validateCalculationSubmission = validateCalculationSubmission;
+LIA.generateExpectedCalculation = generateContextualExpectedCalculation;
+LIA.parseCalculationOptions = parseCalculationOptions;
 LIA.validateColumnAdditionSubmission = validateColumnAdditionSubmission;
 LIA.validateColumnSubtractionSubmission = validateColumnSubtractionSubmission;
 LIA.validateColumnMultiplicationSubmission = validateColumnMultiplicationSubmission;
@@ -227,7 +236,8 @@ function writtenArithmeticQuizMessage(
 
 LIA.checkCalculationAnswer = (
   promptTex: string,
-  answerValue: string
+  answerValue: string,
+  options: TransitionValidationOptions = {}
 ): {
   accepted: boolean;
   outcome: CalculationQuizGrade['outcome'] | WrittenArithmeticValidation['outcome'];
@@ -236,7 +246,8 @@ LIA.checkCalculationAnswer = (
   reason: string;
   message: string;
 } => {
-  const writtenPrompt = parseWrittenArithmeticPrompt(promptTex);
+  const writtenPrompt = (!options.calculationContext?.task || options.calculationContext.task === 'equation') && !calculationContextError(options.calculationContext)
+    ? parseWrittenArithmeticPrompt(promptTex) : null;
   if (writtenPrompt) {
     const grade = validateWrittenArithmeticSubmission(writtenPrompt, answerValue);
     return {
@@ -249,7 +260,7 @@ LIA.checkCalculationAnswer = (
         : writtenArithmeticQuizMessage(writtenPrompt.kind, grade.reason)
     };
   }
-  const grade = validateCalculationSubmission(promptTex, answerValue);
+  const grade = validateCalculationSubmission(promptTex, answerValue, options);
   return {
     ...grade,
     ok: grade.accepted,

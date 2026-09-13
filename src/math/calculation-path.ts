@@ -1,3 +1,6 @@
+import { validateCurveCalculation, iterateCurveCalculation } from './curve-calculation-path.ts';
+import { validateFunctionCalculation, iterateFunctionCalculation } from './function-calculation-path.ts';
+import { prepareCalculationTask } from './calculation-context.ts';
 import { isCalculationProofInputBounded, isCalculationCasInputBounded } from './calculation-proof-budget.ts';
 import { analyzeRationalEquation, proveRationalEquationTransition, proveRationalSolutionSet, type RationalEquationModel } from './rational-equation-proof.ts';
 import {
@@ -13,7 +16,7 @@ import {
 } from './calculation-structure.ts';
 import {
     analyzeNumericPolynomial, provePolynomialTransition, proveCompleteRealSolutionSet,
-    provePolynomialCandidateSet, type CompleteRealSolutionProof
+    provePolynomialCandidateSet, provePolynomialDisjunction, proveAlgebraicConstantIdentity, algebraicConstantSign, type CompleteRealSolutionProof
 } from './nonlinear-proof.ts';
 import {
     analyzeLinearSystem, compareLinearSystems, proveLinearSystemConsequence,
@@ -24,9 +27,13 @@ import type { CalculationCheckRole } from './calculation-methods.ts';
 function boundedRuntime(options: TransitionValidationOptions): AlgebriteRuntime | null {
     const runtime = options.runtime === undefined ? proof.resolveAlgebriteRuntime() : options.runtime;
     if (!runtime) return null;
+    const memo = new Map<string, unknown>();
     return { run(source: string): unknown {
         if (!isCalculationCasInputBounded(source)) throw new Error('Calculation proof budget exceeded.');
-        return runtime.run(source);
+        if (memo.has(source)) return memo.get(source);
+        const result = runtime.run(source);
+        if (memo.size < 512) memo.set(source, result);
+        return result;
     } };
 }
 
@@ -82,6 +89,8 @@ function combine(checks: StepResult[]): StepResult {
         checks.find(check => check.status === 'unknown') || checks[checks.length - 1] || UNKNOWN;
 }
 function identity(left: string, right: string, runtime: AlgebriteRuntime): Proof {
+    const exact = proveAlgebraicConstantIdentity(left, right, runtime);
+    if (exact !== null) return exact;
     const guarded = analyzeNumericPolynomial({
         left: { cas: left, domainRisk: false }, right: { cas: right, domainRisk: false }
     }, runtime);
@@ -137,6 +146,10 @@ export class CalculationPathValidation {
     private candidateValues: string[] = [];
     private readonly indexedValues = new Map<string, string>();
     private definition: Definition | null = null;
+    private readonly numericDefinitions = new Map<string, string>();
+    private nullProductBranches: EquationRecord[] = [];
+    private activeNullProductBranch: number | null = null;
+    private pendingBranchLabel = '';
     private auxiliaryEquation: EquationRecord | null = null;
     private auxiliaryPending: EquationRecord | null = null;
     private auxiliaryRoots: CompleteRealSolutionProof | null = null;
@@ -308,33 +321,109 @@ export class CalculationPathValidation {
             originalVariable: originalVariables[0], index: row.index };
         return { status: 'valid', reason: 'definition-step', role: 'definition' };
     }
+    private expandNumericDefinitions(source: string): string {
+        let expanded = source;
+        for (const [name, value] of this.numericDefinitions) {
+            const pattern = name === '\\Delta' ? /\\Delta(?![A-Za-z])/gu
+                : new RegExp('(?<![A-Za-z0-9_\\\\])' + name + '(?![A-Za-z0-9_])', 'gu');
+            expanded = expanded.replace(pattern, () => '(' + value + ')');
+        }
+        return expanded;
+    }
     private discriminant(statement: CalculationStatement): StepResult | null {
+        if (statement.kind === 'group' || statement.kind === 'label') return null;
         if (!this.runtime || !this.original || !this.initialMatched) return null;
-        if (proof.variablesIn([this.original.equation.left.cas, this.original.equation.right.cas]).includes('D')) return null;
         const text = relation(statement) || statement.source;
-        if (!/^\s*(?:\\Delta|D)\s*=/u.test(text)) return null;
+        const match = /^\s*(\\Delta|D|p|q)\s*=/u.exec(text);
+        if (!match) return null;
+        const name = match[1];
+        if (proof.variablesIn([this.original.equation.left.cas, this.original.equation.right.cas]).includes(name)) return null;
         if ((statement.kind === 'equation' || statement.kind === 'equality-chain') && statement.operation) return UNKNOWN;
-        const polynomial = analyzeNumericPolynomial((this.current || this.original).equation, this.runtime, 2);
-        if (!polynomial || polynomial.degree !== 2) return UNKNOWN;
-        const [c, b, a] = polynomial.coefficients;
-        const expected = '(' + b + ')^2-4*(' + a + ')*(' + c + ')';
         const operands = statement.kind === 'equality-chain' ? statement.operands.slice(1)
             : statement.kind === 'equation' ? [statement.right] : text.split('=').slice(1);
         if (!operands.length || operands.length > 4) return UNKNOWN;
-        const checks: Proof[] = [];
-        for (const operand of operands) {
-            const converted = proof.convertTexFragment(operand.replace(/<\s*0\s*$/u, ''));
-            if (!converted) return UNKNOWN;
-            checks.push(identity(expected, converted.cas, this.runtime));
-            if (/<\s*0\s*$/u.test(operand)) {
-                const value = proof.casRun('simplify(' + converted.cas + ')', this.runtime);
-                if (!value || proof.numericCasValue(value) === null) return UNKNOWN;
-                checks.push(Number(proof.numericCasValue(value)) < 0);
+        const values = operands.map(operand => proof.convertTexFragment(this.expandNumericDefinitions(operand.replace(/<\s*0\s*$/u, ''))));
+        if (values.some(value => !value || proof.variablesIn([value.cas]).length)) return UNKNOWN;
+        const first = values[0]!;
+        let expected = this.numericDefinitions.get(name);
+        const polynomial = analyzeNumericPolynomial((this.branchEquation || this.current || this.original).equation, this.runtime, 2);
+        if (!expected && (name === 'p' || name === 'q' || /^\s*[+-]?\d+(?:[.,]\d+)?\s*$/u.test(operands[0]))) {
+            if (!polynomial || polynomial.degree !== 2) return UNKNOWN;
+            const [c, b, a] = polynomial.coefficients;
+            expected = name === 'p' ? '(' + b + ')/(' + a + ')'
+                : name === 'q' ? '(' + c + ')/(' + a + ')'
+                    : '(' + b + ')^2-4*(' + a + ')*(' + c + ')';
+        }
+        // An explicit expression defines D locally; only an otherwise bare
+        // numeric D retains the legacy discriminant convention.
+        expected ||= first.cas;
+        const checks = values.map(value => identity(expected!, value!.cas, this.runtime!));
+        for (let index = 0; index < operands.length; index++) {
+            if (/<\s*0\s*$/u.test(operands[index])) {
+                const sign = algebraicConstantSign(values[index]!.cas, this.runtime);
+                checks.push(sign === null ? null : sign < 0);
             }
         }
-        return resultOf(checks.every(check => check === true) ? true
-            : checks.some(check => check === false) ? false : null,
-            'auxiliary-calculation', 'incorrect-auxiliary-calculation', 'auxiliary');
+        const value = checks.every(check => check === true) ? true : checks.some(check => check === false) ? false : null;
+        if (value === true) {
+            const canonical = proof.casRun('simplify(rationalize(' + first.cas + '))', this.runtime);
+            if (canonical === null) return UNKNOWN;
+            this.numericDefinitions.set(name, canonical);
+        }
+        return resultOf(value, 'auxiliary-calculation', 'incorrect-auxiliary-calculation', 'auxiliary');
+    }
+    private disjunction(statement: CalculationStatement, index: number): StepResult | null {
+        if (statement.kind !== 'group' || statement.semantics !== 'disjunction' || !this.runtime || !this.current || !this.initialMatched) return null;
+        const rows = statement.members.map(member => record(member, index));
+        if (rows.some(row => !row || row.operation)) return UNKNOWN;
+        const from = this.branchEquation || this.current;
+        if (from.operation) return UNKNOWN;
+        const valid = provePolynomialDisjunction(from.equation, rows.map(row => row!.equation), this.runtime);
+        if (valid !== true) {
+            // Fully isolated unions are handled by the root-set checker.
+            const roots = this.roots(statement.source, index);
+            return roots || UNKNOWN;
+        }
+        this.nullProductBranches = rows as EquationRecord[];
+        this.activeNullProductBranch = null;
+        this.branchEquation = null;
+        for (const row of this.nullProductBranches) this.roots(row.text, index);
+        return { status: 'valid', reason: 'equivalent-polynomial-equations', role: 'branch', fromIndex: from.index };
+    }
+    private selectNullProductBranch(row: EquationRecord, statement: CalculationStatement): StepResult | null {
+        const label = statement.roleHint === 'branch' ? statement.label : this.pendingBranchLabel;
+        this.pendingBranchLabel = '';
+        if (!this.nullProductBranches.length || !this.runtime) return label ? UNKNOWN : null;
+        let selected = label ? Number(label.slice(-1)) - 1 : -1;
+        if (label && (selected < 0 || selected >= this.nullProductBranches.length)) return UNKNOWN;
+        if (!label) {
+            const matches = this.nullProductBranches.map((branch, index) =>
+                provePolynomialTransition(branch.equation, row.equation, this.runtime!) === true ? index : -1).filter(index => index >= 0);
+            if (matches.length === 1) selected = matches[0];
+        }
+        if (selected >= 0 && selected !== this.activeNullProductBranch) {
+            if (this.activeNullProductBranch !== null && this.branchEquation) this.nullProductBranches[this.activeNullProductBranch] = this.branchEquation;
+            this.activeNullProductBranch = selected;
+            this.branchEquation = this.nullProductBranches[selected];
+        }
+        return null;
+    }
+    private multipleOperations(from: EquationRecord, row: EquationRecord): StepResult | null {
+        if (!from.operation?.includes(';') || !this.runtime) return null;
+        const pieces = from.operation.split(';').map(value => value.trim());
+        if (pieces.length < 2 || pieces.length > 4 || pieces.some(value => !value)) return UNKNOWN;
+        let left = from.equation.left.cas, right = from.equation.right.cas;
+        for (const piece of pieces) {
+            const operation = proof.parseOperation(piece);
+            if (!operation) return UNKNOWN;
+            if ((operation.kind === 'multiply' || operation.kind === 'divide') &&
+                algebraicConstantSign(operation.operand.cas, this.runtime) !== -1 &&
+                algebraicConstantSign(operation.operand.cas, this.runtime) !== 1) return UNKNOWN;
+            left = proof.applyOperation(left, operation); right = proof.applyOperation(right, operation);
+        }
+        const checks = [identity(left, row.equation.left.cas, this.runtime), identity(right, row.equation.right.cas, this.runtime)];
+        return { ...resultOf(checks.every(value => value === true) ? true : checks.some(value => value === false) ? false : null,
+            'equivalent-polynomial-equations', 'operation-mismatch-both'), operation: from.operation, fromIndex: from.index };
     }
     private roots(rowSource: string, index: number): StepResult | null {
         if (!this.runtime || !this.original || !this.current || this.system) return null;
@@ -455,6 +544,8 @@ export class CalculationPathValidation {
             this.auxiliaryPending = row.operation ? row : null;
             return { status: 'valid', reason: 'auxiliary-calculation', role: 'auxiliary', fromIndex: pending.index };
         }
+        const selectedBranch = this.selectNullProductBranch(row, statement);
+        if (selectedBranch) return selectedBranch;
         const verification = this.verify(row, role === 'check');
         if (verification) return verification;
         const definition = this.define(row);
@@ -496,6 +587,14 @@ export class CalculationPathValidation {
             return resultOf(equal, 'auxiliary-calculation', 'incorrect-auxiliary-calculation', 'auxiliary');
         }
         const from = this.branchEquation || this.current;
+        const multiple = this.multipleOperations(from, row);
+        if (multiple) {
+            if (multiple.status === 'valid') {
+                if (this.branchEquation) this.branchEquation = row; else this.current = row;
+                this.rememberSingleSolution(row);
+            }
+            return multiple;
+        }
         const legacy = validateEquationTransition(from.text + (from.operation ? ' \\mid ' + from.operation : ''),
             row.text, from.index, this.options);
         if (legacy.status === 'valid') {
@@ -541,8 +640,10 @@ export class CalculationPathValidation {
         const variables = proof.variablesIn([this.original.equation.left.cas, this.original.equation.right.cas]);
         const solved = isolated(row.equation, variables);
         if (!solved || proof.variablesIn([solved.expression]).length) return;
+        const candidates = this.nullProductBranches.length ? this.candidateValues.slice() : [];
+        if (!candidates.some(value => identity(value, solved.expression, this.runtime!) === true)) candidates.push(solved.expression);
         const complete = this.rational ? proveRationalSolutionSet(this.rational, row.text, this.runtime)
-            : provePolynomialCandidateSet(this.original.equation, [solved.expression], this.runtime);
+            : provePolynomialCandidateSet(this.original.equation, candidates, this.runtime);
         if (complete?.proof === true) {
             this.candidateValues = complete.solutions?.slice() || [solved.expression];
             this.originalRoots = complete; this.reachedSolution = true;
@@ -555,6 +656,7 @@ export class CalculationPathValidation {
         if (statement.kind === 'label') {
             this.lastWasLabel = true;
             if (statement.roleHint) this.pendingRole = statement.roleHint;
+            if (statement.roleHint === 'branch') this.pendingBranchLabel = statement.label;
             const label = statement.label.replace(/[.:]$/u, '');
             if (/^(?:I|II|III)$/u.test(label)) this.pendingLabel = label;
             else if (/^(?:[+\-\d\s]*(?:I|II|III)){2,3}$/u.test(label) ||
@@ -568,8 +670,18 @@ export class CalculationPathValidation {
         if (domain) return domain;
         const delta = this.discriminant(statement);
         if (delta) return delta;
+        if (this.numericDefinitions.size) statement = parseCalculationStatement(this.expandNumericDefinitions(statement.source));
+        if ((statement.roleHint === 'branch' || this.pendingBranchLabel) && this.current) {
+            const selected = this.selectNullProductBranch(record(statement, index) || this.current, statement);
+            if (selected) return selected;
+        }
+        const disjunction = this.disjunction(statement, index);
+        if (disjunction) return disjunction;
         if (!this.system && !this.auxiliaryPending && this.initialMatched && (role !== 'auxiliary' || !!this.auxiliaryEquation) && role !== 'check') {
-            const roots = this.roots(statement.source, index);
+            const rootSource = statement.kind === 'equation' && statement.label
+                ? statement.left + '=' + statement.right + (statement.operation ? ' \\mid ' + statement.operation : '')
+                : statement.source;
+            const roots = this.roots(rootSource, index);
             if (roots) {
                 return roots.status === 'unknown' && roots.reason === 'unsupported-or-unproven'
                     ? this.legacyRootStep(statement.source) || roots : roots;
@@ -676,13 +788,23 @@ export class CalculationPathValidation {
 export function* iterateCalculationPathChecks(
     lines: readonly string[], promptTex?: string, options: TransitionValidationOptions = {}
 ): Generator<TransitionCheck> {
-    const session = new CalculationPathValidation(lines, promptTex, options);
+    const curveGrade = yield* iterateCurveCalculation(promptTex || lines[0] || '', lines, options);
+    if (curveGrade) return;
+    const functionGrade = yield* iterateFunctionCalculation(promptTex || lines[0] || '', lines, options);
+    if (functionGrade) return;
+    const prepared = prepareCalculationTask(promptTex || lines[0] || '', options.calculationContext);
+    const session = new CalculationPathValidation(lines, prepared || promptTex, options);
     let next: TransitionCheck | null;
     while ((next = session.next())) yield next;
 }
 export function validateCalculationPathSubmission(
     promptTex: string, answer: string | readonly string[], options: TransitionValidationOptions = {}
 ): CalculationQuizGrade {
+    const curveGrade = validateCurveCalculation(promptTex, answer, options);
+    if (curveGrade) return curveGrade;
+    const functionGrade = validateFunctionCalculation(promptTex, answer, options);
+    if (functionGrade) return functionGrade;
+    promptTex = prepareCalculationTask(promptTex, options.calculationContext) || promptTex;
     const lines = proof.decodeCalculationSubmission(answer);
     if (!lines || lines.length < 2 || lines.length > 32) return validateLegacySubmission(promptTex, answer, options);
     const bounded = lines.every(isCalculationProofInputBounded) && isCalculationProofInputBounded(promptTex)

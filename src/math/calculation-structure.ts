@@ -2,12 +2,12 @@ import { findTopLevelGroupedEqualities, normalizeTopLevelEqualityGroups } from '
 
 // Lossless structural parsing only. Mathematical proofs and role inheritance belong
 // to the path validator; this module never repairs OCR or changes an expression.
-export type CalculationRoleHint = 'main' | 'auxiliary' | 'check' | 'substitution' | 'back-substitution' | 'domain';
+export type CalculationRoleHint = 'main' | 'auxiliary' | 'check' | 'substitution' | 'back-substitution' | 'domain' | 'method' | 'branch';
 export type CalculationStatementBase = { source: string; label?: string; roleHint?: CalculationRoleHint };
 export type CalculationStatement = CalculationStatementBase & (
     | { kind: 'equation'; left: string; right: string; operation?: string }
     | { kind: 'equality-chain'; operands: string[]; operation?: string }
-    | { kind: 'group'; format: 'cases' | 'array' | 'aligned' | 'compound'; semantics: 'system' | 'sequence' | 'unspecified'; members: CalculationStatement[] }
+    | { kind: 'group'; format: 'cases' | 'array' | 'aligned' | 'compound'; semantics: 'system' | 'sequence' | 'unspecified' | 'disjunction'; members: CalculationStatement[] }
     | { kind: 'label'; label: string }
     | { kind: 'unsupported'; reason: string }
 );
@@ -31,9 +31,12 @@ const ROLES: Record<string, CalculationRoleHint> = {
     probe: 'check', kontrolle: 'check', prüfung: 'check',
     substitution: 'substitution', einsetzen: 'substitution',
     rücksubstitution: 'back-substitution', ruecksubstitution: 'back-substitution',
-    definitionsmenge: 'domain', definitionsbereich: 'domain'
+    definitionsmenge: 'domain', definitionsbereich: 'domain',
+    'pq-formel': 'method', 'p-q-formel': 'method', 'mitternachtsformel': 'method',
+    'quadratische ergänzung': 'method', 'quadratische ergaenzung': 'method',
+    'faktorisierung': 'method', 'ausklammern': 'method', 'nullprodukt': 'method'
 };
-type Cut = { start: number; end: number; kind: 'row' | 'column' | 'semicolon' | 'spacing' | 'comma' };
+type Cut = { start: number; end: number; kind: 'row' | 'column' | 'semicolon' | 'spacing' | 'comma' | 'disjunction' };
 type Scan = { equalities: Cut[]; cuts: Cut[]; operation: { start: number; end: number } | null; error?: string };
 
 function unsupported(source: string, reason: string): CalculationStatement { return { kind: 'unsupported', source, reason }; }
@@ -99,7 +102,8 @@ function scan(source: string): Scan {
                 result.cuts.push({ start: index, end: rowEnd, kind: 'row' });
                 index = rowEnd;
                 continue;
-            } else if (top && SPACING_COMMAND.test(command)) result.cuts.push({ start: index, end, kind: 'spacing' });
+            } else if (top && (command === 'lor' || command === 'vee')) result.cuts.push({ start: index, end, kind: 'disjunction' });
+            else if (top && SPACING_COMMAND.test(command)) result.cuts.push({ start: index, end, kind: 'spacing' });
             else if (top && command === 'mid' && !result.operation && /^(?:[+\-:/*]|\\(?:cdot|times|div)(?![A-Za-z]))/u.test(source.slice(end).trim())) {
                 result.operation = { start: index, end };
             }
@@ -118,6 +122,11 @@ function scan(source: string): Scan {
         } else if ('})]'.includes(ch)) {
             if (brackets.pop() !== ch) return fail('mismatched-bracket');
         } else if (top) {
+            if (source.slice(index, index + 4) === 'oder' && /\s/u.test(source[index - 1] || '') && /\s/u.test(source[index + 4] || '')) {
+                result.cuts.push({ start: index, end: index + 4, kind: 'disjunction' });
+                index += 4;
+                continue;
+            }
             if (ch === '=') {
                 if (/[=<>!:]/u.test(source[index - 1] || '') || source[index + 1] === '=') return fail('unsupported-relation');
                 result.equalities.push({ start: index, end: index + 1, kind: 'column' });
@@ -152,6 +161,7 @@ type Prefix = { body: string; label?: string; roleHint?: CalculationRoleHint };
 function labelValue(value: string): { label: string; roleHint?: CalculationRoleHint } | null {
     const label = value.trim().replace(/^\((.*)\)$/u, '$1').replace(/[.:]$/u, '').trim();
     if (ROMAN.test(label)) return { label };
+    if (/^(?:Fall|Zweig)\s+[1-4]$/iu.test(label)) return { label: 'Zweig ' + label.slice(-1), roleHint: 'branch' };
     const roman = '(?:VIII|VII|III|II|IX|IV|VI|X|V|I)';
     const compact = label.replace(/\s+/gu, '');
     if (new RegExp('^[+-]?[0-9]*' + roman + '(?:[+-][0-9]*' + roman + ')+$').test(compact)) return { label: compact };
@@ -165,7 +175,7 @@ function readPrefix(source: string): Prefix {
     const method = /^([^:]+?)(?::\s*|$)/u.exec(source);
     if (method) {
         const label = labelValue(method[1]);
-        if (label && (/[+\-]/u.test(label.label) || label.label.includes(' in '))) {
+        if (label && (label.roleHint || /[+\-]/u.test(label.label) || label.label.includes(' in '))) {
             return { ...label, body: source.slice(method[0].length) };
         }
     }
@@ -278,7 +288,7 @@ function parseStatement(source: string, depth: number): CalculationStatement {
     const unwrapped = stripLeadingArrow(removeMathWrapper(source));
     if (!unwrapped) return unsupported(source, 'empty');
     const prefix = readPrefix(unwrapped);
-    const body = stripLeadingArrow(prefix.body.trim());
+    const body = stripLeadingArrow(prefix.body.trim()).replace(/\\text\s*\{\s*oder\s*\}/gu, '\\lor');
     if (prefix.label && !body) return { kind: 'label', source, label: prefix.label, ...(prefix.roleHint ? { roleHint: prefix.roleHint } : {}) };
     if (prefix.roleHint === 'domain') return withSource(unsupported(source, 'domain-declaration'), source, prefix);
     const environment = parseEnvironment(source, body, depth);
@@ -289,7 +299,15 @@ function parseStatement(source: string, depth: number): CalculationStatement {
     if (scanned.cuts.some(cut => cut.kind === 'row' || cut.kind === 'column') || /\\(?:begin|end)\b/u.test(body)) {
         return withSource(unsupported(source, 'embedded-or-unscoped-layout'), source, prefix);
     }
-    const strongCuts = scanned.cuts.filter(cut => cut.kind === 'semicolon' || cut.kind === 'comma');
+    const disjunctionCuts = scanned.cuts.filter(cut => cut.kind === 'disjunction');
+    if (disjunctionCuts.length) {
+        const parts = splitAt(body, disjunctionCuts);
+        if (parts.length > 4 || parts.some(part => !part.trim())) return unsupported(source, 'ambiguous-disjunction');
+        const members = parts.map(part => parseStatement(part.trim(), depth + 1));
+        return withSource({ kind: 'group', source, format: 'compound', semantics: 'disjunction', members }, source, prefix);
+    }
+    const strongCuts = scanned.cuts.filter(cut => (cut.kind === 'semicolon' || cut.kind === 'comma') &&
+        (!scanned.operation || cut.start < scanned.operation.start));
     const spacingCuts = scanned.cuts.filter(cut => cut.kind === 'spacing');
     const tryCompound = (cuts: Cut[]): CalculationStatement | null => {
         if (!cuts.length) return null;

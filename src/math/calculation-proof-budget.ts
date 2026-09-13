@@ -246,7 +246,7 @@ function texTokens(source: string): string[] | null {
         if (command === 'pm' || command === 'mp') { output.push('+'); continue; }
         if (command === 'prime') continue;
         if (command === '\\') { output.push(','); continue; }
-        if (['mid', 'in', 'notin', 'neq', 'ne', 'le', 'leq', 'ge', 'geq', 'setminus'].includes(command)) { output.push(','); continue; }
+        if (['mid', 'in', 'notin', 'neq', 'ne', 'le', 'leq', 'ge', 'geq', 'setminus', 'lor', 'vee'].includes(command)) { output.push(','); continue; }
         if (['Rightarrow', 'Longrightarrow', 'rightarrow', 'longrightarrow', 'implies', 'Leftrightarrow', 'Longleftrightarrow', 'iff', 'to', 'Rarr'].includes(command)) continue;
         if (command === 'begin' || command === 'end') {
             const group = braces(index + 1);
@@ -317,7 +317,7 @@ export function isCalculationProofInputBounded(sourceTex: string): boolean {
         if (item.kind === 'group') return item.members.map(payload).join(';');
         if (item.kind === 'equation' || item.kind === 'equality-chain') {
             const equation = item.kind === 'equation' ? item.left + '=' + item.right : item.operands.join('=');
-            return equation + (item.operation ? ';1' + item.operation : '');
+            return equation + (item.operation ? ';1' + item.operation.replace(/;/gu, ';1') : '');
         }
         return item.source;
     };

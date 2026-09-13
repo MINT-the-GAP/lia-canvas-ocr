@@ -1,5 +1,12 @@
 // Shared reasons keep live review, native grading and Freeze explanations aligned.
 export const CALCULATION_METHOD_MESSAGES = {
+    'curve-correct': ['This statement agrees with the function and the task conditions.', 'Diese Aussage stimmt mit der Funktion und den Aufgabenvorgaben überein.'],
+    'curve-incorrect': ['This statement does not agree with the function or the task conditions.', 'Diese Aussage stimmt nicht mit der Funktion oder den Aufgabenvorgaben überein.'],
+    'curve-incomplete': ['At least one required result is still missing.', 'Mindestens ein gefordertes Ergebnis fehlt noch.'],
+    'curve-task-invalid': ['The task options are incomplete or inconsistent.', 'Die Aufgabenvorgaben sind unvollständig oder widersprüchlich.'],
+    'curve-unsupported': ['This statement is outside the supported exact mathematical checks.', 'Diese Aussage kann mit den unterstützten mathematischen Verfahren nicht sicher geprüft werden.'],
+    'domain-condition': ['This condition follows from the original domain or substitution.', 'Diese Bedingung folgt aus dem Definitionsbereich oder der Substitution.'],
+    'equivalent-function-equations': ['These equations have the same solutions in the original domain.', 'Diese Gleichungen haben im ursprünglichen Definitionsbereich dieselben Lösungen.'],
     'equivalent-polynomial-equations': ['Both equations have the same real solutions.', 'Beide Gleichungen haben dieselben reellen Lösungen.'],
     'different-polynomial-solutions': ['The equations have different real solutions.', 'Die Gleichungen haben verschiedene reelle Lösungen.'],
     'complete-real-solutions': ['All real solutions are included.', 'Alle reellen Lösungen sind enthalten.'],
@@ -25,7 +32,7 @@ export const CALCULATION_METHOD_MESSAGES = {
 } as const;
 
 export type CalculationMethodReason = keyof typeof CALCULATION_METHOD_MESSAGES;
-export type CalculationCheckRole = 'equivalence' | 'given' | 'auxiliary' | 'definition' | 'verification' | 'system' | 'branch' | 'annotation';
+export type CalculationCheckRole = 'equivalence' | 'given' | 'auxiliary' | 'definition' | 'verification' | 'system' | 'branch' | 'annotation' | 'task';
 export const CALCULATION_METHOD_REASONS = Object.keys(CALCULATION_METHOD_MESSAGES) as CalculationMethodReason[];
 export const CALCULATION_METHOD_GERMAN: Record<string, string> = {};
 for (const reason of CALCULATION_METHOD_REASONS) {

@@ -4,7 +4,7 @@ import { CALCULATION_METHOD_GERMAN, type CalculationCheckRole } from '../math/ca
 
 const CALCULATION_ROLE_LABELS: Record<CalculationCheckRole, string> = {
     equivalence: 'Equation transformation', given: 'Given equation', auxiliary: 'Auxiliary calculation',
-    definition: 'Definition', verification: 'Verification', system: 'System step', branch: 'Solution branch', annotation: 'Annotation'
+    definition: 'Definition', verification: 'Verification', system: 'System step', branch: 'Solution branch', annotation: 'Annotation', task: 'Task step'
 };
 
 export function calculationRoleLabel(role: CalculationCheckRole, translate: (key: string, fallback: string) => string): string {
@@ -82,6 +82,10 @@ const BUILTIN_TRANSLATIONS: Record<string, Record<string, string>> = {
         'ocr.plus.validation.role.system': 'Systemschritt',
         'ocr.plus.validation.role.branch': 'Lösungszweig',
         'ocr.plus.validation.role.annotation': 'Beschriftung',
+        'ocr.plus.validation.role.task': 'Aufgabenschritt',
+        'ocr.quiz.curveIncomplete': 'Gib alle geforderten Ergebnisse einschließlich der nötigen Koordinaten und Einordnungen an.',
+        'ocr.quiz.curveStep': 'Prüfe die Aussage in Zeile {line}.',
+        'ocr.quiz.curveOptions': 'Ungültige Aufgabenvorgaben: {message}',
         'ocr.plus.validation.relatedLines': 'Zeile {from} zu Zeile {to}',
         'ocr.plus.validation.outdatedLabel': 'Veraltet',
         'ocr.quiz.tooFewLines': 'Schreibe die Ausgangsgleichung und mindestens einen L\u00f6sungsschritt.',

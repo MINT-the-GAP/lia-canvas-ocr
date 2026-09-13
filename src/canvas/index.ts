@@ -1,3 +1,5 @@
+import { calculationValidationOptionsForPair } from '../lia/calculation-options';
+import { generateContextualExpectedCalculation } from '../math/function-calculation-path';
 import { validateCalculationPathSubmission as validateCalculationSubmission } from '../math/calculation-path';
 // Canvas: markup, setup, init, launcher.
 
@@ -67,7 +69,6 @@ import {
     type WrittenArithmeticPrompt,
     type WrittenArithmeticSubmission
 } from '../math/written-arithmetic';
-import { generateExpectedCalculation } from '../math/expected-calculation';
 import {
     acceptOcrColumnAdditionSecondOperandAlias,
     inferOcrColumnAdditionOperandCount,
@@ -175,12 +176,18 @@ const STROKE_CAPTURE_MIN_STEP_PX = 0.35;      // minimum pixel distance to recor
 const STROKE_CAPTURE_TARGET_STEP_PX = 1.4;    // target step size for stroke interpolation
 const STROKE_CAPTURE_MAX_INTERP_POINTS = 12;  // maximum interpolated points per segment
 
+function writtenArithmeticPromptForPair(pair?: HTMLElement | null): WrittenArithmeticPrompt | null {
+    const options = parseCalculationOptions(pair?.dataset.calculationOptions);
+    return options.valid && (!options.calculationContext?.task || options.calculationContext.task === 'equation')
+        ? parseWrittenArithmeticPrompt(pair?.dataset.calculationPrompt || '') : null;
+}
+
 function normalizeCalculationPairOptions(pair: HTMLElement): boolean {
     const calculationOptions = parseCalculationOptions(
         pair.dataset.calculationOptions
     );
     const isWrittenArithmetic = Boolean(
-        parseWrittenArithmeticPrompt(pair.dataset.calculationPrompt || '')
+        writtenArithmeticPromptForPair(pair)
     );
     const lineFeedbackEnabled = Boolean(
         pair.dataset.canvasMode === 'plus' &&
@@ -196,6 +203,20 @@ function normalizeCalculationPairOptions(pair: HTMLElement): boolean {
         pair.dataset.calculationOptionsError = calculationOptions.error;
     } else {
         delete pair.dataset.calculationOptionsError;
+    }
+    let notice = pair.querySelector<HTMLElement>(':scope > .lia-calculation-options-error');
+    if (!calculationOptions.valid) {
+        if (!notice) {
+            notice = document.createElement('span');
+            notice.className = 'lia-calculation-options-error';
+            notice.setAttribute('role', 'alert');
+            pair.appendChild(notice);
+        }
+        const detail = calculationOptions.message || calculationOptions.error || '';
+        const message = liaT('ocr.quiz.curveOptions', 'Invalid task options: {message}').replace('{message}', detail);
+        if (notice.textContent !== message) notice.textContent = message;
+    } else {
+        notice?.remove();
     }
     return lineFeedbackEnabled;
 }
@@ -351,10 +372,10 @@ function checkCalculationAnswerByUID(pairKey: string): boolean {
     if (!promptEquation || !field) return false;
 
     const answer = __liaReadFieldValue(field);
-    const writtenPrompt = parseWrittenArithmeticPrompt(promptEquation);
+    const writtenPrompt = writtenArithmeticPromptForPair(pair);
     return writtenPrompt
         ? validateWrittenArithmeticSubmission(writtenPrompt, answer).accepted
-        : validateCalculationSubmission(promptEquation, answer).accepted;
+        : validateCalculationSubmission(promptEquation, answer, calculationValidationOptionsForPair(pair)).accepted;
 }
 
 function cancelNativeResolveJob(pair: HTMLElement): void {
@@ -463,7 +484,7 @@ function runNativeResolveJob(job: NativeResolveJob): void {
             return;
         }
 
-        const writtenPrompt = parseWrittenArithmeticPrompt(authoredEquation);
+        const writtenPrompt = writtenArithmeticPromptForPair(pair);
         const expectedWritten = writtenPrompt
             ? createExpectedWrittenArithmeticSubmission(writtenPrompt)
             : null;
@@ -486,7 +507,7 @@ function runNativeResolveJob(job: NativeResolveJob): void {
             return;
         }
 
-        const expectedLines = generateExpectedCalculation(authoredEquation);
+        const expectedLines = generateContextualExpectedCalculation(authoredEquation, calculationValidationOptionsForPair(pair));
         if (!expectedLines?.length) {
             // Unsupported equations retain LiaScript's native authored answer.
             finishNativeResolveJob(job);
@@ -672,7 +693,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     const canvasPair = wrap.closest('.lia-canvas-pair') as HTMLElement | null;
     const isCanvasPlus = canvasPair?.dataset.canvasMode === 'plus';
     const writtenArithmeticPrompt: WrittenArithmeticPrompt | null = isCanvasPlus
-        ? parseWrittenArithmeticPrompt(canvasPair?.dataset.calculationPrompt || '')
+        ? writtenArithmeticPromptForPair(canvasPair)
         : null;
     const writtenArithmeticKind = writtenArithmeticPrompt?.kind || null;
     const isWrittenArithmetic = Boolean(writtenArithmeticPrompt);
@@ -860,6 +881,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
                 translate: liaT,
                 mode: writtenArithmeticKind || 'equation-path',
                 promptEquation: canvasPair?.dataset.calculationPrompt || '',
+                validationOptions: calculationValidationOptionsForPair(canvasPair),
                 composeLatex: isWrittenArithmetic
                     ? lines => __plusWrittenSubmission
                         ? composeWrittenArithmeticLatex(__plusWrittenSubmission)
@@ -4238,7 +4260,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         const grade = submissionValue && promptEquation
             ? isWrittenArithmetic
                 ? validateWrittenArithmeticSubmission(promptEquation, submissionValue)
-                : validateCalculationSubmission(promptEquation, submissionValue)
+                : validateCalculationSubmission(promptEquation, submissionValue, calculationValidationOptionsForPair(canvasPair))
             : null;
         const pathAccepted = grade?.accepted === true;
         const value = submissionValue;

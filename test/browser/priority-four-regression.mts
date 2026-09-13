@@ -13,6 +13,9 @@ import {
 } from './support.mts';
 
 const COURSE_URL = SYNTHETIC_ORIGIN + '/courses/priority-four-calculation.md';
+// Reuse the actual host fonts across engines. Firefox occasionally fails a
+// duplicate browser font download even when the same resource loaded earlier.
+const hostFonts = new Map<string, { body: Buffer; contentType: string }>();
 const PAIR = '.lia-canvas-pair[data-canvas-mode=plus][data-canvas-output=answer]';
 const PROJECTS: Array<{ name: string; browserType: BrowserType }> = [
   { name: 'chromium', browserType: chromium },
@@ -24,14 +27,27 @@ const COMPLETION_PATH = ['x^2-4x=10', 'x^2-4x+4=14', '(x-2)^2=14', String.raw`x_
 // Repetitorium.tex 20983-20989, with the verification explicitly identified.
 const PROBE_PATH = ['3x-2=5x+4', '-2x=6', 'x=-3', String.raw`\text{Probe: }3\cdot(-3)-2=5\cdot(-3)+4`, '-11=-11'];
 
-type Check = { status: string; reason: string; fromIndex: number; toIndex: number; role?: string; side?: string };
+export type Check = { status: string; reason: string; fromIndex: number; toIndex: number; role?: string; side?: string };
 
-async function openCalculation(browser: Browser, coursePage: number): Promise<BrowserHarness> {
+export async function openCalculation(browser: Browser, coursePage: number, fixture = 'priority-four-calculation.md', cacheHostFonts = false): Promise<BrowserHarness> {
+  const courseUrl = SYNTHETIC_ORIGIN + '/courses/' + fixture;
   const harness = await createHarness(browser);
   try {
-    const body = await readFile(new URL('../fixtures/priority-four-calculation.md', import.meta.url), 'utf8');
-    await harness.context.route(COURSE_URL, route => {
-      harness.routeHits[COURSE_URL] = (harness.routeHits[COURSE_URL] ?? 0) + 1;
+    if (cacheHostFonts) await harness.context.route('https://liascript.github.io/course/*.woff2', async route => {
+      const url = route.request().url();
+      let font = hostFonts.get(url);
+      if (!font) {
+        const response = await route.fetch({ maxRetries: 2 });
+        assert.equal(response.ok(), true, 'the actual LiaScript host font must load');
+        font = { body: await response.body(), contentType: response.headers()['content-type'] || 'font/woff2' };
+        hostFonts.set(url, font);
+      }
+      await route.fulfill({ status: 200, body: font.body, contentType: font.contentType,
+        headers: { 'access-control-allow-origin': '*' } });
+    });
+    const body = await readFile(new URL('../fixtures/' + fixture, import.meta.url), 'utf8');
+    await harness.context.route(courseUrl, route => {
+      harness.routeHits[courseUrl] = (harness.routeHits[courseUrl] ?? 0) + 1;
       return route.fulfill({
         status: 200, contentType: 'text/plain; charset=utf-8', body,
         headers: { 'access-control-allow-origin': '*', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' },
@@ -39,15 +55,20 @@ async function openCalculation(browser: Browser, coursePage: number): Promise<Br
     });
     const page = harness.page;
     await page.setViewportSize({ width: 1440, height: 1000 });
-    await openCourse(harness, COURSE_URL, PAIR + ' .lia-canvas-launch');
+    await openCourse(harness, courseUrl, PAIR + ' .lia-canvas-launch');
+    if (cacheHostFonts) await page.evaluate(async () => { await document.fonts.ready; });
     if (coursePage !== 1) {
-      await page.evaluate(number => { location.hash = '#' + number; }, coursePage);
+      // Set the reload destination without rendering a transient slide whose
+      // in-flight font requests Firefox would report as aborted downloads.
+      if (cacheHostFonts) await page.evaluate(number => { history.replaceState(null, '', '#' + number); }, coursePage);
+      else await page.evaluate(number => { location.hash = '#' + number; }, coursePage);
       await page.reload({ waitUntil: 'domcontentloaded', timeout: 120_000 });
     }
     await page.waitForFunction(({ selector, coursePage }) =>
       location.hash === '#' + coursePage && Boolean(document.querySelector(selector)) &&
       Boolean((window as any).__LIA_CANVAS_OCR__) && typeof (window as any).Algebrite?.run === 'function',
     { selector: PAIR, coursePage }, { timeout: 30_000 });
+    if (cacheHostFonts) await page.evaluate(async () => { await document.fonts.ready; });
     await page.evaluate(selector => {
       const registry = (window as any).__LIA_CANVAS_OCR__;
       (window as any).__priorityFourRecognizeCalls = 0;
@@ -101,7 +122,7 @@ async function openCalculation(browser: Browser, coursePage: number): Promise<Br
   }
 }
 
-async function correctPath(page: Page, lines: readonly string[]): Promise<Check[]> {
+export async function correctPath(page: Page, lines: readonly string[], analysisTimeoutMs = 10_000): Promise<Check[]> {
   const output = page.locator(PAIR + ' .lia-canvasplus-output');
   if (!await output.evaluate(node => (node as HTMLDetailsElement).open)) {
     await output.locator(':scope > summary.lia-canvasplus-result-toggle').click();
@@ -114,13 +135,13 @@ async function correctPath(page: Page, lines: readonly string[]): Promise<Check[
     const output = document.querySelector(selector + ' .lia-canvasplus-output') as HTMLElement | null;
     return output?.dataset.resultSource === 'correction' && output.dataset.analysisState === 'ready'
       && (window as any).__priorityFourAnalyses.length > before;
-  }, { selector: PAIR, before }, { timeout: 10_000 });
+  }, { selector: PAIR, before }, { timeout: analysisTimeoutMs });
   assert.deepEqual(await page.evaluate(() => (window as any).__priorityFourRenders.at(-1).lines), lines,
     'the correction must retain every authored equation, label and verification row');
   return page.evaluate(() => (window as any).__priorityFourAnalyses.at(-1).checks);
 }
 
-async function checkNativeQuiz(page: Page, lines: readonly string[], expected: 'success' | 'failure'): Promise<void> {
+export async function checkNativeQuiz(page: Page, lines: readonly string[], expected: 'success' | 'failure', validationOptions: Record<string, unknown> = {}): Promise<void> {
   const quiz = page.locator('.lia-quiz:visible');
   assert.equal(await quiz.count(), 1, 'each fixture page has one native LiaScript calculation quiz');
   const answer = await quiz.locator('input,textarea,[contenteditable=true]').evaluateAll(fields => {
@@ -130,17 +151,17 @@ async function checkNativeQuiz(page: Page, lines: readonly string[], expected: '
     return 'value' in field ? String((field as HTMLInputElement).value) : field.textContent || '';
   });
   assert.deepEqual(JSON.parse(answer), lines, 'native grading must receive the whole corrected path');
-  const publicResults = await page.evaluate(({ selector, answer }) => {
+  const publicResults = await page.evaluate(({ selector, answer, validationOptions }) => {
     const prompt = document.querySelector<HTMLElement>(selector)?.dataset.calculationPrompt;
     if (!prompt) throw new Error('the public calculation API needs the real macro prompt');
     const registry = (window as any).__LIA_CANVAS_OCR__;
-    const validated = registry.validateCalculationSubmission(prompt, answer);
-    const checked = registry.checkCalculationAnswer(prompt, answer);
+    const validated = registry.validateCalculationSubmission(prompt, answer, validationOptions);
+    const checked = registry.checkCalculationAnswer(prompt, answer, validationOptions);
     return {
       validated: { accepted: validated.accepted, outcome: validated.outcome },
       checked: { accepted: checked.accepted, outcome: checked.outcome, ok: checked.ok, status: checked.status },
     };
-  }, { selector: PAIR, answer });
+  }, { selector: PAIR, answer, validationOptions });
   const accepted = expected === 'success';
   const outcome = accepted ? 'correct' : 'incorrect';
   assert.deepEqual(publicResults.validated, { accepted, outcome },
@@ -157,7 +178,7 @@ async function checkNativeQuiz(page: Page, lines: readonly string[], expected: '
   }, expected, { timeout: 5_000 });
 }
 
-async function assertPathPresentation(page: Page, checks: Check[]): Promise<void> {
+export async function assertPathPresentation(page: Page, checks: Check[]): Promise<void> {
   const transitions = page.locator(PAIR + ' .lia-canvasplus-output .lia-canvasplus-transition');
   assert.equal(await transitions.count(), checks.length);
   for (let index = 0; index < checks.length; index++) {
@@ -178,7 +199,7 @@ async function assertPathPresentation(page: Page, checks: Check[]): Promise<void
   }
 }
 
-async function assertFreezePath(page: Page, lines: readonly string[], checks: Check[]): Promise<void> {
+export async function assertFreezePath(page: Page, lines: readonly string[], checks: Check[]): Promise<void> {
   const state = await page.evaluate(selector => {
     const pair = document.querySelector(selector);
     return (window as any).__LIA_CANVAS_OCR__?.freeze?.exportCanvasFreezeStateFromPair?.(pair);

@@ -636,7 +636,8 @@ function appendQuadraticSolution(lines: string[], coefficients: number[], variab
 /**
  * Generates exact school-style solution steps for one-variable polynomial
  * equations: all linear and quadratic equations, plus pure powers of degree
- * three or four. Coefficients may be integers, finite decimals or constant
+ * three or four, and cubics with a zero factor and two distinct real quadratic
+ * branch roots. Coefficients may be integers, finite decimals or constant
  * fractions. Unsupported syntax, variable denominators and unsafe arithmetic
  * return null; supported equations without real roots yield an empty real set.
  */
@@ -666,6 +667,26 @@ export function generateExpectedCalculation(equation: string): string[] | null {
     if (lines[lines.length - 1] !== standard) lines.push(standard);
     if (degree === 1) return appendLinearSolution(lines, coefficients[1], coefficients[0], parsed.variable);
     if (degree === 2 && coefficients[1] !== 0) return appendQuadraticSolution(lines, coefficients, parsed.variable);
+    if (degree === 3 && coefficients[0] === 0 && coefficients[1] !== 0) {
+        const variable = parsed.variable;
+        const quadratic = coefficients.slice(1);
+        const square = safeMultiply(quadratic[1], quadratic[1]);
+        const product = safeMultiply(quadratic[2], quadratic[0]);
+        const fourProduct = product === null ? null : safeMultiply(4, product);
+        const discriminant = square === null || fourProduct === null ? null : safeAdd(square, -fourProduct);
+        // The generated zero-factor path currently covers two distinct real
+        // roots in the quadratic branch; other cubics remain explicit limits.
+        if (discriminant === null || discriminant <= 0) return null;
+        const factor = formatPolynomial(integerPolynomial(quadratic), variable);
+        const branch = appendQuadraticSolution([], quadratic, variable);
+        if (!branch) return null;
+        lines.push(variable + '(' + factor + ')=0');
+        lines.push(variable + '=0 \\lor ' + factor + '=0');
+        lines.push('Zweig 2: ' + factor + '=0');
+        lines.push(...branch.map(line => line.replace(new RegExp(variable + '_\\{1,2\\}', 'gu'), variable + '_{2,3}')
+            .replace(new RegExp(variable + '_([12])=', 'gu'), (_, index: string) => variable + '_' + (Number(index) + 1) + '=')));
+        return lines;
+    }
     if (degree >= 2 && degree <= 4) {
         for (let index = 1; index < degree; index++) if (coefficients[index] !== 0) return null;
         return appendPureStandardSolution(lines, coefficients, degree as Exponent, parsed.variable);

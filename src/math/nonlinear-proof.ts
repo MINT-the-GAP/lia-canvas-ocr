@@ -94,8 +94,15 @@ class DomainParser {
             const cas = '(' + left.cas + operator + right.cas + ')';
             const constant = left.constant && right.constant;
             const rightSign = right.sign === null ? null : operator === '-' ? -right.sign as Sign : right.sign;
-            const sign = constant ? this.numericSign(cas) ??
+            let sign = constant ? this.numericSign(cas) ??
                 (left.sign === 0 ? rightSign : rightSign === 0 ? left.sign : left.sign === rightSign ? left.sign : null) : null;
+            // For opposite known signs compare squared magnitudes exactly.
+            // This proves a+b*sqrt(r) nonzero without numerical tolerances.
+            // A non-rational square comparison deliberately remains unknown.
+            if (constant && sign === null && left.sign !== null && rightSign !== null) {
+                const magnitude = rationalSign(simplify('(' + left.cas + ')^2-(' + right.cas + ')^2', this.runtime));
+                if (magnitude !== null) sign = magnitude === 0 ? 0 : magnitude > 0 ? left.sign : rightSign;
+            }
             if (left.cost + right.cost > 128) return null;
             left = { cas, constant, sign, degree: Math.max(left.degree, right.degree), cost: left.cost + right.cost };
         }
@@ -173,6 +180,18 @@ class DomainParser {
     }
 }
 
+/** Exact guarded comparison of real numeric algebraic constants. */
+export function algebraicConstantSign(cas: string, runtime: AlgebriteRuntime): Sign | null {
+    const guarded = new DomainParser(exactDecimals(cas), runtime).parse();
+    if (!guarded?.constant) return null;
+    return guarded.sign ?? rationalSign(simplify(guarded.cas, runtime));
+}
+export function proveAlgebraicConstantIdentity(left: string, right: string, runtime: AlgebriteRuntime): Proof {
+    const first = new DomainParser(exactDecimals(left), runtime).parse();
+    const second = new DomainParser(exactDecimals(right), runtime).parse();
+    return first?.constant && second?.constant ? zeroProof('(' + first.cas + ')-(' + second.cas + ')', runtime) : null;
+}
+
 function guardedEquation(source: ParsedEquation, runtime: AlgebriteRuntime): { expression: string; variable: string | null } | null {
     const leftParser = new DomainParser(exactDecimals(source.left.cas), runtime);
     const rightParser = new DomainParser(exactDecimals(source.right.cas), runtime);
@@ -229,6 +248,19 @@ export function provePolynomialTransition(from: ParsedEquation, to: ParsedEquati
     return true;
 }
 
+/** A zero product is exactly the union of its factor equations. */
+export function provePolynomialDisjunction(source: ParsedEquation, branches: readonly ParsedEquation[], runtime: AlgebriteRuntime): Proof {
+    if (branches.length < 2 || branches.length > 4) return null;
+    const factors = branches.map(branch => analyzeNumericPolynomial(branch, runtime));
+    if (factors.some(factor => !factor || factor.degree < 1) ||
+        factors.reduce((degree, factor) => degree + (factor?.degree || 0), 0) > 4) return null;
+    const product: ParsedEquation = {
+        left: { cas: factors.map(factor => '(' + factor!.expression + ')').join('*'), domainRisk: false },
+        right: { cas: '0', domainRisk: false }
+    };
+    return provePolynomialTransition(source, product, runtime);
+}
+
 interface RootTarget { values: string[]; isIsolated: boolean; allReals?: boolean; }
 
 function cleanTarget(value: string): string {
@@ -271,7 +303,7 @@ function parseRootTarget(targetTex: string, variable: string, runtime: Algebrite
         const body = solutionSet[1].trim();
         if (/^\\(?:varnothing|emptyset)$/u.test(body)) return { values: [], isIsolated: true };
         if (/^\\mathbb\{R\}$/u.test(body)) return { values: [], isIsolated: true, allReals: true };
-        const set = /^\\\{([^]*)\\\}$/u.exec(body);
+        const set = /^\\\{([^]*)\\\}$/u.exec(body) || /^\{([^]*)\}$/u.exec(body);
         if (!set) return null;
         if (!set[1].trim()) return { values: [], isIsolated: true };
         // Set commas separate entries. Write decimal values with a point;
@@ -281,13 +313,13 @@ function parseRootTarget(targetTex: string, variable: string, runtime: Algebrite
         const values = entries.map(entry => constantExpression(entry.trim(), runtime));
         return values.every(value => value !== null) ? { values: values as string[], isIsolated: true } : null;
     }
-    const pieces = source.split(/\s*\\(?:lor|vee)\s*|,\s*(?=[A-Za-z]_(?:\{?[1-4]\}?\s*=))/u);
+    const pieces = source.split(/\s*\\(?:lor|vee)(?![A-Za-z])\s*|\s+oder\s+|,\s*(?=[A-Za-z]_(?:\{?[1-4]\}?\s*=))/u);
     if (pieces.length > 4) return null;
     const values: string[] = [];
     let isIsolated = true;
     const usedIndices = new Set<string>();
     for (let piece of pieces) {
-        const indexed = /^([A-Za-z])_(\{(?:1,2|12|1\/2|1|2|3|4)\}|[1-4])(?=\s*[^A-Za-z0-9_]|$)/u.exec(piece);
+        const indexed = /^([A-Za-z])_(\{(?:1,2|2,3|3,4|12|1\/2|1|2|3|4)\}|[1-4])(?=\s*[^A-Za-z0-9_]|$)/u.exec(piece);
         if (indexed) {
             if (indexed[1] !== variable || usedIndices.has(indexed[2])) return null;
             usedIndices.add(indexed[2]);
@@ -317,9 +349,30 @@ function numberOfRealRoots(polynomial: NumericPolynomial, runtime: AlgebriteRunt
         const radicandSign = rationalSign(simplify('-(' + polynomial.coefficients[0] + ')/(' + polynomial.coefficients[4] + ')', runtime));
         if (radicandSign !== null && radicandSign < 0) return 0;
     }
+    if (polynomial.degree === 3) {
+        const [d, c, b, a] = polynomial.coefficients;
+        // For a genuine real cubic, the discriminant counts DISTINCT real
+        // roots: positive -> three, negative -> one. At zero, a common
+        // derivative root is triple exactly when b^2-3ac also vanishes.
+        // Only guarded exact rational coefficients enter this shortcut. The
+        // caller still proves membership and distinctness of every candidate.
+        if (polynomial.coefficients.some(value => rationalSign(value) === null) || rationalSign(a) === 0) return null;
+        const discriminant = simplify(
+            '18*(' + a + ')*(' + b + ')*(' + c + ')*(' + d + ')'
+            + '-4*(' + b + ')^3*(' + d + ')'
+            + '+(' + b + ')^2*(' + c + ')^2'
+            + '-4*(' + a + ')*(' + c + ')^3'
+            + '-27*(' + a + ')^2*(' + d + ')^2', runtime);
+        const sign = rationalSign(discriminant);
+        if (sign === null) return null;
+        if (sign !== 0) return sign > 0 ? 3 : 1;
+        const derivativeDiscriminant = rationalSign(simplify('(' + b + ')^2-3*(' + a + ')*(' + c + ')', runtime));
+        return derivativeDiscriminant === null ? null : derivativeDiscriminant === 0 ? 1 : 2;
+    }
     if (polynomial.degree !== 2) return null;
     const [c, b, a] = polynomial.coefficients;
-    const sign = rationalSign(simplify('(' + b + ')^2-4*(' + a + ')*(' + c + ')', runtime));
+    const discriminant = simplify('(' + b + ')^2-4*(' + a + ')*(' + c + ')', runtime);
+    const sign = discriminant === null ? null : algebraicConstantSign(discriminant, runtime);
     return sign === null ? null : sign < 0 ? 0 : sign === 0 ? 1 : 2;
 }
 
@@ -389,7 +442,7 @@ export function provePolynomialCandidateSet(
     const degree = remaining.length - 1;
     if (degree === 0) complete = true;
     else if (degree === 1 || degree === 3) complete = false;
-    else if (degree === 2 && remaining.every(value => rationalSign(value) !== null)) {
+    else if (degree === 2) {
         const residual = numberOfRealRoots({ ...polynomial, coefficients: remaining, degree }, runtime);
         if (residual !== null) complete = residual === 0;
     }

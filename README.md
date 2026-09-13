@@ -130,7 +130,7 @@ __$b)\;\;$__ $50 + 30 =$ [[ 80 ]]
 Pass the task equation to `@BerechneOCR`. The macro creates exactly one native
 LiaScript text quiz, its semantic calculation validator, and a multi-line
 handwriting calculation block. The optional second argument controls row feedback
-for ordinary equation paths.
+and declares the task type and its required data, such as a point of contact, integration bounds, an investigation interval, or the angle unit.
 Without that argument feedback for every calculation row is shown by default.
 Auxiliary work and verification refer to their actual source equation. A second argument of `1` explicitly keeps row feedback
 enabled, while `0` disables it. Enabled row feedback is also shown when the
@@ -188,10 +188,14 @@ one-variable linear and quadratic polynomial equations with terms on either
 side, parentheses, constant fractions, and finite decimal coefficients. It
 also supports pure power equations of degree 2, 3, or 4, including identities,
 contradictions, repeated roots, irrational exact roots, and equations without
-real solutions. For domain-sensitive or otherwise unsupported forms (for
-example multiple variables, variable denominators, trigonometric equations,
-or general cubic and quartic polynomials), LiaScript's native resolved equation
-remains unchanged instead of displaying guessed steps.
+real solutions. A cubic zero-factor equation such as `3x^3-4x^2-2x=0`
+also has a generated zero-product path. Selected trigonometric, exponential,
+and logarithmic equations have exact generated solutions using the same task
+context and validator as student answers. General cubic/quartic equations and
+mixed transcendental equations remain outside that promise. For unsupported
+forms, the resolved task remains unchanged.
+See [supported function cases and author options](docs/berechneocr-functions.md)
+for the precise scope and mathematical limits.
 Algebrite and this template must both be imported directly by the course.
 
 $a)\;\;$ Written addition
@@ -241,6 +245,112 @@ opt-out:
 ``` markdown
 @BerechneOCR(`2(x+3)=3x-4`,0)
 ```
+
+For a function definition, request zeroes explicitly. Without this option,
+`f(x)=...` does not imply a zeroes task. Trigonometric tasks use radians and the
+real numbers by default; specify a finite interval to request a finite set.
+The options are one backtick-quoted macro argument, separated by semicolons:
+
+``` markdown
+@BerechneOCR(`f(x)=3x^3-4x^2-2x`,`aufgabe=nullstellen`)
+@BerechneOCR(`sin(x)=1/2`,`intervall=[0,2*pi);winkelmass=rad`)
+@BerechneOCR(`sin(x)=1/2`,`intervall=[0,360);winkelmass=deg`)
+@BerechneOCR(`ln(x-1)+ln(x+1)=ln(8)`)
+```
+
+`ln` and unindexed `log` both mean the natural logarithm. Use `lg` or `log_{10}` for
+base ten or `log_{2}` for base two. Full syntax, solution families, domain rules
+and verification evidence are documented in
+[BerechneOCR functions](docs/berechneocr-functions.md).
+
+### Aufgaben und Vorgabenoptionen
+
+Der erste Parameter enthält die Gleichung, den zu vereinfachenden Term oder
+eine Funktionsdefinition wie `f(x)=x^3-3x`.
+Mit `aufgabe=...` im zweiten Parameter wird das gesuchte Ergebnis gewählt.
+Stellen verlangen Abszissen, Punkte verlangen zusätzlich die zugehörigen
+Ordinaten. Extremstellen und Extrempunkte verlangen außerdem die Einordnung
+als Hoch- oder Tiefstelle beziehungsweise Hoch- oder Tiefpunkt.
+
+Alle Optionen gehören gemeinsam in **ein** Backtick-Argument und werden mit
+Semikola getrennt. Kommas innerhalb von `intervall` und `teile` bleiben dadurch
+Bestandteil dieses Arguments:
+
+``` markdown
+@BerechneOCR(`f(x)=x^2`,`aufgabe=tangente;stelle=2`)
+@BerechneOCR(`f(x)=x^2`,`aufgabe=normale;stelle=0`)
+@BerechneOCR(`f(x)=x^3-3x`,`aufgabe=extrempunkte`)
+@BerechneOCR(`f(x)=x^3-3x`,`aufgabe=wendepunkte`)
+@BerechneOCR(`f(x)=x^2`,`aufgabe=integral;von=0;bis=2`)
+@BerechneOCR(`f(x)=x^3-3x`,`aufgabe=kurvendiskussion;teile=definitionsbereich,nullstellen,extrempunkte,wendepunkte`)
+```
+
+Die Tabelle nennt alle **26 Aufgabenarten**. „Pflicht“ bezeichnet notwendige
+Autorenangaben; die weiteren Angaben sind optional. Die konkrete mathematische
+Abdeckung und die Antwortformen stehen in
+[Kurvendiskussion: Prüfungsumfang und Beispiele](docs/berechneocr-curve-tasks.md).
+Ein gültiger Aufgabentyp verspricht keine Prüfung beliebiger Funktionen:
+mathematisch nicht belegbare Fälle bleiben ungeprüft. Die neue Analysisprüfung
+verwendet rationale Polynome bis Grad 4; die Eigenschaftenprüfung begrenzt
+Zähler, Nenner und Hilfspolynome auf Grad 4. Weitere Einzelgrenzen stehen
+in der verlinkten Übersicht.
+
+| `aufgabe` | Gesuchtes Ergebnis | Pflichtvorgaben | Weitere Vorgaben | Beispiel / aktueller Umfang |
+| --- | --- | --- | --- | --- |
+| `gleichung` (Standard) | Lösung einer Gleichung oder eines Systems | Gleichung(en) im ersten Parameter | `intervall`, `winkelmass` für unterstützte Funktionengleichungen | `3x-5=7`; ausgewählte Gleichungen und Systeme |
+| `nullstellen` | Vollständige Menge der Nullstellen | Funktionsdefinition | `intervall`, `winkelmass` | `f(x)=x^3-3x`; ausgewählte Funktionsgleichungen |
+| `vereinfachen` | Gleichwertiger vereinfachter Term mit ursprünglichen Definitionsbedingungen | Term oder Funktionsdefinition | `intervall` | `(x^2-1)/(x-1)`; rationale Terme |
+| `definitionsbereich` | Reeller Definitionsbereich | Funktionsdefinition | `intervall` | `f(x)=1/x`; rationale Funktionen |
+| `wertebereich` | Menge der angenommenen Funktionswerte | Funktionsdefinition | `intervall` | `f(x)=x^2`; Polynome |
+| `symmetrie` | Symmetrie zur Ordinatenachse oder zum Ursprung | Funktionsdefinition | Keine zusätzlichen aufgabenspezifischen Angaben | `f(x)=x^2`; rationale Funktionen |
+| `periodizitaet` | Grundperiode, konstante Funktion oder fehlende Periodizität | Funktionsdefinition | `winkelmass` | `f(x)=sin(3x)`; affine Sinus-/Kosinus-/Tangensformen und rationale Funktionen |
+| `achsenschnittpunkte` | Schnittpunkte mit Abszissen- und Ordinatenachse | Funktionsdefinition | `intervall` | `f(x)=x^2-1`; endliche Mengen bei rationalen Funktionen |
+| `schnittpunkte` | Schnittpunkte zweier Graphen | Funktionsdefinition, `zweitefunktion` | `intervall` | `f(x)=x^2`, zweite Funktion `x`; endliche Mengen bei rationalen Funktionen |
+| `grenzwert` | Grenzwert an einer Stelle oder im Unendlichen | Funktionsdefinition, `stelle` | `seite` | `f(x)=1/x`, `stelle=0`; rationale Funktionen |
+| `definitionsluecken` | Hebbare Lücken und Polstellen | Funktionsdefinition | Keine zusätzlichen aufgabenspezifischen Angaben | `f(x)=(x^2-1)/(x-1)`; rationale Funktionen |
+| `asymptoten` | Senkrechte, waagerechte und schiefe Asymptoten | Funktionsdefinition | Keine zusätzlichen aufgabenspezifischen Angaben | `f(x)=1/x`; rationale Funktionen, Geradenasymptoten |
+| `ableitung` | Ableitungsfunktion | Funktionsdefinition | `ordnung`, `intervall` | `f(x)=x^3`; Polynome |
+| `ableitungswert` / `steigung` | Wert der gewünschten Ableitung an einer Stelle | Funktionsdefinition, `stelle` | `ordnung`, `intervall` | `f(x)=x^2`, `stelle=2`; Polynome |
+| `monotonie` | Intervalle mit steigender, fallender oder konstanter Funktion | Funktionsdefinition | `intervall` | `f(x)=x^3-3x`; Polynome |
+| `kruemmung` | Intervalle der Linkskrümmung und Rechtskrümmung | Funktionsdefinition | `intervall` | `f(x)=x^3`; Polynome |
+| `extremstellen` | Abszissen und Klassifikation der Extrema | Funktionsdefinition | `intervall`, `art` | `f(x)=x^3-3x`; Polynome |
+| `extrempunkte` | Vollständige Punkte und Klassifikation der Extrema | Funktionsdefinition | `intervall`, `art` | `f(x)=x^3-3x`; Polynome |
+| `wendestellen` | Abszissen der tatsächlichen Krümmungswechsel | Funktionsdefinition | `intervall` | `f(x)=x^3`; Polynome |
+| `wendepunkte` | Vollständige Punkte der tatsächlichen Krümmungswechsel | Funktionsdefinition | `intervall` | `f(x)=x^3`; Polynome |
+| `tangente` | Tangentengleichung an der Berührstelle | Funktionsdefinition, `stelle` | `intervall` | `f(x)=x^2`, `stelle=2`; Polynome |
+| `normale` | Normalengleichung an der Berührstelle | Funktionsdefinition, `stelle` | `intervall` | `f(x)=x^2`, `stelle=0`; Polynome, auch senkrechte Normale |
+| `stammfunktion` | Eine Stammfunktion oder die allgemeine Familie | Funktionsdefinition | `familie`, `intervall` | `f(x)=x^2`; Polynome |
+| `integral` | Vorzeichenbehafteter Wert des bestimmten Integrals | Funktionsdefinition, `von`, `bis` | Keine zusätzlichen aufgabenspezifischen Angaben | `f(x)=x^2`, `von=0;bis=2`; Polynome, endliche Grenzen |
+| `flaecheninhalt` | Geometrische Fläche zur Abszissenachse oder zwischen zwei Graphen | Funktionsdefinition, `von`, `bis` | `zweitefunktion` | `f(x)=x`, `von=-1;bis=1`; Polynome, endliche Grenzen |
+| `kurvendiskussion` | Die ausgewählten Teilaufgaben gemeinsam | Funktionsdefinition | `teile`, `intervall`, `art` | `f(x)=x^3-3x`; gemeinsame Abdeckung aller gewählten Teile |
+
+| Vorgabenoption | Werte, Standard und Bedeutung | Beispiel |
+| --- | --- | --- |
+| `aufgabe` | Aufgabenart aus der Tabelle; Standard `gleichung` | `aufgabe=wendepunkte` |
+| `stelle` | Abszisse als Zahl oder exakter Ausdruck; bei Grenzwerten auch `+infty` / `-infty` | `stelle=2`, `stelle=pi/2` |
+| `ordnung` | Ganze Zahl 1–4; Standard 1; nur für Ableitung und Ableitungswert | `ordnung=2` |
+| `intervall` | Untersuchungsintervall mit offenen oder geschlossenen Grenzen; kein Ersatz für Integrationsgrenzen | `intervall=[-2,2]`, `intervall=[0,2*pi)` |
+| `von`, `bis` | Beide Integrationsgrenzen; bei Integral und Flächeninhalt Pflicht | `von=-1;bis=1` |
+| `zweitefunktion` | Zweiter Term oder zweite Funktionsdefinition | `zweitefunktion=x+1`, `zweitefunktion=g(x)=x^2` |
+| `seite` | `links`, `rechts`, `beide` (Standard); nur für Grenzwerte | `seite=rechts` |
+| `art` | `lokal` (Standard) oder `global`; globale Extrema benötigen `intervall` | `art=global;intervall=[-2,2]` |
+| `familie` | `0` (Standard): eine Stammfunktion; `1`: ganze Familie mit freier Integrationskonstante (normalerweise `C`) | `familie=1` |
+| `teile` | Kommagetrennte, verschiedene Teilaufgaben; nur für Kurvendiskussion | `teile=nullstellen,extrempunkte,wendepunkte` |
+| `winkelmass` | `rad` (Standard), `deg` oder `grad`; Unterstützung hängt von Aufgabe und Funktionsklasse ab | `winkelmass=rad` |
+| `zeilenrueckmeldung` | `1` / `0` beziehungsweise `true` / `false`; Standard an | `zeilenrueckmeldung=0` |
+
+Die Schreibweisen `periodizität`, `definitionslücken`, `krümmung`,
+`flächeninhalt`, `winkelmaß` und `zeilenrückmeldung` sind ebenfalls möglich.
+Fehlende Pflichtvorgaben, unbekannte oder doppelte Optionen und fachlich
+unpassende Optionen werden als Autorenfehler gemeldet. So ist
+`aufgabe=ableitung;stelle=2` ungültig: Für den Wert an einer Stelle wird
+`aufgabe=ableitungswert;stelle=2` verwendet.
+
+Ohne `teile` umfasst eine Kurvendiskussion Definitionsbereich, Nullstellen,
+Extrempunkte, Wendepunkte, Monotonie und Krümmung. Zusätzlich auswählbar sind
+Wertebereich, Symmetrie, Periodizität, Achsenschnittpunkte, Extremstellen,
+Wendestellen, Definitionslücken und Asymptoten. Die Antwort wird dafür in
+benannte Abschnitte wie `definitionsbereich:` und `extrempunkte:` gegliedert. Pro Abgabe gelten höchstens 32 Zeilen einschließlich Ausgangszeile und Überschriften; umfangreiche Untersuchungen können auf mehrere Aufgaben verteilt werden.
 
 ### Multi-line calculation recognition
 
@@ -295,13 +405,16 @@ has been rendered or manually corrected; no CAS work runs while the student is
 drawing. Longer paths are checked one transition at a time so the browser can
 update the interface between steps. If the Algebrite import is absent, the block
 states that the CAS is unavailable and leaves every transition ungraded.
-The conservative first scope proves explicit
-numeric `+`, `-`, `\\cdot`, and `:` transformations and one-variable linear-equation
-equivalence. Variable denominators, symbolic division without a nonzero
-assumption, multiple-variable steps without an explicit operation, and
-unsupported/nonlinear TeX are marked **not safely checkable**, never silently
-marked wrong. The CAS calculation remains in the browser and is not sent to a
-server.
+The validator accepts different step sizes, quadratic methods and proved
+zero-product branches. Explicit side operations remain binding; multiple
+operations use their written order, for example `| +5; :3`. Numeric pq parameters
+and explicitly defined auxiliary discriminants remain part of the calculation
+context. Selected function equations retain their original domains, angle unit
+and interval. Unsupported syntax or a proof outside the implemented scope is
+marked **not safely checkable**. A proved false step or an incomplete solution
+cannot be repaired by simply writing a correct final answer. The mathematical
+check uses the browser CAS and bounded exact proofs; it does not call an
+additional AI service.
 Automatic inference while drawing remains disabled; `data-ocr-mode='submit'` is
 the safe default. `@canvas` keeps its classic single-selection flow and applies
 the recognized text directly. Its explicit submit now uses the same

@@ -14,7 +14,10 @@ test('the curated corpus is versioned, source-addressable and contains distinct 
     assert.equal(new Set(corpus.map(sample=>sample.id)).size,corpus.length);
     assert.ok(new Set(corpus.map(sample=>sample.family)).size>=15);
     assert.ok(corpus.filter(sample=>sample.expectedSupport==='supported').length>=15);
-    assert.ok(corpus.filter(sample=>sample.expectedSupport==='gap').length>=7);
+    assert.ok(corpus.filter(sample=>sample.expectedSupport==='gap').length>=5);
+    for (const id of ['gap-logarithmic-equation', 'gap-exponential-equation']) {
+        assert.equal(corpus.find(sample => sample.id === id)?.expectedSupport, 'supported');
+    }
     for(const sample of corpus) {
         assert.match(sample.id,/^[a-z][a-z0-9-]+$/u);
         assert.match(sample.family,/^[a-z][a-z0-9-]+$/u);

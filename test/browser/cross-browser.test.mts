@@ -2410,7 +2410,7 @@ for (const project of projects) {
             'opening a transition explanation must not move equation rows',
           );
 
-          const rawUnknownLines = '\\sin(x)=0\nx=0';
+          const rawUnknownLines = 'x+\\sin(x)=1\nx=0';
           await editButton.click();
           await editTextarea.fill(rawUnknownLines);
           await inlineEditor.locator('.lia-canvasplus-accept').click();

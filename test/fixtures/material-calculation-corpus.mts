@@ -23,7 +23,7 @@ export interface MaterialCalculationCase {
     incorrectLines?: readonly string[];
     note: string;
 }
-export const MATERIAL_CALCULATION_CORPUS_VERSION = 'material-calculation-v1';
+export const MATERIAL_CALCULATION_CORPUS_VERSION = 'material-calculation-v2';
 const REPETITORIUM = 'Repetitorium/Repetitorium.tex';
 const source = (fromLine: number, toLine: number, anchor: string): MaterialCalculationSource =>
     ({ path: REPETITORIUM, fromLine, toLine, anchor });
@@ -183,14 +183,16 @@ export const MATERIAL_CALCULATION_CORPUS: readonly MaterialCalculationCase[] = [
     {
         id: 'gap-logarithmic-equation', family: 'logarithmic-equations', source: source(20615,20618,T`a^c = b  \Leftrightarrow c = \log_a b`),
         adaptation: 'Die logarithmische Umkehrbeziehung mit Basis 2 und Exponent 3 zu einer Gleichung in ihrem positiven Argument instanziiert.',
-        prompt: T`\log_2(x)=3`, lines: [T`\log_2(x)=3`,'x=2^3','x=8'], expectedSupport: 'gap',
-        note: 'x>0 ist durch den Logarithmus gefordert; x=8 erfüllt dies. Nichtannahme ist eine dokumentierte Lücke, kein Erfolg der Erkennung.',
+        prompt: T`\log_2(x)=3`, lines: [T`\log_2(x)=3`,'x=2^3','x=8'], expectedSupport: 'supported',
+        incorrectLines: ["\\log_2(x)=3", "x=7"],
+        note: "Die logarithmische Umkehrung wird jetzt mit dem ursprünglichen positiven Definitionsbereich geprüft; die Gegenprobe nennt einen falschen Wert.",
     },
     {
         id: 'gap-exponential-equation', family: 'exponential-equations', source: source(20615,20618,T`a^c = b  \Leftrightarrow c = \log_a b`),
         adaptation: 'Die gleiche Umkehrbeziehung als Aufgabe mit unbekanntem Exponenten, Basis 2 und Wert 8 instanziiert.',
-        prompt: '2^x=8', lines: ['2^x=8',T`x=\log_2(8)`,'x=3'], expectedSupport: 'gap',
-        note: 'Die streng monotone Funktion 2^x hat hier genau die reelle Lösung 3; variable Exponenten sind kein unterstütztes Polynomverfahren.',
+        prompt: '2^x=8', lines: ['2^x=8',T`x=\log_2(8)`,'x=3'], expectedSupport: 'supported',
+        incorrectLines: ["2^x=8", "x=4"],
+        note: "Die exakte exponentielle und logarithmische Umkehrung wird jetzt geprüft; die Gegenprobe nennt einen falschen Wert.",
     },
     {
         id: 'gap-inverse-trigonometric-chain', family: 'inverse-trigonometric-equations',
@@ -203,13 +205,13 @@ export const MATERIAL_CALCULATION_CORPUS: readonly MaterialCalculationCase[] = [
         id: 'gap-power-derivative', family: 'differentiation', source: source(60594,60599,T`\frac{d}{dx} x^{n} &= n x^{n-1}`),
         adaptation: 'Die Potenzregel wird mit n=3 auf f(x)=x³ angewandt; die Ableitung wird als eigene Rechenoperation angegeben.',
         prompt: 'f(x)=x^3', lines: [T`f(x)=x^3\mid\frac{d}{dx}`,T`f'(x)=3x^2`], expectedSupport: 'gap',
-        note: 'Die Sollableitung gilt für alle reellen x. Funktionsableitung darf nicht als gewöhnliche Gleichungsäquivalenz behandelt werden.',
+        note: 'Die Sollableitung gilt für alle reellen x. Ohne ausdrücklichen Ableitungsauftrag bleibt diese Zeile im Gleichungsmodus ungeprüft; die Aufgabenoption aufgabe=ableitung besitzt eigene Nachweise.',
     },
     {
         id: 'gap-power-antiderivative', family: 'integration', source: source(60595,60600,T`\int  x^{m} dx & = \frac{1}{m+1} x^{m+1}`),
         adaptation: 'Die Integrationsregel wird mit m=2 instanziiert. Für die vollständige Familie der Stammfunktionen wird die im Quellenausschnitt fehlende Integrationskonstante ausdrücklich ergänzt.',
         prompt: T`F(x)=\int x^2\,dx`, lines: [T`F(x)=\int x^2\,dx`,T`F(x)=\frac{1}{3}x^3+C`], expectedSupport: 'gap',
-        note: 'C ist eine beliebige reelle Konstante; Ableiten ergibt x². Dies ist keine derzeit unterstützte Lösungswegklasse.',
+        note: 'C ist eine beliebige reelle Konstante; Ableiten ergibt x². Diese Integralvorgabe wird im Gleichungsmodus nicht als Auftrag geraten; aufgabe=stammfunktion mit vorgegebener Funktion und familie=1 besitzt eigene Nachweise.',
     },
     {
         id: 'gap-symbolic-parameter', family: 'symbolic-parameters', source: source(21344,21346,'ax - c = d'),

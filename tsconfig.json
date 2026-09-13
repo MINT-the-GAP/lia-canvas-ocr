@@ -1,11 +1,11 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
+    "target": "ES2020",
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "strict": true,
-    "lib": ["ES2017", "DOM", "DOM.Iterable"],
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "noEmit": true,
     "rootDir": "src",
     "skipLibCheck": true

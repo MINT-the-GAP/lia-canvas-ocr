@@ -89,7 +89,7 @@ function sanitizeLines(value: unknown): string[] | null {
 }
 
 const CHECK_ROLES = new Set<CalculationCheckRole>([
-    'equivalence', 'given', 'auxiliary', 'definition', 'verification', 'system', 'branch', 'annotation'
+    'equivalence', 'given', 'auxiliary', 'definition', 'verification', 'system', 'branch', 'annotation', 'task'
 ]);
 
 function sanitizeCheck(value: unknown, lineCount: number): CalculationReviewFreezeCheck | null {

@@ -1,3 +1,4 @@
+import type { CalculationContext } from './calculation-context.ts';
 import { normalizeTopLevelEqualityGroups } from './equality-groups.ts';
 import type { CalculationMethodReason, CalculationCheckRole } from './calculation-methods';
 
@@ -9,6 +10,8 @@ export type AlgebriteRuntime = {
 };
 
 export type TransitionValidationOptions = {
+    calculationContext?: CalculationContext;
+
     /** Optional bounded runtime supplied by the complete-path checker. */
     runtime?: AlgebriteRuntime | null;
     /**
@@ -37,10 +40,11 @@ export type CalculationPromptCheck = {
 
 export type CalculationFinalCheck = {
     status: 'valid' | 'incomplete' | 'unknown';
-    reason: 'solved-variable' | 'solved-root-set' | 'solved-system' | 'not-isolated' | 'unsupported';
+    reason: 'solved-variable' | 'solved-root-set' | 'solved-system' | 'not-isolated' | 'unsupported' | 'task-complete' | 'task-incomplete';
 };
 
 export type CalculationQuizGrade = {
+    configurationError?: string;
     accepted: boolean;
     outcome: CalculationQuizOutcome;
     lines: string[];
