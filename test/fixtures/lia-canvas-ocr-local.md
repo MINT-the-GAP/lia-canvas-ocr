@@ -21,11 +21,14 @@ script: https://lia-canvas-ocr.invalid/dist/index.js
 </span>
 @end
 
-@BerechneOCR: @BerechneOCR_(@uid,`@0`,`@1`)
+@BerechneOCR: @BerechneOCR_(@uid,`@0`,`@1`,` `,` `)
+
+@BerechneOCRWithOptions: @BerechneOCR_(@uid,`@0`,`@1`,`@2`,```@3```)
 
 @BerechneOCR_
+<!-- data-calculation-quiz="@0" @3 -->
 [[ @1 ]]
-<script modify='false'>
+@4<script>
 window.__LIA_CANVAS_OCR__?.checkCalculationAnswerByUID('@0') === true
 </script>
 <span class='lia-canvas-pair' data-canvas-mode='plus' data-canvas-output='answer' data-answer-format='native-equation-v1' data-calculation-quiz='@0' data-calculation-prompt='@1' data-calculation-options='@2' data-ocr-mode='submit'>

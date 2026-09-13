@@ -1,5 +1,7 @@
 # BerechneOCR: Integrationstest und Groß-/Kleinschreibung
 
+Aktuelle Autorensyntax für Quizattribute und Hinweise: [Native Quizbindung und Migration](berechneocr-quiz-binding.md). Dieser Bericht dokumentiert weiterhin den historischen Teststand vom 6. September 2026.
+
 Stand: 6. September 2026. Geprüft werden der gemeinsame Stand der Prioritäten 1–5, die mathematische Verarbeitung und die echte lokale OCR mit synthetisch konstruierten Strichen. Es werden keine Schreibdaten von Schüler:innen erhoben.
 
 ## Behobene Fehler

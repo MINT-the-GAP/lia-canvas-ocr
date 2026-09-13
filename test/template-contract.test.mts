@@ -66,7 +66,7 @@ test('template and npm metadata pin one query-free OCR runtime version', () => {
   );
 });
 
-test('@BerechneOCR creates one native quiz with the calculation validator', () => {
+test('@BerechneOCR definitions and documentation share the native validator structure', () => {
   const readmeBodies = berechneOcrMacroBodies(readme);
   const localBodies = berechneOcrMacroBodies(localTemplate);
   assert.equal(readmeBodies.length, 2, 'README.md must define and document the macro');
@@ -94,8 +94,8 @@ test('@BerechneOCR creates one native quiz with the calculation validator', () =
       );
       assert.match(
         body,
-        /<script\b[^>]*\bmodify=[']false['][^>]*>[\s\S]*checkCalculationAnswerByUID\('@0'\) === true/u,
-        `${name} must validate through the generated UID without interpolating learner input`,
+        /^<!-- data-calculation-quiz="@0" @3 -->\r?\n\[\[ @1 \]\]\r?\n@4<script>\r?\nwindow\.__LIA_CANVAS_OCR__\?\.checkCalculationAnswerByUID\('@0'\) === true\r?\n<\/script>\r?\n<span class='lia-canvas-pair'/u,
+        `${name} must keep attributes, input, hints and validator before the canvas, using the same UID`,
       );
       assert.doesNotMatch(
         body,
@@ -111,8 +111,13 @@ test('@BerechneOCR creates one native quiz with the calculation validator', () =
   ] as const) {
     assert.match(
       source,
-      /^@BerechneOCR:[ \t]+@BerechneOCR_\(@uid,`@0`,`@1`\)[ \t]*$/m,
+      /^@BerechneOCR:[ \t]+@BerechneOCR_\(@uid,`@0`,`@1`,` `,` `\)[ \t]*$/m,
       `${name} must forward the generated UID, prompt, and option string`,
+    );
+    assert.match(
+      source,
+      /^@BerechneOCRWithOptions:[ \t]+@BerechneOCR_\(@uid,`@0`,`@1`,`@2`,```@3```\)[ \t]*$/m,
+      `${name} must forward quiz attributes and native hints into the same UID macro`,
     );
     const calculationLauncherBodies = berechneOcrMacroBodies(source);
     for (const body of calculationLauncherBodies) {

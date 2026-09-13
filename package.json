@@ -16,7 +16,7 @@
     "test:browser:real": "npm run build && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test test/browser/real-formula-block.test.mts",
     "test:browser:chromium-131": "npm run build && npm run test:browser:chromium-131:run",
     "test:browser:chromium-131:run": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test test/browser/chromium-131.test.mts",
-    "test:browser:full": "npm run build && npm run test:browser:chromium-131:run && npm run test:browser:smoke && npm run test:browser:functions:run && npm run test:browser:curve:run",
+    "test:browser:full": "npm run build && npm run test:browser:chromium-131:run && npm run test:browser:smoke && npm run test:browser:functions:run && npm run test:browser:curve:run && npm run test:browser:binding:run",
     "check": "npm run typecheck && npm test && npm run build",
     "benchmark:ocr": "npm run build && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/benchmark-ocr.mts",
     "benchmark:ocr-layout": "npm run build && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --disable-warning=ExperimentalWarning scripts/benchmark-ocr-layout.mts",
@@ -25,7 +25,9 @@
     "test:browser:functions": "npm run build && npm run test:browser:functions:run",
     "test:browser:functions:run": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test test/browser/function-calculation.test.mts",
     "test:browser:curve": "npm run build && npm run test:browser:curve:run",
-    "test:browser:curve:run": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test test/browser/curve-calculation.test.mts"
+    "test:browser:curve:run": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test test/browser/curve-calculation.test.mts",
+    "test:browser:binding": "npm run build && npm run test:browser:binding:run",
+    "test:browser:binding:run": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test test/browser/calculation-quiz-binding.test.mts"
   },
   "browserslist": [
     "> 0.5%",
