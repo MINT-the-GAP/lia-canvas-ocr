@@ -144,7 +144,8 @@ export async function correctPath(page: Page, lines: readonly string[], analysis
 export async function checkNativeQuiz(page: Page, lines: readonly string[], expected: 'success' | 'failure', validationOptions: Record<string, unknown> = {}): Promise<void> {
   const quiz = page.locator('.lia-quiz:visible');
   assert.equal(await quiz.count(), 1, 'each fixture page has one native LiaScript calculation quiz');
-  const answer = await quiz.locator('input,textarea,[contenteditable=true]').evaluateAll(fields => {
+  // Native gap-text quizzes render their field in the paragraph before the controls.
+  const answer = await page.locator('main:visible .lia-quiz__input').evaluateAll(fields => {
     const field = fields.find(node => node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement ||
       (node as HTMLElement).isContentEditable);
     if (!field) throw new Error('the native calculation answer is missing');

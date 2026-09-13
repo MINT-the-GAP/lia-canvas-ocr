@@ -21,17 +21,16 @@ script: https://lia-canvas-ocr.invalid/dist/index.js
 </span>
 @end
 
-@BerechneOCR: @BerechneOCR_(@uid,`@0`,`@1`,` `,` `)
+@BerechneOCR: @BerechneOCR_(@uid,`@0`,`@1`)
 
-@BerechneOCRWithOptions: @BerechneOCR_(@uid,`@0`,`@1`,`@2`,```@3```)
+@BerechneOCRWithOptions
+<!-- @2 -->
+@BerechneOCR(`@0`,`@1`)
+@3
+@end
 
 @BerechneOCR_
-<!-- data-calculation-quiz="@0" @3 -->
-[[ @1 ]]
-@4<script>
-window.__LIA_CANVAS_OCR__?.checkCalculationAnswerByUID('@0') === true
-</script>
-<span class='lia-canvas-pair' data-canvas-mode='plus' data-canvas-output='answer' data-answer-format='native-equation-v1' data-calculation-quiz='@0' data-calculation-prompt='@1' data-calculation-options='@2' data-ocr-mode='submit'>
+[[ @1 ]] <span class='lia-canvas-pair' data-canvas-mode='plus' data-canvas-output='answer' data-answer-format='native-equation-v1' data-calculation-quiz='@0' data-calculation-prompt='@1' data-calculation-options='@2' data-ocr-mode='submit'>
   <span class='lia-canvas-anchor' data-seed='@0'>
     <button class='lia-canvas-launch' type='button' aria-label='Open calculation block' aria-expanded='false'>
       <svg viewBox='0 0 24 24' aria-hidden='true'>
@@ -42,6 +41,9 @@ window.__LIA_CANVAS_OCR__?.checkCalculationAnswerByUID('@0') === true
   </span>
   <span class='lia-canvas-mount' data-open='0' data-uid='@0'></span>
 </span>
+<script>
+window.__LIA_CANVAS_OCR__?.checkCalculationAnswerByUID('@0') === true
+</script>
 @end
 -->
 

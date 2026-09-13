@@ -110,7 +110,7 @@ async function correctPath(page: Page, lines: readonly string[]): Promise<Check[
 async function assertPublicGrade(page: Page, lines: readonly string[], accepted: boolean): Promise<void> {
   const quiz = page.locator('.lia-quiz:visible');
   assert.equal(await quiz.count(), 1);
-  const answer = await quiz.locator('input,textarea,[contenteditable=true]').evaluateAll(fields => {
+  const answer = await page.locator('main:visible .lia-quiz__input').evaluateAll(fields => {
     const field = fields.find(node => node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement ||
       (node as HTMLElement).isContentEditable);
     if (!field) throw new Error('native calculation answer is missing');

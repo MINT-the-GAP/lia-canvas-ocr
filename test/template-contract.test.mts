@@ -94,8 +94,8 @@ test('@BerechneOCR definitions and documentation share the native validator stru
       );
       assert.match(
         body,
-        /^<!-- data-calculation-quiz="@0" @3 -->\r?\n\[\[ @1 \]\]\r?\n@4<script>\r?\nwindow\.__LIA_CANVAS_OCR__\?\.checkCalculationAnswerByUID\('@0'\) === true\r?\n<\/script>\r?\n<span class='lia-canvas-pair'/u,
-        `${name} must keep attributes, input, hints and validator before the canvas, using the same UID`,
+        /^\[\[ @1 \]\] <span class='lia-canvas-pair'[\s\S]*<\/span>\r?\n<script>\r?\nwindow\.__LIA_CANVAS_OCR__\?\.checkCalculationAnswerByUID\('@0'\) === true\r?\n<\/script>\r?\n?$/u,
+        `${name} must keep input and canvas in one paragraph with the attribute-free validator last`,
       );
       assert.doesNotMatch(
         body,
@@ -111,13 +111,13 @@ test('@BerechneOCR definitions and documentation share the native validator stru
   ] as const) {
     assert.match(
       source,
-      /^@BerechneOCR:[ \t]+@BerechneOCR_\(@uid,`@0`,`@1`,` `,` `\)[ \t]*$/m,
+      /^@BerechneOCR:[ \t]+@BerechneOCR_\(@uid,`@0`,`@1`\)[ \t]*$/m,
       `${name} must forward the generated UID, prompt, and option string`,
     );
     assert.match(
       source,
-      /^@BerechneOCRWithOptions:[ \t]+@BerechneOCR_\(@uid,`@0`,`@1`,`@2`,```@3```\)[ \t]*$/m,
-      `${name} must forward quiz attributes and native hints into the same UID macro`,
+      /^@BerechneOCRWithOptions\r?\n<!-- @2 -->\r?\n@BerechneOCR\(`@0`,`@1`\)\r?\n@3\r?\n@end$/m,
+      `${name} must retain WithOptions as a wrapper around the ordinary native quiz syntax`,
     );
     const calculationLauncherBodies = berechneOcrMacroBodies(source);
     for (const body of calculationLauncherBodies) {

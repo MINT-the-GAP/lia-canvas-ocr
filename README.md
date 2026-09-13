@@ -33,17 +33,16 @@ script:   ./dist/index.js
 </span>
 @end
 
-@BerechneOCR: @BerechneOCR_(@uid,`@0`,`@1`,` `,` `)
+@BerechneOCR: @BerechneOCR_(@uid,`@0`,`@1`)
 
-@BerechneOCRWithOptions: @BerechneOCR_(@uid,`@0`,`@1`,`@2`,```@3```)
+@BerechneOCRWithOptions
+<!-- @2 -->
+@BerechneOCR(`@0`,`@1`)
+@3
+@end
 
 @BerechneOCR_
-<!-- data-calculation-quiz="@0" @3 -->
-[[ @1 ]]
-@4<script>
-window.__LIA_CANVAS_OCR__?.checkCalculationAnswerByUID('@0') === true
-</script>
-<span class='lia-canvas-pair' data-canvas-mode='plus' data-canvas-output='answer' data-answer-format='native-equation-v1' data-calculation-quiz='@0' data-calculation-prompt='@1' data-calculation-options='@2' data-ocr-mode='submit'>
+[[ @1 ]] <span class='lia-canvas-pair' data-canvas-mode='plus' data-canvas-output='answer' data-answer-format='native-equation-v1' data-calculation-quiz='@0' data-calculation-prompt='@1' data-calculation-options='@2' data-ocr-mode='submit'>
   <span class='lia-canvas-anchor' data-seed='@0'>
     <button class='lia-canvas-launch' type='button' aria-label='Open calculation block' aria-expanded='false'>
       <svg viewBox='0 0 24 24' aria-hidden='true'>
@@ -54,6 +53,9 @@ window.__LIA_CANVAS_OCR__?.checkCalculationAnswerByUID('@0') === true
   </span>
   <span class='lia-canvas-mount' data-open='0' data-uid='@0'></span>
 </span>
+<script>
+window.__LIA_CANVAS_OCR__?.checkCalculationAnswerByUID('@0') === true
+</script>
 @end
 
 -->
@@ -268,59 +270,44 @@ and verification evidence are documented in
 
 ### Quizattribute und native Hinweise
 
-Für Quizattribute oder Hinweise verwende
-`@BerechneOCRWithOptions(aufgabe, rechenoptionen, quizattribute, hinweise)`.
-Die ersten beiden Argumente entsprechen `@BerechneOCR`; alle bisherigen
-Aufrufe mit einer Aufgabe, `1`, `0` oder einer Optionszeichenkette bleiben gültig.
+Quizattribute stehen als normaler LiaScript-Kommentar unmittelbar vor
+`@BerechneOCR`. Native Hinweise stehen direkt danach, jeweils auf einer
+eigenen `[[?]]`-Zeile. Es sind keine zusätzlichen Makroargumente erforderlich:
 
-| Argument | Inhalt |
-| --- | --- |
-| `aufgabe` | Gleichung oder Funktionsdefinition in Backticks |
-| `rechenoptionen` | `1`, `0`, eine Optionszeichenkette oder ein in Backticks eingeschlossenes Leerzeichen für die bisherigen Standardwerte |
-| `quizattribute` | Nur Attribute, beispielsweise `data-hint-button="1" data-solution-button="3"`, ohne `<!--` und `-->`; ein in Backticks eingeschlossenes Leerzeichen für native Standardwerte |
-| `hinweise` | Vollständige native `[[?]]`-Zeilen als ein Argument in dreifachen Backticks; ein in Backticks eingeschlossenes Leerzeichen, wenn keine Hinweise gebraucht werden |
-
-Quizattribute gehören in das dritte Argument, Hinweise in das vierte.
-Schreibe keinen Quizkommentar vor den Makroaufruf und hänge keine
-`[[?]]`-Zeilen dahinter: Erst nach der Expansion entsteht das native Quiz;
-das Canvas-HTML am Makroende trennt nachträgliche Hinweise davon ab.
-Die neue Variante gibt innerhalb der tiefsten Definition in dieser Reihenfolge
-Quizkommentar, Antwortfeld, Hinweise, Prüfskript und Canvas-HTML aus.
-Das attributlose Prüfskript wird dadurch beim nativen **Prüfen** ausgeführt.
-
-```` markdown
-@BerechneOCRWithOptions(`f(x)=2*x^3-5*x^2+4*x-9`,`aufgabe=ableitung;ordnung=1;zeilenrueckmeldung=1`,`data-hint-button="1" data-solution-button="3"`,```[[?]] Wende die Potenzregel auf jeden Summanden einzeln an.
-```)
-````
+``` markdown
+<!-- data-hint-button="1" data-solution-button="3" -->
+@BerechneOCR(`f(x)=2*x^3-5*x^2+4*x-9`,`aufgabe=ableitung;ordnung=1;zeilenrueckmeldung=1`)
+[[?]] Wende die Potenzregel auf jeden Summanden einzeln an.
+```
 
 Damit erscheint der Hinweisbutton nach einem Fehlversuch und die
-Lösungsfreigabe nach drei Fehlversuchen, jeweils für genau dieses Quiz.
-Die Musterlösung wird weiterhin automatisch erzeugt.
-Das vierte Argument endet bei vorhandenen Hinweisen mit einem **echten
-Zeilenumbruch vor den schließenden dreifachen Backticks**, wie oben gezeigt. Dadurch
-steht das Prüfskript unmittelbar auf der nächsten Zeile. Bei fehlenden
-Hinweisen verwende stattdessen ein in Backticks eingeschlossenes Leerzeichen.
-Gib alle vier Argumente an; leere Positionen zwischen Kommas sind ungültig.
-Mehrere Hinweise stehen auf getrennten Zeilen innerhalb desselben Arguments;
-Kommas und einfache Backticks im Hinweistext bleiben dadurch erhalten:
+Lösungsfreigabe nach drei Fehlversuchen. Beide gehören zu genau diesem Quiz.
+Die Musterlösung wird weiterhin automatisch erzeugt. Weitere Hinweise werden
+einfach als weitere `[[?]]`-Zeilen angehängt; normaler Markdown-Text mit Kommas,
+Inline-Code oder Mathematik benötigt kein zusätzliches Quoting.
+Kommentar und Hinweise können unabhängig voneinander entfallen.
+Alle bisherigen Aufrufe mit einer Aufgabe, `1`, `0` oder einer
+Optionszeichenkette bleiben gültig.
 
-```` markdown
-@BerechneOCRWithOptions(`f(x)=x^3`,`aufgabe=ableitung`,` `,```[[?]] Nutze die Potenzregel.
-[[?]] Multipliziere mit dem Exponenten, verringere ihn dann um eins.
-```)
-````
+Trenne Aufgabenblöcke durch Leerzeilen. In DynFlex kann jeder
+`flex-child`-Container einen oder mehrere solche Blöcke enthalten. Jeder
+Aufruf erzeugt seine eigene Canvas und UID; mehrere Zeichenflächen auf
+derselben Folie lassen sich unabhängig öffnen und bearbeiten.
+Die vollständige kopierbare Zweispaltenvorlage und die Prüfergebnisse stehen
+im [Bericht zur Quizbindung](docs/berechneocr-quiz-binding.md).
 
-Trenne den Makroblock durch Leerzeilen vom umgebenden Aufgabentext.
-In DynFlex steht derselbe Aufruf innerhalb eines `flex-child`-Containers,
-mit Leerzeilen nach dem öffnenden und vor dem schließenden HTML-Tag.
-Eine vollständige kopierbare DynFlex-Migration sowie die Parser- und
-Browserprüfungen stehen im [Bericht zur Quizbindung](docs/berechneocr-quiz-binding.md).
+Die zuvor eingeführte Variante `@BerechneOCRWithOptions` bleibt für bereits
+geschriebene Kurse als Kompatibilitätsaufruf erhalten. Sie wird intern in die
+oben gezeigte normale Quizsyntax umgesetzt und verlangt keinen besonderen
+abschließenden Zeilenumbruch im Hinweisargument. Für neue Aufgaben verwende
+die einfache Form oben.
 
 Leite die Funktion $f(x)=2x^3-5x^2+4x-9$ einmal ab. Gib die
 Ausgangsfunktion und ihre Ableitung als vollständigen Rechenweg an.
 
-@BerechneOCRWithOptions(`f(x)=2*x^3-5*x^2+4*x-9`,`aufgabe=ableitung;ordnung=1;zeilenrueckmeldung=1`,`data-hint-button="1" data-solution-button="3"`,```[[?]] Wende die Potenzregel auf jeden Summanden einzeln an.
-```)
+<!-- data-hint-button="1" data-solution-button="3" -->
+@BerechneOCR(`f(x)=2*x^3-5*x^2+4*x-9`,`aufgabe=ableitung;ordnung=1;zeilenrueckmeldung=1`)
+[[?]] Wende die Potenzregel auf jeden Summanden einzeln an.
 
 ### Aufgaben und Vorgabenoptionen
 
@@ -697,17 +684,16 @@ script:   https://cdn.jsdelivr.net/gh/MINT-the-GAP/lia-canvas-ocr@main/dist/inde
 </span>
 @end
 
-@BerechneOCR: @BerechneOCR_(@uid,`@0`,`@1`,` `,` `)
+@BerechneOCR: @BerechneOCR_(@uid,`@0`,`@1`)
 
-@BerechneOCRWithOptions: @BerechneOCR_(@uid,`@0`,`@1`,`@2`,```@3```)
+@BerechneOCRWithOptions
+<!-- @2 -->
+@BerechneOCR(`@0`,`@1`)
+@3
+@end
 
 @BerechneOCR_
-<!-- data-calculation-quiz="@0" @3 -->
-[[ @1 ]]
-@4<script>
-window.__LIA_CANVAS_OCR__?.checkCalculationAnswerByUID('@0') === true
-</script>
-<span class='lia-canvas-pair' data-canvas-mode='plus' data-canvas-output='answer' data-answer-format='native-equation-v1' data-calculation-quiz='@0' data-calculation-prompt='@1' data-calculation-options='@2' data-ocr-mode='submit'>
+[[ @1 ]] <span class='lia-canvas-pair' data-canvas-mode='plus' data-canvas-output='answer' data-answer-format='native-equation-v1' data-calculation-quiz='@0' data-calculation-prompt='@1' data-calculation-options='@2' data-ocr-mode='submit'>
   <span class='lia-canvas-anchor' data-seed='@0'>
     <button class='lia-canvas-launch' type='button' aria-label='Open calculation block' aria-expanded='false'>
       <svg viewBox='0 0 24 24' aria-hidden='true'>
@@ -718,5 +704,8 @@ window.__LIA_CANVAS_OCR__?.checkCalculationAnswerByUID('@0') === true
   </span>
   <span class='lia-canvas-mount' data-open='0' data-uid='@0'></span>
 </span>
+<script>
+window.__LIA_CANVAS_OCR__?.checkCalculationAnswerByUID('@0') === true
+</script>
 @end
 ````

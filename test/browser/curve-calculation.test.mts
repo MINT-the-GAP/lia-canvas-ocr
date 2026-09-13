@@ -68,7 +68,7 @@ for (const [name, browserType] of Object.entries({ chromium, firefox, webkit }))
           const resolve = page.locator('.lia-quiz__resolve:visible');
           await resolve.click();
           await page.waitForFunction(() => {
-            const field = document.querySelector<HTMLInputElement>('.lia-quiz input');
+            const field = document.querySelector<HTMLInputElement>('main:not([hidden]) .lia-quiz__input');
             if (!field || !document.querySelector('.lia-quiz.resolved')) return false;
             try {
               const lines = JSON.parse(field.value);

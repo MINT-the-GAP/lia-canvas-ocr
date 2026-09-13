@@ -27,22 +27,24 @@ Nachbarquiz: [[ Nachbar ]]
 
 </section>
 
-## Migrated adjacent derivatives
+## Annotated adjacent derivatives
 
 <section class="dynFlex">
 
 <div class="flex-child">
 
-@BerechneOCRWithOptions(`f(x)=2*x^3-5*x^2+4*x-9`,`aufgabe=ableitung;ordnung=1;zeilenrueckmeldung=1`,`data-hint-button="1" data-solution-button="3"`,```[[?]] Wende die Potenzregel auf jeden Summanden einzeln an.
-```)
+<!-- data-hint-button="1" data-solution-button="3" -->
+@BerechneOCR(`f(x)=2*x^3-5*x^2+4*x-9`,`aufgabe=ableitung;ordnung=1;zeilenrueckmeldung=1`)
+[[?]] Wende die Potenzregel auf jeden Summanden einzeln an.
 
 </div>
 
 <div class="flex-child">
 
-@BerechneOCRWithOptions(`f(x)=x^2`,`aufgabe=ableitung;zeilenrueckmeldung=1`,`data-hint-button="2" data-solution-button="2"`,```[[?]] Rechts: Leite `x^2` mit der Potenzregel ab.
+<!-- data-hint-button="2" data-solution-button="2" -->
+@BerechneOCR(`f(x)=x^2`,`aufgabe=ableitung;zeilenrueckmeldung=1`)
+[[?]] Rechts: Leite `x^2` mit der Potenzregel ab.
 [[?]] Rechts: Der Exponent wird zum Faktor.
-```)
 
 </div>
 
@@ -66,23 +68,51 @@ Nachbarquiz: [[ Nachbar ]]
 
 @BerechneOCR(`738\cdot6`,0)
 
-@BerechneOCRWithOptions(`8736:8`,1,`data-solution-button="0"`,` `)
+<!-- data-solution-button="0" -->
+@BerechneOCR(`8736:8`,1)
 
 ## Actual macro expansion
 
-@@BerechneOCRWithOptions(`f(x)=2*x^3-5*x^2+4*x-9`,`aufgabe=ableitung;ordnung=1;zeilenrueckmeldung=1`,`data-hint-button="1" data-solution-button="3"`,```[[?]] Wende die Potenzregel auf jeden Summanden einzeln an.
-```)
+@@BerechneOCR(`f(x)=2*x^3-5*x^2+4*x-9`,`aufgabe=ableitung;ordnung=1;zeilenrueckmeldung=1`)
 
 @@BerechneOCR(`2x+3=7`)
 
-@@BerechneOCR_(`expanded-binding`,`f(x)=2*x^3-5*x^2+4*x-9`,`aufgabe=ableitung;ordnung=1;zeilenrueckmeldung=1`,`data-hint-button="1" data-solution-button="3"`,```[[?]] Wende die Potenzregel auf jeden Summanden einzeln an.
-```)
+@@BerechneOCR_(`expanded-binding`,`f(x)=2*x^3-5*x^2+4*x-9`,`aufgabe=ableitung;ordnung=1;zeilenrueckmeldung=1`)
 
-@@BerechneOCR_(`expanded-empty`,`2x+3=7`,1,` `,` `)
+@@BerechneOCR_(`expanded-empty`,`2x+3=7`,1)
 
-## Explicit blank option arguments
+## Explicit default options
 
-@BerechneOCRWithOptions(`2x+3=7`,` `,` `,` `)
+@BerechneOCR(`2x+3=7`,` `)
 
-@BerechneOCRWithOptions(`2x+3=7`,` `,` `,```[[?]] Erst `3` subtrahieren, dann durch `2` dividieren.
-```)
+<!-- data-hint-button="1" data-solution-button="3" -->
+@BerechneOCR(`2x+3=7`,` `)
+[[?]] Erst `3` subtrahieren, dann durch `2` dividieren.
+
+## Screenshot: Zweite und dritte Ableitung
+
+Kennzeichne die aufeinanderfolgenden Ableitungen mit $f'(x)$, $f''(x)$ beziehungsweise $g'(x)$, $g''(x)$ und $g'''(x)$.
+
+<section class="dynFlex" data-basis="49%">
+
+<div class="flex-child">
+
+**Bestimme** die zweite Ableitung von $f(x)=x^4-3x^3+2x^2-x+1$. **Notiere** auch die erste Ableitung als Zwischenschritt.
+
+<!-- data-hint-button="1" data-solution-button="3" -->
+@BerechneOCR(`f(x)=x^4-3*x^3+2*x^2-x+1`,`aufgabe=ableitung;ordnung=2;zeilenrueckmeldung=1`)
+[[?]] Bilde zuerst $f'(x)$. Wende danach die Potenzregel erneut auf diesen neuen Funktionsterm an.
+
+</div>
+
+<div class="flex-child">
+
+**Bestimme** die dritte Ableitung von $g(x)=\frac12 x^4-2x^3+x^2$. **Notiere** auch die erste und zweite Ableitung.
+
+<!-- data-hint-button="1" data-solution-button="3" -->
+@BerechneOCR(`g(x)=1/2*x^4-2*x^3+x^2`,`aufgabe=ableitung;ordnung=3;zeilenrueckmeldung=1`)
+[[?]] Leite dreimal nacheinander ab. Der höchste Exponent wird bei jedem Ableiten um $1$ kleiner.
+
+</div>
+
+</section>
