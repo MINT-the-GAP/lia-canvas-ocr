@@ -117,3 +117,10 @@ test('rejects oversized preview and serializer input safely', () => {
     assert.equal(formatTexForPreview(oversized), '');
     assert.equal(serializeCalculationSubmission([oversized]), '');
 });
+
+test('renders CAS grouped exponents as TeX superscripts in the answer preview', () => {
+    assert.equal(formatTexForPreview('p^(12)'), 'p^{12}');
+    assert.equal(formatTexForPreview('p^(q^2)'), 'p^{q^2}');
+    assert.equal(formatTexForPreview('x^((a+b)^2)'), 'x^{(a+b)^2}');
+    assert.equal(formatTexForPreview('p^(12'), 'p^(12');
+});

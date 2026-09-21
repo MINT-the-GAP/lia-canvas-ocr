@@ -25,6 +25,32 @@ function calculationLinesFromJson(source: string): string[] | null {
     }
 }
 
+function formatCasPowersForPreview(source: string): string {
+    if (!source.includes('^(')) return source;
+    let formatted = '';
+    for (let i = 0; i < source.length; i++) {
+        if (source[i] !== '^' || source[i + 1] !== '(') {
+            formatted += source[i];
+            continue;
+        }
+        let depth = 1;
+        let end = i + 2;
+        while (end < source.length && depth > 0) {
+            if (source[end] === '(') depth++;
+            if (source[end] === ')') depth--;
+            end++;
+        }
+        if (depth !== 0) {
+            formatted += source[i];
+            continue;
+        }
+        const exponent = formatCasPowersForPreview(source.slice(i + 2, end - 1));
+        formatted += '^{' + exponent + '}';
+        i = end - 1;
+    }
+    return formatted;
+}
+
 /**
  * Makes a complete, unambiguous integer fraction easier to read in the
  * inline KaTeX preview. The original answer value is deliberately untouched.
@@ -41,6 +67,6 @@ export function formatTexForPreview(input: string): string {
     const calculationLines = calculationLinesFromJson(source);
     if (calculationLines) return composeMultilineLatex(calculationLines);
     const match = SIMPLE_INTEGER_FRACTION.exec(source);
-    if (!match) return source;
+    if (!match) return formatCasPowersForPreview(source);
     return `\\dfrac{${match[1]}}{${match[2]}}`;
 }

@@ -15,7 +15,7 @@ import {
 import { publishCanvasLiveEntry, touchCanvasLiveEntry, getCanvasLiveRevision } from './live-state';
 import { paintStrokePath } from './stroke-rendering';
 import { CalculationCorrections } from './calculation-corrections';
-import { normalizeCalculationNotation, normalizeOcrTexNumbers } from '../ocr/math-notation';
+import { normalizeCalculationNotation, normalizeOcrAlgebraAnswer } from '../ocr/math-notation';
 export { ensureCanvasFreezeApi } from './freeze';
 import {
     __liaApplyValue,
@@ -2750,7 +2750,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
 
             __ocrLog('OCR result: ' + latex);
             if (!wrap!.isConnected) return;
-            const answer = normalizeOcrTexNumbers(latex);
+            const answer = normalizeOcrAlgebraAnswer(latex);
             const ok = __liaFindAndSetInputBeforeNode((canvasPair || wrap!) as Element, answer);
             if (!ok) { __ocrLog('Could not find an input field before this @canvas.'); }
             else { rectActionBtn.textContent = trOcr('submitted', '✅ submitted'); setTimeout(() => { rectActionBtn.textContent = oldText; }, 900); }

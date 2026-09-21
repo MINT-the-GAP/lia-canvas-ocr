@@ -108,6 +108,10 @@ their answer and uses the "Submit as Solution" tool to draw a rectangle around
 it. The recognized result is applied directly to the input field.
 Plain integer fractions such as `5/7` keep their original answer value but are
 shown as a full-size stacked fraction in the KaTeX preview.
+With `@Algebrite.check`, Canvas also treats adjacent handwritten letters as
+separate factors and accepts grouped powers: `qp^4`, `qp^{4}`, and `q p ^ { 4 }`
+can all represent `p^4*q`. The factor order `p^4q`, `p^{4}q`, and
+`p^{12}q` works too.
 
 ``` markdown
 __$a)\;\;$__ $10 + 5 =$ [[ 15 ]]

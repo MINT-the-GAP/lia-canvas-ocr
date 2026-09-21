@@ -53,6 +53,8 @@ type Case = {
   solution: string;
   accepted: boolean;
   typed?: boolean;
+  checkOnly?: boolean;
+  preserveInput?: boolean;
 };
 
 const cases: Case[] = [
@@ -64,8 +66,28 @@ const cases: Case[] = [
     { name: `OCR product ${operator} rejects 13`, latex: `\\sqrt { 1 ${operator} 3 }`, solution: 'sqrt(13)', accepted: false },
     { name: `OCR product ${operator} accepts 3`, latex: `\\sqrt { 1 ${operator} 3 }`, solution: 'sqrt(3)', accepted: true },
   ]),
+  { name: 'spaced OCR variables and grouped exponent', latex: 'q p ^ { 4 }', solution: 'p^4*q', accepted: true, checkOnly: true },
+  { name: 'compact OCR variables', latex: 'qp^4', solution: 'p^4*q', accepted: true, checkOnly: true },
+  { name: 'compact OCR variables and grouped exponent', latex: 'qp^{4}', solution: 'p^4*q', accepted: true, checkOnly: true },
+  { name: 'spaced OCR variables', latex: 'q p^4', solution: 'p^4*q', accepted: true, checkOnly: true },
+  { name: 'power then compact variable', latex: 'p^4q', solution: 'p^4*q', accepted: true, checkOnly: true },
+  { name: 'grouped power then variable', latex: 'p^{4}q', solution: 'p^4*q', accepted: true, checkOnly: true },
+  { name: 'spaced grouped power then variable', latex: 'p ^ { 4 } q', solution: 'p^4*q', accepted: true, checkOnly: true },
+  { name: 'multi-digit power then variable', latex: 'p^{12}q', solution: 'p^12*q', accepted: true, checkOnly: true },
+  { name: 'two powered factors', latex: 'p^{4}q^{2}', solution: 'p^4*q^2', accepted: true, checkOnly: true },
+  { name: 'power then two variables', latex: 'p^{4}qr', solution: 'p^4*q*r', accepted: true, checkOnly: true },
+  { name: 'power with product inside exponent is different', latex: 'p^(4q)', solution: 'p^4*q', accepted: false, checkOnly: true },
+  { name: 'standalone grouped exponent', latex: 'p^{4}', solution: 'p^4', accepted: true, checkOnly: true },
+  { name: 'standalone multi-digit exponent', latex: 'p^{12}', solution: 'p^12', accepted: true, checkOnly: true },
+  { name: 'typed compact trailing variable', latex: 'p^4q', solution: 'p^4*q', accepted: true, typed: true, checkOnly: true, preserveInput: true },
+  { name: 'typed grouped trailing variable', latex: 'p^{4}q', solution: 'p^4*q', accepted: true, typed: true, checkOnly: true },
+  { name: 'typed compact variables', latex: 'qp^4', solution: 'p^4*q', accepted: true, typed: true, checkOnly: true },
+  { name: 'typed spaced grouped exponent', latex: 'q p ^ { 4 }', solution: 'p^4*q', accepted: true, typed: true, checkOnly: true },
+  { name: 'typed wrong exponent stays wrong', latex: 'qp^{3}', solution: 'p^4*q', accepted: false, typed: true, checkOnly: true },
+  { name: 'wrong exponent stays wrong', latex: 'qp^{3}', solution: 'p^4*q', accepted: false, checkOnly: true },
 ];
-const variants = cases.flatMap(entry => ['check', 'check2'].map(macro => ({ ...entry, macro })));
+const variants = cases.flatMap(entry => (entry.checkOnly ? ['check'] : ['check', 'check2'])
+  .map(macro => ({ ...entry, macro })));
 const COURSE_URL = `${SYNTHETIC_ORIGIN}/courses/ocr-answer-regression.md`;
 const course = [
   '<!--',
@@ -151,7 +173,7 @@ async function submitOcr(page: Page, selector: string, latex: string): Promise<v
   await pair.locator('.lia-canvas-launch:visible').click();
 }
 
-test('OCR answers retain TeX number semantics in actual Algebrite.check and check2',
+test('OCR answers retain TeX number and algebra semantics in actual Algebrite quizzes',
   { timeout: 240_000 }, async t => {
     const [template, bundle] = await Promise.all([
       readOfficialAlgebrite('README.md'),
@@ -222,10 +244,15 @@ test('OCR answers retain TeX number semantics in actual Algebrite.check and chec
             document.querySelector(`${groupSelector} .lia-quiz__feedback.text-error`),
           ), selector, { timeout: 10_000 });
           const accepted = await group.locator('.lia-quiz.solved .lia-quiz__feedback.text-success').count() === 1;
+          const finalAnswer = await input.inputValue();
+          if (entry.typed && entry.checkOnly) {
+            if (entry.preserveInput) assert.equal(finalAnswer, entry.latex);
+            else assert.notEqual(finalAnswer, entry.latex);
+          }
           subtest.diagnostic(JSON.stringify({ raw: entry.latex, answer, converted,
-            macro: entry.macro, solution: entry.solution, accepted }));
+            finalAnswer, macro: entry.macro, solution: entry.solution, accepted }));
           assert.equal(accepted, entry.accepted,
-            `${entry.macro}(${entry.solution}) for submitted answer ${JSON.stringify(answer)}`);
+            `${entry.macro}(${entry.solution}) for submitted answer ${JSON.stringify(finalAnswer)}`);
         });
       }
       assert.deepEqual(harness.pageErrors, [], harness.pageErrors.join('\n'));

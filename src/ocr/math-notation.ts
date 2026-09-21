@@ -167,6 +167,85 @@ export function normalizeOcrTexNumbers(input: string): string {
     }).join('');
 }
 
+const OPAQUE_SYMBOL_COMMANDS = new Set([
+    ...VECTOR_COMMANDS,
+    '\\mathrm', '\\mathit', '\\mathsf', '\\mathtt', '\\mathnormal',
+    '\\mathcal', '\\mathbb', '\\mathfrak', '\\hat', '\\bar',
+    '\\overline', '\\underline', '\\tilde', '\\widetilde',
+    '\\begin', '\\end',
+]);
+
+function normalizeBareGroupedPowers(input: string): string {
+    const tokens = tokenize(input);
+    const render = (start: number, end: number): string => {
+        let result = '';
+        for (let i = start; i < end; i++) {
+            if (tokens[i].value !== '^') {
+                result += tokens[i].value;
+                continue;
+            }
+            let group = i + 1;
+            while (tokens[group]?.kind === 'space') group++;
+            const opener = tokens[group];
+            if (opener?.value !== '{' || opener.pair === undefined || opener.pair >= end) {
+                result += tokens[i].value;
+                continue;
+            }
+            const exponent = render(group + 1, opener.pair).trim();
+            if (!exponent) {
+                result += tokens.slice(i, opener.pair + 1).map(token => token.value).join('');
+            } else {
+                result += /^[A-Za-z0-9]$/u.test(exponent)
+                    ? '^' + exponent : '^(' + exponent + ')';
+            }
+            i = opener.pair;
+        }
+        return result;
+    };
+    return render(0, tokens.length);
+}
+
+/**
+ * TeX uses adjacent letters as separate factors; Algebrite's native quiz
+ * parser instead treats an unspaced run as one symbol. An explicit TeX
+ * product makes its LaTeX converter handle both the product and grouped
+ * exponents. For a standalone power with no TeX command, use Algebrite's
+ * parenthesized exponent syntax (and restore braces only in the preview).
+ */
+export function normalizeOcrAlgebraAnswer(input: string): string {
+    const source = normalizeOcrTexNumbers(input);
+    if (!/[A-Za-z][ \t]*[A-Za-z]|\^\s*\{/u.test(source)) return source;
+    const tokens = tokenize(source);
+    const opaque = new Set<number>();
+    for (let i = 0; i < tokens.length; i++) {
+        if (!OPAQUE_SYMBOL_COMMANDS.has(tokens[i].value)) continue;
+        let argument = i + 1;
+        while (tokens[argument]?.kind === 'space') argument++;
+        const first = tokens[argument];
+        if (first?.value === '{' && first.pair !== undefined) {
+            for (let j = argument + 1; j < first.pair; j++) opaque.add(j);
+        } else if (first) opaque.add(argument);
+    }
+    let product = '';
+    for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i];
+        if (!opaque.has(i) && token.kind === 'character' && /^[A-Za-z]$/u.test(token.value)) {
+            let next = i + 1;
+            while (tokens[next]?.kind === 'space' && /^[ \t]+$/u.test(tokens[next].value)) next++;
+            if (next < tokens.length && !opaque.has(next) &&
+                tokens[next].kind === 'character' && /^[A-Za-z]$/u.test(tokens[next].value)) {
+                product += token.value + '\\cdot ';
+                i = next - 1;
+                continue;
+            }
+        }
+        product += token.value;
+    }
+    // The official converter only runs when the input contains a lettered
+    // TeX command. Bare p^{12} would otherwise reach Algebrite unchanged.
+    return /\\[A-Za-z]+/u.test(product) ? product : normalizeBareGroupedPowers(product);
+}
+
 function neighbor(tokens: Token[], index: number, direction: -1 | 1): number {
     while (index >= 0 && index < tokens.length) {
         const token = tokens[index];

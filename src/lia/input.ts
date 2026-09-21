@@ -3,6 +3,7 @@
 import { getRootWindow } from '../index';
 import { liaT } from './i18n';
 import { formatTexForPreview } from './tex-preview';
+import { normalizeOcrAlgebraAnswer } from '../ocr/math-notation';
 
 // ---------------------------------------------------------------------------
 // Quiz state + border helpers
@@ -591,9 +592,32 @@ export function __liaInitTexPreviews(): void {
 // Event-driven refresh bridge boot (starts only when a canvas pair is present)
 // ---------------------------------------------------------------------------
 
+function __liaNormalizeClassicCanvasAnswerOnCheck(event: Event): void {
+    const target = event.target instanceof Element ? event.target : null;
+    const button = target?.closest('button.lia-quiz__check') as HTMLButtonElement | null;
+    if (!button || button.disabled) return;
+    const quiz = button.closest('.lia-quiz');
+    if (!quiz) return;
+    const fields = new Set(Array.from(quiz.querySelectorAll<HTMLElement>(
+        'input.lia-quiz__input, textarea.lia-quiz__input, [contenteditable=true].lia-quiz__input'
+    )));
+    for (const pair of Array.from(document.querySelectorAll<HTMLElement>(
+        '.lia-canvas-pair:not([data-canvas-mode=plus])'
+    ))) {
+        const field = __liaFindInputBeforeNode(pair);
+        if (!field || !fields.has(field as HTMLElement)) continue;
+        const source = __liaReadFieldValue(field);
+        // Classic Canvas can accompany text quizzes; only power notation needs this bridge.
+        if (!source.includes('^')) continue;
+        const normalized = normalizeOcrAlgebraAnswer(source);
+        if (normalized !== source) __liaApplyValue(field, normalized);
+    }
+}
+
 export function ensureTexSyncBoot(): void {
     if ((window as any).__LIA_CANVAS_TEX_SYNC_BOOT__) return;
     (window as any).__LIA_CANVAS_TEX_SYNC_BOOT__ = true;
+    document.addEventListener('click', __liaNormalizeClassicCanvasAnswerOnCheck, true);
     const onFreezeRefresh = () => {
         __liaScheduleStaggeredRefresh([0, 80, 200]);
     };
