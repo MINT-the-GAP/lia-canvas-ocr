@@ -6,7 +6,7 @@ import { validateCalculationPathSubmission as validateCalculationSubmission } fr
 import { LIA } from '../index';
 import {
     COLORS, getAutoPen, getAccentCssVar, rgbaFromAny,
-    setUndoIcon, setRedoIcon, setEraserIcon, setRectIcon
+    setUndoIcon, setRedoIcon, setEraserIcon, setPenIcon, setRectIcon
 } from './theme';
 import {
     ensureMountUID, __liaDispatchCanvasFreezeChange, setCanvasLiveOperation,
@@ -1098,6 +1098,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
     setUndoIcon(btnUndo);
     setRedoIcon(btnRedo);
     setEraserIcon(btnEraser);
+    setPenIcon(btnColor);
     setRectIcon(btnRect);
     if (btnBg && !(btnBg as any).__bgCleared) { (btnBg as any).__bgCleared = true; btnBg.innerHTML = ''; }
 
@@ -5622,7 +5623,7 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         const labelEraser = trCanvas('eraser', 'Eraser');
         if (btnUndo) { setButtonDisabled(btnUndo, ITEMS.length === 0); setButtonLabel(btnUndo, trCanvas('undo', 'Undo')); }
         if (btnRedo) { setButtonDisabled(btnRedo, REDO.length === 0); setButtonLabel(btnRedo, trCanvas('redo', 'Redo')); }
-        if (btnColor) { btnColor.style.background = col; setAttributeIfChanged(btnColor, 'data-active', tool === 'pen' ? '1' : '0'); setButtonLabel(btnColor, labelPen); }
+        if (btnColor) { btnColor.style.setProperty('--lia-pen-color', col); setAttributeIfChanged(btnColor, 'data-active', tool === 'pen' ? '1' : '0'); setButtonLabel(btnColor, labelPen); }
         if (btnEraser) { setAttributeIfChanged(btnEraser, 'data-active', tool === 'eraser' ? '1' : '0'); setButtonLabel(btnEraser, labelEraser); }
         if (btnRect) {
             const label = isCanvasPlus

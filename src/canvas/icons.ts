@@ -23,6 +23,16 @@ export const SVG_ERASER = `
   </svg>
 `;
 
+// Keep the pen tool visually aligned with the annotation launcher. Its
+// stroke color is supplied by the active canvas color in updateUI().
+export const SVG_PEN = `
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path class="pen-stroke"
+          d="M3 21l3.2-0.6L19 7.6a2.2 2.2 0 0 0 0-3.1l-0.5-0.5a2.2 2.2 0 0 0-3.1 0L2.6 16.8 3 21z"/>
+    <path class="pen-stroke" d="M14.2 5.2l4.6 4.6"/>
+  </svg>
+`;
+
 export const SVG_UNDO = `
   <svg viewBox="-4 0 24 24" aria-hidden="true">
     <path d="M21 8H10.2V4L2 12l8.2 8v-4H21V8z" fill="var(--canvas-border)"/>

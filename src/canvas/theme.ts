@@ -1,6 +1,6 @@
 // Canvas theme: CSS injection, color helpers, icon setters.
 
-import { SVG_RECT, SVG_ERASER, SVG_UNDO, SVG_REDO, SVG_TRASH } from './icons';
+import { SVG_RECT, SVG_ERASER, SVG_PEN, SVG_UNDO, SVG_REDO, SVG_TRASH } from './icons';
 
 export function ensureCss(): void {
   const old = document.getElementById('__lia_canvas_ocr_css_v1');
@@ -122,6 +122,14 @@ canvas.lia-canvas-freeze-preview{
 
 .lia-tool-btn .ico-fill{
   fill: rgba(0,0,0,0);
+}
+
+.lia-color-btn .pen-stroke{
+  stroke: var(--lia-pen-color, var(--canvas-border));
+  fill: none;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .lia-tool-btn:hover{
@@ -2060,6 +2068,10 @@ export function setRectIcon(btn: HTMLElement | null): void {
 
 export function setEraserIcon(btn: HTMLElement | null): void {
     setSvg(btn, SVG_ERASER);
+}
+
+export function setPenIcon(btn: HTMLElement | null): void {
+    setSvg(btn, SVG_PEN);
 }
 
 export function setUndoIcon(btn: HTMLElement | null): void {
