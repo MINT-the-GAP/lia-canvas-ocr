@@ -2,17 +2,9 @@ import { calculationContextError } from './math/calculation-context';
 import { generateContextualExpectedCalculation } from './math/function-calculation-path';
 import { parseCalculationOptions } from './lia/calculation-options';
 import type { TransitionValidationOptions } from './math/equivalence';
+import { getRootWindow } from './root-window';
+export { getRootWindow } from './root-window';
 // Boot module: registry, theme sync, OCR bar, engine, canvas init.
-
-// ---------------------------------------------------------------------------
-// Root window helper
-// ---------------------------------------------------------------------------
-
-export function getRootWindow(): Window {
-  let w: Window = window;
-  try { while (w.parent && w.parent !== w) w = w.parent as Window; } catch (_) { }
-  return w;
-}
 
 // ---------------------------------------------------------------------------
 // LIA registry — must be declared before any import side-effects run.
