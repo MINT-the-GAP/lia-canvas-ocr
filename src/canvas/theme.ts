@@ -124,12 +124,22 @@ canvas.lia-canvas-freeze-preview{
   fill: rgba(0,0,0,0);
 }
 
+.lia-color-btn{
+  justify-content: center;
+}
+
 .lia-color-btn .pen-stroke{
-  stroke: var(--lia-pen-color, var(--canvas-border));
+  stroke: var(--canvas-border);
   fill: none;
-  stroke-width: 2.4;
+  stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.lia-color-btn .lia-pen-swatch{
+  fill: var(--lia-pen-color, var(--canvas-pen));
+  stroke: var(--canvas-border);
+  stroke-width: 1;
 }
 
 .lia-tool-btn:hover{

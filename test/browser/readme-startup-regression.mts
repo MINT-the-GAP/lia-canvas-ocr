@@ -103,6 +103,21 @@ test(
           12_000,
         );
 
+        const penOffset = await harness.page.locator('.lia-color-btn').first().evaluate(button => {
+          const outline = button.querySelector('svg .pen-stroke');
+          if (!outline) throw new Error('The canvas pen icon is missing');
+          const icon = outline.getBoundingClientRect();
+          const bounds = button.getBoundingClientRect();
+          return {
+            x: icon.left + icon.width / 2 - (bounds.left + bounds.width / 2),
+            y: icon.top + icon.height / 2 - (bounds.top + bounds.height / 2),
+          };
+        });
+        assert.ok(
+          Math.abs(penOffset.x) < 0.25 && Math.abs(penOffset.y) < 0.25,
+          `Canvas pen is offset from its button center: ${JSON.stringify(penOffset)}`,
+        );
+
         assertNoRuntimeErrors(harness, await snapshotDiagnostics(harness.page));
       } finally {
         await harness.context.close();

@@ -161,12 +161,22 @@ canvas.lia-canvas-freeze-preview{
   fill: rgba(0,0,0,0);
 }
 
+.lia-color-btn{
+  justify-content: center;
+}
+
 .lia-color-btn .pen-stroke{
-  stroke: var(--lia-pen-color, var(--canvas-border));
+  stroke: var(--canvas-border);
   fill: none;
-  stroke-width: 2.4;
+  stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.lia-color-btn .lia-pen-swatch{
+  fill: var(--lia-pen-color, var(--canvas-pen));
+  stroke: var(--canvas-border);
+  stroke-width: 1;
 }
 
 .lia-tool-btn:hover{
@@ -1991,8 +2001,9 @@ canvas.lia-canvas-freeze-preview{
 `,o=`
   <svg viewBox="0 0 24 24" aria-hidden="true">
     <path class="pen-stroke"
-          d="M3 21l3.2-0.6L19 7.6a2.2 2.2 0 0 0 0-3.1l-0.5-0.5a2.2 2.2 0 0 0-3.1 0L2.6 16.8 3 21z"/>
-    <path class="pen-stroke" d="M14.2 5.2l4.6 4.6"/>
+          d="M4 20l1-4L16.5 4.5a2 2 0 0 1 2.8 0l.2.2a2 2 0 0 1 0 2.8L8 19l-4 1z"/>
+    <path class="pen-stroke" d="M14.8 6.2l3 3"/>
+    <circle class="lia-pen-swatch" cx="20.5" cy="20.5" r="3"/>
   </svg>
 `,s=`
   <svg viewBox="-4 0 24 24" aria-hidden="true">
