@@ -213,7 +213,8 @@ function normalizeBareGroupedPowers(input: string): string {
  * parenthesized exponent syntax (and restore braces only in the preview).
  */
 export function normalizeOcrAlgebraAnswer(input: string): string {
-    const source = normalizeOcrTexNumbers(input);
+    const numbers = normalizeOcrTexNumbers(input);
+    const source = normalizeOcrVectorAnswer(numbers) || numbers;
     if (!/[A-Za-z][ \t]*[A-Za-z]|\^\s*\{/u.test(source)) return source;
     const tokens = tokenize(source);
     const opaque = new Set<number>();
@@ -244,6 +245,63 @@ export function normalizeOcrAlgebraAnswer(input: string): string {
     // The official converter only runs when the input contains a lettered
     // TeX command. Bare p^{12} would otherwise reach Algebrite unchanged.
     return /\\[A-Za-z]+/u.test(product) ? product : normalizeBareGroupedPowers(product);
+}
+
+const VECTOR_BARS = new Set(['|', '\\mid', '\\vert']);
+const VECTOR_ROW_BREAK = '\\\\';
+
+export function composeOcrVectorAnswer(
+    kind: 'column' | 'row',
+    components: readonly string[]
+): string {
+    return kind === 'column'
+        ? '\\left(\\begin{array}{c} ' + components.join(' \\\\ ') + ' \\end{array}\\right)'
+        : '\\left( ' + components.join(' \\mid ') + ' \\right)';
+}
+
+function splitVectorComponents(input: string, kind: 'column' | 'row'): string[] | null {
+    const tokens = tokenize(input);
+    const components: string[] = [];
+    let component = '';
+    for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i];
+        if (token.pair !== undefined && token.pair > i) {
+            component += tokens.slice(i, token.pair + 1).map(part => part.value).join('');
+            i = token.pair;
+            continue;
+        }
+        if (token.kind === 'protected' || ['&', '=', '<', '>', '{', '}', '(', ')', '[', ']',
+            '\\begin', '\\end', '\\left', '\\right'].includes(token.value)) return null;
+        if (kind === 'column' ? token.value === VECTOR_ROW_BREAK : VECTOR_BARS.has(token.value)) {
+            if (!component.trim()) return null;
+            components.push(component.trim());
+            component = '';
+        } else {
+            if (token.value === VECTOR_ROW_BREAK || VECTOR_BARS.has(token.value)) return null;
+            component += token.value;
+        }
+    }
+    if (!components.length || !component.trim()) return null;
+    components.push(component.trim());
+    return components;
+}
+
+function normalizeOcrVectorAnswer(input: string): string | null {
+    if (!/\||\\(?:mid|vert|begin)\b/u.test(input)) return null;
+    const source = input.trim();
+    const round = /^(?:\\left\s*\(([\s\S]*)\\right\s*\)|\(([\s\S]*)\))$/u.exec(source);
+    const body = (round?.[1] ?? round?.[2] ?? source).trim();
+    const column = /^\\begin\s*\{\s*(array|pmatrix|matrix)\s*\}\s*([\s\S]*?)\\end\s*\{\s*\1\s*\}$/u.exec(body);
+    if (column && (round || column[1] === 'pmatrix')) {
+        const rows = column[1] === 'array'
+            ? /^\{\s*[clr]\s*\}\s*([\s\S]*)$/u.exec(column[2])?.[1] : column[2];
+        if (rows === undefined) return null;
+        const components = splitVectorComponents(rows, 'column');
+        return components ? composeOcrVectorAnswer('column', components) : null;
+    }
+    if (!round) return null;
+    const components = splitVectorComponents(body, 'row');
+    return components ? composeOcrVectorAnswer('row', components) : null;
 }
 
 function neighbor(tokens: Token[], index: number, direction: -1 | 1): number {

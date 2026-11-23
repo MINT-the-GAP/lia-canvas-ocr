@@ -15,7 +15,8 @@ import {
 import { publishCanvasLiveEntry, touchCanvasLiveEntry, getCanvasLiveRevision } from './live-state';
 import { paintStrokePath } from './stroke-rendering';
 import { CalculationCorrections } from './calculation-corrections';
-import { normalizeCalculationNotation, normalizeOcrAlgebraAnswer } from '../ocr/math-notation';
+import { composeOcrVectorAnswer, normalizeCalculationNotation, normalizeOcrAlgebraAnswer } from '../ocr/math-notation';
+import { findOcrVectorLayout } from '../ocr/vector-layout';
 export { ensureCanvasFreezeApi } from './freeze';
 import {
     __liaApplyValue,
@@ -1183,7 +1184,10 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         return normalizeCalculationNotation(input);
     }
 
-    function __ocrCropFromRect(rectItem: any): HTMLCanvasElement | null {
+    function __ocrCropFromRect(rectItem: any): {
+        canvas: HTMLCanvasElement;
+        vector: ReturnType<typeof findOcrVectorLayout>;
+    } | null {
         if (!rectItem) return null;
         const dpr = window.devicePixelRatio || 1;
         const x0w = Math.min(rectItem.x0, rectItem.x1), y0w = Math.min(rectItem.y0, rectItem.y1);
@@ -1229,8 +1233,24 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
             else { data[i] = 255; data[i + 1] = 255; data[i + 2] = 255; data[i + 3] = 255; }
         }
         octx.putImageData(img, 0, 0);
-        (out as any).__liaOcrPixelScale = dpr * VIEW.scale * rasterScale;
-        return out;
+        const pixelScale = dpr * VIEW.scale * rasterScale;
+        (out as any).__liaOcrPixelScale = pixelScale;
+        const paths = ITEMS.filter(item => {
+            if (item?.tool === 'eraser') return false;
+            const bounds = __plusPathBounds(item);
+            return bounds && bounds.x0 >= x0w && bounds.x1 <= x1w &&
+                bounds.y0 >= y0w && bounds.y1 <= y1w;
+        }).map(item => ({
+            points: item.points.map((point: { x: number; y: number }) => {
+                const screen = worldToScreen(point.x, point.y);
+                return {
+                    x: (screen.sx * dpr - srcX) * rasterScale,
+                    y: (screen.sy * dpr - srcY) * rasterScale
+                };
+            }),
+            strokeWidth: Math.max(0.5, Number(item.width) || 1) * pixelScale
+        }));
+        return { canvas: out, vector: findOcrVectorLayout(img, paths, pixelScale) };
     }
 
     function __ocrNormalizeSize(c: HTMLCanvasElement): HTMLCanvasElement {
@@ -2740,13 +2760,39 @@ function setupCanvas(canvas: HTMLCanvasElement): void {
         try {
             const crop = __ocrCropFromRect(rectItem);
             if (!crop) { __ocrLog('Crop failed (rect too small or out of bounds).'); return; }
-            // Keep the classic selection/submit contract, but use the same
-            // worker-backed FormulaNet pass as calculation OCR. The generic
-            // classic voting path would run three inferences and lose the
-            // speed benefit of the shared model.
+            // Recognize each coordinate when the selected ink identifies a vector.
+            // Other selections use the existing whole-crop FormulaNet pass.
             const latex = await enqueueOcrJob('foreground', async () => {
                 if (engine.ensureLoaded) await engine.ensureLoaded(false);
-                return __ocrRecognizeCalculationCrop(engine, crop, false);
+                const { canvas: source, vector } = crop;
+                if (vector) {
+                    try {
+                        const components: string[] = [];
+                        for (const { x0, x1, y0, y1 } of vector.components) {
+                            const cell = document.createElement('canvas');
+                            cell.width = x1 - x0 + 1;
+                            cell.height = y1 - y0 + 1;
+                            const context = cell.getContext('2d');
+                            if (!context) break;
+                            context.drawImage(source, x0, y0, cell.width, cell.height,
+                                0, 0, cell.width, cell.height);
+                            let component = await __ocrRecognizeCalculationCrop(engine, cell, false);
+                            if (/^[_^]/u.test(component)) {
+                                // An index without a base is an incomplete coordinate.
+                                const alternate = __ocrRotateCanvas(__ocrAddPadding(cell, 6), 4);
+                                component = await __ocrRecognizeCalculationCrop(engine, alternate, false);
+                            }
+                            if (/^[_^]/u.test(component) || __ocrCalculationNeedsRetry(component)) break;
+                            components.push(component);
+                        }
+                        if (components.length === vector.components.length) {
+                            return composeOcrVectorAnswer(vector.kind, components);
+                        }
+                    } catch (_) {
+                        // A failed component crop still allows whole-selection OCR.
+                    }
+                }
+                return __ocrRecognizeCalculationCrop(engine, source, false);
             });
 
             __ocrLog('OCR result: ' + latex);

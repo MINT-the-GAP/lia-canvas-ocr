@@ -26,10 +26,21 @@ const ALGEBRITE_ASSETS = {
   'dist/index.js': '695b1d3a560031b45c4850e9fb13e649cbb57595f2ba9b1745965d06fceb0892',
 } as const;
 
-async function readOfficialAlgebrite(path: keyof typeof ALGEBRITE_ASSETS): Promise<string> {
+const VECTOR_ALGEBRITE = {
+  commit: '1fd3bf4d50b4557a73721922357013125be4ccbe',
+  assets: {
+    'README.md': '0faf5aad49a0e3263e498692785689381efdfeac25a93f76e3b0fcf9a88f8ae2',
+    'dist/index.js': 'c73af1a14b40968372b128dceed8ca272b80d32e711f9445c89dc94639fec6a1',
+  },
+};
+
+async function readOfficialAlgebrite(
+  path: keyof typeof ALGEBRITE_ASSETS,
+  { commit, assets } = { commit: ALGEBRITE_COMMIT, assets: ALGEBRITE_ASSETS },
+): Promise<string> {
   const cache = join(tmpdir(), 'lia-canvas-algebrite-regression');
-  const target = join(cache, basename(path));
-  const expectedHash = ALGEBRITE_ASSETS[path];
+  const target = join(cache, commit + '-' + basename(path));
+  const expectedHash = assets[path];
   const hash = (body: Uint8Array) => createHash('sha256').update(body).digest('hex');
   try {
     const cached = await readFile(target);
@@ -37,7 +48,7 @@ async function readOfficialAlgebrite(path: keyof typeof ALGEBRITE_ASSETS): Promi
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
   }
-  const source = `https://raw.githubusercontent.com/LiaTemplates/Algebrite/${ALGEBRITE_COMMIT}/${path}`;
+  const source = `https://raw.githubusercontent.com/LiaTemplates/Algebrite/${commit}/${path}`;
   const response = await fetch(source, { signal: AbortSignal.timeout(30_000) });
   assert.equal(response.ok, true, `Could not download official Algebrite asset: ${source}`);
   const bytes = Buffer.from(await response.arrayBuffer());
@@ -114,7 +125,12 @@ const course = [
   ]),
 ].join('\n');
 
-async function submitOcr(page: Page, selector: string, latex: string): Promise<void> {
+type Stroke = ReadonlyArray<readonly [number, number]>;
+
+async function submitOcr(
+  page: Page, selector: string, latex: string | string[],
+  strokes: Stroke[] = [[[0.42, 0.35], [0.57, 0.56]]],
+): Promise<void> {
   await page.evaluate(raw => {
     const state = window as any;
     state.__ocrAnswerCalls = 0;
@@ -126,8 +142,8 @@ async function submitOcr(page: Page, selector: string, latex: string): Promise<v
       calculationSinglePass: true,
       ensureLoaded: async () => true,
       recognize: async () => {
-        state.__ocrAnswerCalls += 1;
-        return raw;
+        const index = state.__ocrAnswerCalls++;
+        return typeof raw === 'string' ? raw : raw[index] ?? '';
       },
     };
     state.__LIA_CANVAS_OCR__.canvasPlusOcr = engine;
@@ -137,20 +153,23 @@ async function submitOcr(page: Page, selector: string, latex: string): Promise<v
   await pair.locator('.lia-canvas-launch:visible').click();
   const canvas = pair.locator('canvas.lia-draw:visible');
   await canvas.waitFor({ state: 'visible' });
-  await canvas.scrollIntoViewIfNeeded();
-  const box = await canvas.boundingBox();
-  assert.ok(box, 'Drawing canvas must have a visible bounding box');
-  const drag = async (x0: number, y0: number, x1: number, y1: number) => {
-    await page.mouse.move(box.x + box.width * x0, box.y + box.height * y0);
+  await canvas.evaluate(element => element.scrollIntoView({ block: 'center', behavior: 'instant' }));
+  const draw = async ([first, ...points]: Stroke) => {
+    const box = await canvas.boundingBox();
+    assert.ok(box, 'Drawing canvas must have a visible bounding box');
+    await page.mouse.move(box.x + box.width * first[0], box.y + box.height * first[1]);
     await page.mouse.down();
-    await page.mouse.move(box.x + box.width * x1, box.y + box.height * y1, { steps: 8 });
+    for (const [x, y] of points) {
+      await page.mouse.move(box.x + box.width * x, box.y + box.height * y, { steps: 8 });
+    }
     await page.mouse.up();
   };
   // Real ink and a real selection ensure the production crop/recognition/submit
   // path is used. Only the probabilistic OCR model response is substituted.
-  await drag(0.42, 0.35, 0.57, 0.56);
+  for (const stroke of strokes) await draw(stroke);
   await pair.locator('.lia-rect-btn:visible').click();
-  await drag(0.30, 0.22, 0.70, 0.68);
+  await canvas.evaluate(element => element.scrollIntoView({ block: 'center', behavior: 'instant' }));
+  await draw([[0.20, 0.12], [0.80, 0.88]]);
   await page.evaluate(groupSelector => {
     const input = document.querySelector(`${groupSelector} .lia-quiz input`);
     if (!input) throw new Error('Native quiz input missing before OCR submission');
@@ -168,8 +187,8 @@ async function submitOcr(page: Page, selector: string, latex: string): Promise<v
     const input = document.querySelector(`${groupSelector} .lia-quiz input`) as HTMLInputElement | null;
     return Boolean(input?.value && (window as any).__ocrAnswerInputEvents.length >= 2);
   }, selector, { timeout: 10_000 });
-  assert.equal(await page.evaluate(() => (window as any).__ocrAnswerCalls), 1,
-    'Each submission must call the production OCR engine once');
+  assert.equal(await page.evaluate(() => (window as any).__ocrAnswerCalls),
+    typeof latex === 'string' ? 1 : latex.length, 'Number of whole-crop or component inferences');
   await pair.locator('.lia-canvas-launch:visible').click();
 }
 
@@ -258,6 +277,90 @@ test('OCR answers retain TeX number and algebra semantics in actual Algebrite qu
       assert.deepEqual(harness.pageErrors, [], harness.pageErrors.join('\n'));
       assert.deepEqual(harness.requestFailures, [], harness.requestFailures.join('\n'));
       assert.deepEqual(harness.modelRequests, [], 'The model must remain substituted in this focused regression');
+    } finally {
+      await harness.context.close();
+      await browser.close();
+    }
+  });
+
+const columnStrokes: Stroke[] = [
+  [[.43, .21], [.405, .29], [.39, .42], [.385, .50], [.39, .58], [.405, .71], [.43, .79]],
+  [[.57, .21], [.595, .29], [.61, .42], [.615, .50], [.61, .58], [.595, .71], [.57, .79]],
+  [[.48, .29], [.52, .37]], [[.52, .29], [.48, .37]],
+  [[.48, .46], [.5, .51], [.52, .46]], [[.52, .46], [.493, .55]],
+  [[.48, .62], [.52, .62], [.48, .71], [.52, .71]],
+];
+
+const rowStrokes: Stroke[] = [
+  [[.28, .33], [.266, .39], [.26, .50], [.266, .61], [.28, .67]],
+  [[.72, .33], [.734, .39], [.74, .50], [.734, .61], [.72, .67]],
+  [[.325, .43], [.356, .56]], [[.356, .43], [.325, .56]],
+  [[.415, .36], [.415, .64]],
+  [[.48, .43], [.5, .49], [.52, .43]], [[.52, .43], [.493, .57]],
+  [[.585, .36], [.585, .64]],
+  [[.644, .43], [.675, .43], [.644, .56], [.675, .56]],
+];
+
+test('Canvas recognizes vector notation and submits it to the current Algebrite converter',
+  { timeout: 120_000 }, async t => {
+    const [template, bundle] = await Promise.all([
+      readOfficialAlgebrite('README.md', VECTOR_ALGEBRITE),
+      readOfficialAlgebrite('dist/index.js', VECTOR_ALGEBRITE),
+    ]);
+    const browser = await chromium.launch({ headless: true });
+    const harness = await createHarness(browser);
+    try {
+      const column = '\\left(\\begin{array}{c} x \\\\ y \\\\ z \\end{array}\\right)';
+      const row = '\\left( x \\mid y \\mid z \\right)';
+      const entries = [
+        { name: 'drawn column', raw: ['x', 'y', 'z'], answer: column, strokes: columnStrokes },
+        { name: 'drawn row', raw: ['x', 'y', 'z'], answer: row, strokes: rowStrokes },
+        { name: 'raw array', raw: column, answer: column },
+        { name: 'raw TeX separators', raw: row, answer: row },
+        { name: 'raw plain separators', raw: '( x | y | z )', answer: row },
+        { name: 'wrong coordinate', raw: '( x | y | t )', answer: '\\left( x \\mid y \\mid t \\right)', wrong: true },
+        { name: 'incomplete coordinate is read again', raw: ['_ x', 'x', 'y', 'z'],
+          answer: column, strokes: columnStrokes },
+        { name: 'failed segment falls back to whole crop', raw: ['x', '', column],
+          answer: column, strokes: columnStrokes },
+      ];
+      const vectorCourseUrl = SYNTHETIC_ORIGIN + '/courses/ocr-vector.md';
+      const vectorCourse = [
+        '<!--', 'language: en', 'import: ' + ALGEBRITE_TEMPLATE_URL,
+        'import: ' + SYNTHETIC_ORIGIN + '/template.md', '-->', '', '# Vector OCR', '',
+        ...entries.flatMap((entry, index) => [
+          '<div id="vector-' + index + '">', '', entry.name, '', '[[ vector ]]',
+          '@Algebrite.check(`([x,y,z])`)',
+          '@canvas', '', '</div>', '',
+        ]),
+      ].join('\n');
+      for (const [url, body, contentType] of [
+        [ALGEBRITE_TEMPLATE_URL, template, 'text/plain; charset=utf-8'],
+        [ALGEBRITE_BUNDLE_URL, bundle, 'application/javascript; charset=utf-8'],
+        [vectorCourseUrl, vectorCourse, 'text/plain; charset=utf-8'],
+      ]) {
+        await harness.context.route(url, route => route.fulfill({
+          status: 200, body, contentType, headers: { 'access-control-allow-origin': '*' },
+        }));
+      }
+      await openCourse(harness, vectorCourseUrl, '#vector-0 .lia-canvas-launch');
+      await harness.page.waitForFunction(() => Boolean(
+        window.__LIA_CANVAS_OCR__ && typeof (window as any).latexToMath === 'function',
+      ));
+      for (const [index, entry] of entries.entries()) {
+        await t.test(entry.name, async () => {
+          const selector = '#vector-' + index;
+          await submitOcr(harness.page, selector, entry.raw, entry.strokes);
+          const group = harness.page.locator(selector);
+          const answer = await group.locator('.lia-quiz input').inputValue();
+          assert.equal(answer, entry.answer);
+          const nativeVector = await harness.page.evaluate(value => (window as any).latexToMath(value), answer);
+          assert.equal(nativeVector, entry.wrong ? '[x,y,t]' : '[x,y,z]');
+          await group.locator('button.lia-quiz__check').click();
+          const feedback = entry.wrong ? '.text-error' : '.text-success';
+          await group.locator('.lia-quiz__feedback' + feedback).waitFor({ state: 'visible' });
+        });
+      }
     } finally {
       await harness.context.close();
       await browser.close();

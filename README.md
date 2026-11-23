@@ -113,6 +113,18 @@ separate factors and accepts grouped powers: `qp^4`, `qp^{4}`, and `q p ^ { 4 }`
 can all represent `p^4*q`. The factor order `p^4q`, `p^{4}q`, and
 `p^{12}q` works too.
 
+For a vector answer, select the entire vector including its round parentheses.
+Write the components vertically as a column or horizontally with vertical bars
+between them. Canvas passes columns as `\left(\begin{array}{c}x \\ y \\ z\end{array}\right)`
+and rows as `\left(x \mid y \mid z\right)`. It also converts OCR output like
+`(x | y | z)` to the TeX row form.
+
+For vector conversion, use an Algebrite template revision with the updated
+LaTeX parser, for example
+[the November 2026 revision](https://github.com/LiaTemplates/Algebrite/tree/1fd3bf4d50b4557a73721922357013125be4ccbe).
+In that revision, the quiz macro's `inputClean` still rewrites commas in the
+converted vector, which can affect comparisons of fractions and decimals.
+
 ``` markdown
 __$a)\;\;$__ $10 + 5 =$ [[ 15 ]]
 

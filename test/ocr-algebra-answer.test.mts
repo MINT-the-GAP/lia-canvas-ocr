@@ -43,3 +43,31 @@ test('Canvas OCR preserves commands, text, named symbols and explicit products',
     '\\sqrt { 13 }',
   );
 });
+
+test('Canvas OCR submits horizontal coordinate separators in Algebrite-compatible TeX', () => {
+  const expected = String.raw`\left( x \mid y \mid z \right)`;
+  for (const raw of [
+    '( x | y | z )',
+    String.raw`(x \vert y \vert z)`,
+    expected,
+  ]) assert.equal(normalizeOcrAlgebraAnswer(raw), expected);
+  assert.equal(normalizeOcrAlgebraAnswer(String.raw`(x^{2} | \frac{1}{2} | -z)`),
+    String.raw`\left( x^{2} \mid \frac{1}{2} \mid -z \right)`);
+});
+
+test('Canvas OCR keeps column vectors and canonicalizes model matrix aliases', () => {
+  const expected = String.raw`\left(\begin{array}{c} x \\ y \\ z \end{array}\right)`;
+  for (const raw of [
+    expected,
+    String.raw`\begin{pmatrix}x\\y\\z\end{pmatrix}`,
+    String.raw`(\begin{array}{ r } x \\ y \\ z \end{array})`,
+  ]) assert.equal(normalizeOcrAlgebraAnswer(raw), expected);
+});
+
+test('Canvas OCR preserves bars outside complete standalone coordinate lists', () => {
+  for (const raw of [
+    String.raw`x=2 \mid +1`,
+    '(|x|)', '(x || y)', '(x | )', '(x | y', 'P(A|B)', '(x)+(y|z)', '(x=2|+1)',
+    String.raw`\begin{pmatrix}x & y \\ z & t\end{pmatrix}`,
+  ]) assert.equal(normalizeOcrAlgebraAnswer(raw), raw);
+});
